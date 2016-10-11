@@ -1,0 +1,50 @@
+Trash postgres and reimport
+
+
+
+curl -x webproxy.eqiad.wmnet:8080 -O http://planet.osm.org/pbf/planet-160530.osm.pbf.md5     # change date to latest available
+curl -x webproxy.eqiad.wmnet:8080 -O http://planet.osm.org/pbf/planet-160530.osm.pbf         # change date to latest available
+md5sum -c planet-151214.osm.pbf.md5
+
+sudo puppet agent --disable "database reload - gehel"
+sudo service postgresql@9.4-main stop
+
+rm -rf /srv/postgresql/9.4/main
+
+
+sudo mkdir /srv/postgresql/9.4/main
+sudo chown postgres: /srv/postgresql/9.4/main/
+sudo chmod 700 /srv/postgresql/9.4/main/
+
+sudo -u postgres /usr/lib/postgresql/9.4/bin/initdb -D /srv/postgresql/9.4/main
+sudo service postgresql@9.4-main start
+
+# puppet creates multiple postgis resources
+sudo puppet agent --enable
+sudo puppet agent -t
+sudo puppet agent --disable "database reload - gehel"
+sudo service tilerator stop
+sudo service tileratorui stop
+
+sudo cat /usr/local/bin/maps-grants.sql | sudo -u postgres psql -d gis -f -
+
+
+# disable replicate-osm cronjob
+cd /srv/osmosis
+PGPASSWORD="$(< ~/osmimporter_pass)" sudo -E -u osmupdater osm2pgsql --create \
+  --slim --flat-nodes nodes.bin -C 40000 --number-processes 8 \
+  --hstore /srv/downloads/initial-download/planet-160530.osm.pbf -H maps2001 \
+  -U osmimporter -d gis  2>&1 | tee /tmp/osm-initial-import.log
+
+
+Scap3
+=================
+
+<thcipriani> so the process for this in the past has been: merge puppet, run puppet on tin, run a deploy from tin that fails, run puppet on targets, the run a deploy from tin that succeeds (hopefully)
+<thcipriani> I'm not sure if the scap.cfg patches have merged into the repos just yet either, so that'll need to happen before anything else.
+<yurik> thcipriani, ok, so lets migrate kartotherian first - smaller and easier to test.
+
+scap deploy --init to regenerate .git/DEPLOY_HEAD
+scap deploy -v
+
+it should have swapped out the code, so now on that host: /srv/deployment/kartotherian/deploy should be a symlink to a dir inside /srv/deployment/kartotherian/deploy-cache/revs/ named after the commit: c798a573ba54e4ddcc81fc7d8f7a1dc27204d6fb

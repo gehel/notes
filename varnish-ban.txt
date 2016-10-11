@@ -1,0 +1,13 @@
+6:08 PM <bblack> root@neodymium:~# salt -v -t 5 -b 1 -C 'G@cluster:cache_misc and G@site:eqiad' cmd.run 'service varnish stop; rm -f /srv/sd*/varnish*; sync; sleep 3; service varnish start'
+6:08 PM <ema> ; service varnishkafka start
+6:08 PM <bblack> root@neodymium:~# salt -v -t 5 -b 1 -C 'G@cluster:cache_misc and G@site:codfw' cmd.run 'service varnish stop; rm -f /srv/sd*/varnish*; sync; sleep 3; service varnish start'
+6:09 PM <bblack> root@neodymium:~# salt -v -t 5 -b 1 -C 'G@cluster:cache_misc and ( G@site:ulsfo or G@site:esams )' cmd.run 'service varnish stop; rm -f /srv/sd*/varnish*; sync; sleep 3; service varnish start'
+6:09 PM <bblack> (I think vk dies on frontend restart, not backend)
+6:09 PM <bblack> (so I'll amend the upcoming final command for that...)
+6:09 PM <ema> great
+6:10 PM <bblack> root@neodymium:~# salt -v -t 5 -b 2 -G cluster:cache_misc cmd.run 'service varnish-frontend stop; sleep 2; service varnish-frontend start; puppet agent -t'
+6:11 PM ⇐ ottomata quit (~ottomata@wikimedia/ottomata) Ping timeout: 246 seconds
+6:11 PM <bblack> ^ puppet above should fix the 2x broken daemons
+6:11 PM <ema> yep
+6:11 PM <bblack> it's going to slow down my command a lot though.  oh well.
+6:11 PM <bblack> I was trying to be nice with the -b 2 before, could've done more, but it will just take longer.

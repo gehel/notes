@@ -1,0 +1,26 @@
+@startuml
+
+participant MediaWiki
+
+participant JobRunner
+
+database "Elasticsearch\nUpdate Queue" as esq
+participant Throttling
+database "Batch update\nqueue" as buq
+
+participant "PageRank\nDatastore" as prds
+participant "Other Batch\nupdater" as other
+
+MediaWiki -> esq: enqueue page update
+
+prds -> buq: bulk enqueue page rank updates
+other -> buq: bulk enqueue page rank updates
+
+
+Throttling -> buq: consume batch update
+Throttling -> esq: enqueue page updates\nat throttled rate
+|||
+|||
+JobRunner -> esq: consume page updates
+
+@enduml

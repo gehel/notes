@@ -1,0 +1,24 @@
+@startuml
+
+skinparam handwritten true
+
+actor user
+node "client node" {
+  [client]
+}
+node "data node" as data1 {
+  database shard1
+}
+node "data node" as data2 {
+  database shard2
+}
+
+user --> client: 1. query
+client --> shard1: 2a. query
+client <.. shard1: 3a. results
+client --> shard2: 2b. query
+client <.. shard2: 3b. results
+client --> client: 4. aggregate results
+client ..> user: 5. results
+
+@enduml

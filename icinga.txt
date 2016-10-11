@@ -1,0 +1,2 @@
+mutante> @neon:/usr/local/bin# icinga-downtime -h wdqs1002 -d 2 -r reinstall
+

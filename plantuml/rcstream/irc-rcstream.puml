@@ -1,0 +1,25 @@
+@startuml
+
+Editor as editor
+[Mediawiki]
+[Redis]
+[RCStream]
+
+
+() "UDP IRC Echo" as udpIrc
+[udpmxircecho]
+[IRC]
+udpIrc -- [udpmxircecho]
+
+
+() "Socket.io\nstream.wikimedia.org/rc" as socket
+socket -- [RCStream]
+() Edition - Mediawiki
+
+editor --> Edition: <<makes change>>
+Mediawiki -down-> Redis: <<publish changes>>
+Mediawiki -left-> udpIrc: <<publish changes\nover UDP>>
+udpmxircecho --> IRC: <<publish changes\nover TCP>>
+Redis <- RCStream: <<consume changes>>
+
+@enduml

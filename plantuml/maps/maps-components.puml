@@ -1,0 +1,21 @@
+@startuml
+
+[Varnish]
+[Kartotherian]
+[Tilerator]
+[TileratorUI]
+[OSM]
+database Cassandra
+database Redis
+database Postgres
+
+OSM -> Postgres: import maps data
+Tilerator -left-> Redis: consume job queue
+Tilerator --> Postgres: get data to pre-generate\nvector tiles
+Tilerator -> Cassandra: stores pre-generated\nvector tiles
+
+TileratorUI ..> Redis: schedule jobs to\npre-generate tiles
+
+Kartotherian --> Cassandra: serve tiles\nto end user
+Varnish --> Kartotherian
+@enduml

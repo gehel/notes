@@ -1,0 +1,62 @@
+@startuml
+
+Actor Editor
+Actor "RCStream consumer" as RCStreamConsumer
+Actor "IRC consumer" as IRCConsumer
+
+() "*.wikipedia.org" as w_org
+() "stream.wikimedia.org" as stream_w_o
+() "irc.wikimedia.org" as irc_w_o
+
+Editor --> w_org
+RCStreamConsumer --> stream_w_o
+IRCConsumer --> irc_w_o
+
+package eqiad {
+  () "UDP IRC echo" as udp_irc_echo
+
+  node "mw*.eqiad.wmnet" {
+    [Mediawiki] as mediawiki_eqiad
+  }
+  node "rcs100*.eqiad.wmnet" {
+    [RCStream] as rcstream_eqiad
+    database Redis as redis_eqiad
+  }
+  node argon.wikimedia.org {
+    [udpmxircecho] as udpmxircecho_eqiad
+    [IRC] as irc_eqiad
+  }
+
+  w_org - mediawiki_eqiad
+  stream_w_o -down- rcstream_eqiad
+  irc_w_o -down- irc_eqiad
+  udp_irc_echo -down- udpmxircecho_eqiad
+
+  mediawiki_eqiad -> redis_eqiad: publish changes
+  mediawiki_eqiad -up-> udp_irc_echo: publish changes
+  rcstream_eqiad -> redis_eqiad: read-only
+  udpmxircecho_eqiad -> irc_eqiad
+}
+
+package codfw {
+  node "mw*.codfw.wmnet" {
+    [Mediawiki] as mediawiki_codfw
+  }
+
+  w_org -down- mediawiki_codfw
+
+  mediawiki_codfw -> redis_eqiad: publish changes
+  mediawiki_codfw -> udp_irc_echo: publish changes
+
+}
+
+redis_eqiad --> redis_codfw
+redis_codfw --> redis_eqiad: replication
+
+note top of udp_irc_echo
+  Strangely, at the moment the
+  udpmxircecho service is used
+  through its public IP.
+end note
+
+@enduml

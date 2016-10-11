@@ -1,0 +1,16 @@
+@startuml
+skinparam handwritten true
+
+[mediawiki]
+
+[job queue] as jq
+
+[elasticsearch\neqiad\n(31 nodes)] as eqiad
+[elasticsearch\ncodfw\n(24 nodes)] as codfw
+
+mediawiki --> jq: update message
+
+jq --> eqiad: write update
+jq --> codfw: write update
+
+@enduml

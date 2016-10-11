@@ -1,0 +1,9 @@
+
+# check varnish pool state (from palladium)
+for s in nginx varnish-fe varnish-be varnish-be-rand; do echo === $s ===; confctl --tags dc=eqiad,cluster=cache_maps,service=$s --action get 're:.*'; done
+
+
+
+for n in cp1043 cp1044; do for s in varnish-be varnish-be-rand; do confctl --tags dc=eqiad,cluster=cache_maps,service=$s --action set/pooled=no $n.eqiad.wmnet; done; done
+
+

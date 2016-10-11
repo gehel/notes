@@ -1,0 +1,47 @@
+deploy on labs: https://wdqs-test.wmflabs.org/
+
+ssh wdq-beta.eqiad.wmflabs
+cd deploy/
+git fetch
+git log HEAD..origin/master
+git rebase
+git submodule update
+git fat pull
+cd /srv/wdqs/blazegraph
+sudo rsync -av --exclude .git ~/deploy/ .
+restart services as needed
+  - sudo service wdqs-updater restart
+  - sudo service wdqs-blazegraph restart
+
+
+testing: ./test.sh -s https://wdqs-test.wmflabs.org/
+
+deploy on prod: https://query.wikidata.org/
+
+ssh tin...
+cd /srv/deployment/wdqs/wdqs
+git deploy start
+fetch / rebase
+git submodules update
+git fat...
+git deploy sync
+
+
+Tests:
+Test queries https://github.com/wikimedia/wikidata-query-rdf/tree/master/queries
+
+
+
+scap3:
+======
+
+ssh tin...
+cd /srv/deployment/wdqs/wdqs
+git fetch / rebase
+git submodules update
+scap deploy-log
+scap deploy
+
+testing:
+ssh -L 8888:localhost:8888 wdqs1001.eqiad.wmnet
+./test.sh -s http://localhost:8888/

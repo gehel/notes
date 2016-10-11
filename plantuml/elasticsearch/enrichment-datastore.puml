@@ -1,0 +1,45 @@
+@startuml
+
+participant Hadoop
+
+participant "PageRank\nDatastore" as prds
+database "PageRank DB" as prdb
+database "PageRank DB\nn-1" as prdb1
+
+database "JobQueue" as jq
+
+participant MediaWiki
+actor User
+
+database Elasticsearch
+
+== New page rank ready ==
+Hadoop -> prds: send new page rank data
+create prdb
+prds -> prdb: create new database
+prds -> prdb: import new page rank data
+|||
+prds -> prdb: get data
+activate prds
+prds -> prdb1: get data
+note left : implementation could\nalso work on raw files
+prds -> prds: compute diff between\ncurrent and previous\npage rank
+prds -> prdb1: destroy previous page rank DB
+destroy prdb1
+prds -> jq: create update jobs for changed page ranks
+deactivate prds
+
+== Page updated ==
+User -> MediaWiki: update page
+MediaWiki -> jq: create update job fo modified page
+
+== Process updates ==
+jq -> MediaWiki: start processing page update
+activate MediaWiki
+MediaWiki -> MediaWiki: get page data
+MediaWiki -> prds: get page rank data
+prds -> prdb: get page rank data
+MediaWiki -> Elasticsearch: update Elasticsearch
+deactivate MediaWiki
+
+@enduml

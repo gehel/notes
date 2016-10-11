@@ -1,0 +1,25 @@
+@startuml
+
+Actor Editor
+participant Mediawiki
+database Redis
+participant RCStream
+Actor "RCStream consumer" as RCStreamConsumer
+participant udpmxircecho
+participant IRC
+Actor "IRC consumer" as IRCConsumer
+
+
+Editor --> Mediawiki: edit page
+group RC Stream
+  Mediawiki --> Redis: publish change
+  RCStream --> Redis: consume change
+  RCStream --> RCStreamConsumer: publish change
+end
+group IRC
+  Mediawiki --> udpmxircecho: publish change (over UDP)
+  udpmxircecho --> IRC: publish change
+  IRC --> IRCConsumer: publish change
+end
+
+@enduml

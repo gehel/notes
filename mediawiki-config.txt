@@ -1,0 +1,16 @@
+# on tin:
+
+in /srv/mediawiki-staging/wmf-config
+
+git fetch
+git diff HEAD..origin/master
+git rebase
+
+# on mw1017.eqiad.wmnet:
+
+sync-common
+
+# on tin:
+
+sync-file [...]
+

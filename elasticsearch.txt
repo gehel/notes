@@ -1,0 +1,13 @@
+1:13 PM D<•dcausse> no the newest one is unusable but the old one is still active
+1:13 PM D<•dcausse> basically I check on terbium with ps -edf | grep updateSuggester | grep php5
+1:13 PM D<•dcausse> to see active scripts
+1:14 PM D<•dcausse> then I check logs for the index in /var/log/mediawiki/cirrus-suggest/
+1:14 PM D<•dcausse> this one was rotated to /var/log/mediawiki/cirrus-suggest/dewiki.codfw.log-20160629.gz
+1:14 PM D<•dcausse> in this case it successfully created the index but failed to enable replicas (timeout)
+1:15 PM D<•dcausse> then the script leave the broken index as is
+1:15 PM D<•dcausse> the next run is supposed to cleanup broken indices
+1:15 PM D<•dcausse> that's not ideal because without replicas the index cannot be green during rolling restart
+1:16 PM D<•dcausse> I usually identify broken indices with : curl -s 'elastic1001.eqiad.wmnet:9200/_cat/indices?h=i' | grep '_titlesuggest' | sort  | sed -e 's/\(.*\)_[0-9]\+ *$/\1/' | sort  |uniq -d
+1:18 PM D<•dcausse> note this command will also display indices that are being built, it's why I need to check ps and logs
+1:19 PM D<•dcausse> the root of the issue is that index creation is sometimes not very robust, esp. during rolling restarts
+1:24 PM D<•dcausse> we still use auto_expand_replicas which is imo not ideal in our setup, it makes sense for small installs where users don't have to care about replicas count

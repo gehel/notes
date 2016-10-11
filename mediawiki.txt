@@ -1,0 +1,6 @@
+Pre flight checks:
+
+1) check puppet runs
+2) check dmesg, partitions, ...
+3) apache smoke test
+

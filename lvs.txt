@@ -1,0 +1,10 @@
+# get status:
+
+confctl --tags dc=eqiad,cluster=elasticsearch,service=elasticsearch --action get all | jq .
+
+# pool 1 server
+confctl --tags dc=eqiad,cluster=elasticsearch,service=elasticsearch --action set/pooled=yes elastic1032.eqiad.wmnet
+
+# pool multiple servers
+confctl select dc=eqiad,cluster=elasticsearch,service=elasticsearch,name=elastic103..eqiad.wmnet set/pooled=yes
+
