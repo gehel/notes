@@ -1,0 +1,54 @@
+@startuml
+
+skinparam handwritten true
+
+
+node elastic1001 {
+  [nginx] as nginx1
+  [elasticsearch] as elasticsearch1
+  () 9200 as 9200_1
+  () 9200_1 -- elasticsearch1
+}
+() 9300 as 9300_1
+() 9243 as 9243_1
+() 9300_1 -- elasticsearch1
+() 9243_1 -- nginx1
+
+nginx1 --> 9200_1
+
+
+node elastic1002 {
+  [nginx] as nginx2
+  [elasticsearch] as elasticsearch2
+  () 9200 as 9200_2
+  () 9200_2 -- elasticsearch2
+}
+() 9300 as 9300_2
+() 9243 as 9243_2
+() 9300_2 -- elasticsearch2
+() 9243_2 -- nginx2
+
+nginx2 --> 9200_2
+
+() 9243 -- [LVS]
+LVS --> 9243_1
+LVS --> 9243_2
+
+elasticsearch1 .> 9300_2
+elasticsearch2 .> 9300_1
+
+note left of 9200_1
+  HTTP
+end note
+
+note left of 9243_1
+  HTTPS
+end note
+
+note top of 9300_1
+  internal
+  cluster
+  traffic
+end note
+
+@enduml

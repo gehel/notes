@@ -43,5 +43,5 @@ scap deploy-log
 scap deploy
 
 testing:
-ssh -L 8888:localhost:8888 wdqs1001.eqiad.wmnet
-./test.sh -s http://localhost:8888/
+ssh -L 9999:localhost:80 wdqs1001.eqiad.wmnet
+./test.sh -s http://localhost:9999/
