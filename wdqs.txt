@@ -45,3 +45,16 @@ scap deploy
 testing:
 ssh -L 9999:localhost:80 wdqs1001.eqiad.wmnet
 ./test.sh -s http://localhost:9999/
+
+data import:
+============
+sudo mkdir /srv/downloads
+sudo chowm ${USER}: /srv/downloads
+cd /srv/downloads
+wget -cv https://dumps.wikimedia.org/wikidatawiki/entities/20170123/wikidata-20170123-all-BETA.ttl.bz2 # change date
+bunzip2 wikidata*-all-BETA.ttl.bz2
+mkdir /srv/downloads/split
+cd /srv/deployment/wdqs/wdqs
+./munge.sh -f /srv/downloads/wikidata-20160905-all-BETA.ttl -d /srv/downloads/split
+./loadData.sh -n wdq -d /srv/downloads/split
+
