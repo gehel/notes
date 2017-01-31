@@ -50,7 +50,7 @@ ssh -L 9999:localhost:80 wdqs1001.eqiad.wmnet
 data import:
 ============
 sudo mkdir /srv/downloads
-sudo chowm ${USER}: /srv/downloads
+sudo chown ${USER}: /srv/downloads
 cd /srv/downloads
 wget -cv https://dumps.wikimedia.org/wikidatawiki/entities/20170123/wikidata-20170123-all-BETA.ttl.bz2 # change date
 bunzip2 wikidata*-all-BETA.ttl.bz2
