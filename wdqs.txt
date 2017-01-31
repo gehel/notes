@@ -10,11 +10,12 @@ git fat pull
 cd /srv/wdqs/blazegraph
 sudo rsync -av --exclude .git ~/deploy/ .
 restart services as needed
-  - sudo service wdqs-updater restart
-  - sudo service wdqs-blazegraph restart
+  sudo service wdqs-updater restart
+  sudo service wdqs-blazegraph restart
 
 
-testing: ./test.sh -s https://wdqs-test.wmflabs.org/
+testing:
+./test.sh -s https://wdqs-test.wmflabs.org/
 
 deploy on prod: https://query.wikidata.org/
 
@@ -38,7 +39,7 @@ scap3:
 ssh tin...
 cd /srv/deployment/wdqs/wdqs
 git fetch / rebase
-git submodules update
+git submodule update
 scap deploy-log
 scap deploy
 
