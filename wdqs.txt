@@ -58,5 +58,5 @@ mkdir /srv/downloads/split
 cd /srv/deployment/wdqs/wdqs
 ./munge.sh -f /srv/downloads/wikidata-20160905-all-BETA.ttl -d /srv/downloads/split
 ./loadData.sh -n wdq -d /srv/downloads/split
+sudo touch /srv/wdqs/data_loaded
 sudo rm -rf /srv/downloads
-
