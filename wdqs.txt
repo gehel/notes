@@ -38,8 +38,11 @@ scap3:
 
 ssh tin...
 cd /srv/deployment/wdqs/wdqs
-git fetch / rebase
+git fetch
+git log HEAD..origin/master
+git rebase
 git submodule update
+git fat pull
 scap deploy-log
 scap deploy
 
@@ -60,3 +63,4 @@ cd /srv/deployment/wdqs/wdqs
 ./loadData.sh -n wdq -d /srv/downloads/split
 sudo touch /srv/wdqs/data_loaded
 sudo rm -rf /srv/downloads
+sudo service wdqs-updater restart
