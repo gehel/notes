@@ -10,8 +10,8 @@ git fat pull
 cd /srv/wdqs/blazegraph
 sudo rsync -av --exclude .git ~/deploy/ .
 restart services as needed
-  sudo service wdqs-updater restart
   sudo service wdqs-blazegraph restart
+  sudo service wdqs-updater restart
 
 
 testing:
