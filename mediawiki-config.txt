@@ -1,4 +1,12 @@
-# on tin:
+
+
+rebase patch in gerrit and +2
+
+open 3 ssh (deployment, mwlog1001 and mwdebug1002)
+
+on mwlog1001 launch fatalmonitor
+
+# on deployment.eqiad.wmnet:
 
 in /srv/mediawiki-staging/wmf-config
 
@@ -6,11 +14,11 @@ git fetch
 git diff HEAD..origin/master
 git rebase
 
-# on mw1017.eqiad.wmnet:
-
-sync-common
+# on mwdebug1001.eqiad.wmnet:
+cd /srv/mediawiki/wmf-config
+scap pull   # to fetch you patch there
 
 # on tin:
 
-sync-file [...]
+scap sync-file wmf-config/InitialiseSettings.php "message"
 
