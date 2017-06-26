@@ -1,0 +1,9 @@
+cd /srv/mediawiki-staging/php-1.29.0-wmf.6/
+git fetch
+git log HEAD..origin/wmf/1.29.0-wmf.6
+git rebase
+git submodule update extensions/CirrusSearch/
+cd extensions/CirrusSearch/
+git log
+cd ../../..
+scap sync-dir php-1.29.0-wmf.6/extensions/CirrusSearch/ "T153051: Do not return the current wikis when detecting query languages"

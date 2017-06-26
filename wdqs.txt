@@ -36,7 +36,7 @@ Test queries https://github.com/wikimedia/wikidata-query-rdf/tree/master/queries
 scap3:
 ======
 
-ssh tin...
+ssh deployment.eqiad.wmnet
 cd /srv/deployment/wdqs/wdqs
 git fetch
 git log HEAD..origin/master
