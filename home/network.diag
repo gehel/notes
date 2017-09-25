@@ -1,0 +1,31 @@
+nwdiag {
+
+  internet [shape = cloud];
+
+  internet -- bluewin_router;
+
+  network dmz {
+      address = "10.1.1.0/24"
+
+      bluewin_router [address = "10.1.1.1, 2a02:1205:34dc:d050::/60"];
+      mikrotik_router [address = "10.1.1.101"];
+      bluewin_tv
+  }
+  network internal {
+      address = "192.168.1.0/24";
+
+      mikrotik_router [address = "192.168.1.1"];
+
+      printer [address = "192.168.1.10"];
+      coreos [address = "192.168.1.40"]
+      nas [address = "192.168.1.41"]
+
+      desktop [address = "192.168.1.100"];
+  }
+  network FON {
+      address = "192.168.2.0/24"
+      mikrotik_router [address = "192.168.2.1"];
+
+      fon_box [address = "192.168.2.10"];
+  }
+}

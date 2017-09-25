@@ -1,0 +1,7 @@
+curl -XPUT 'localhost:9200/_cluster/settings?flat_settings=true&pretty' -H 'Content-Type: application/json' -d'
+{
+    "transient" : {
+        "cluster.routing.allocation.exclude._ip" : ""
+    }
+}
+'

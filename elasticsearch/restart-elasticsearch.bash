@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-es_server_prefix=elastic10
-es_server_suffix=.eqiad.wmnet
-first_server_index=52
-nb_of_servers_in_cluster=52
+es_server_prefix=elastic20
+es_server_suffix=.codfw.wmnet
+first_server_index=35
+
+nb_of_servers_in_cluster=36
 
 icinga=einsteinium.wikimedia.org
 curator="curator --config /etc/curator/config.yaml"

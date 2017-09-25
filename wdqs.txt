@@ -1,6 +1,6 @@
 deploy on labs: https://wdqs-test.wmflabs.org/
 
-ssh wdq-beta.eqiad.wmflabs
+ssh wdqs-beta.eqiad.wmflabs
 cd deploy/
 git fetch
 git log HEAD..origin/master
@@ -44,7 +44,7 @@ git rebase
 git submodule update
 git fat pull
 scap deploy-log
-scap deploy
+scap deploy <justification>
 
 testing:
 ssh -L 9999:localhost:80 wdqs1001.eqiad.wmnet

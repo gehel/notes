@@ -1,0 +1,33 @@
+@startuml
+
+package Mediawiki {
+  () SearchAPI
+  [CirrusSearch]
+  [Elastica]
+}
+package Elastic {
+  () ElasticsearchAPI
+  () "Kibana UI" as kibana_ui
+  () "Logstash\nCollectors" as logstash_collectors
+  [Elasticsearch]
+  [Kibana]
+  [Logstash]
+  [Ranking /\nRelevance Plugins] as rel_plug
+  [Language\nAnalysis Plugins] as lang_plug
+}
+
+[Wikidata Query Service]
+[GeoHack]
+[Machine\nLearning-to-Rank] as ltr
+
+SearchAPI -- CirrusSearch
+ElasticsearchAPI -- Elasticsearch
+CirrusSearch --> Elastica : <<use>>
+Elastica --> ElasticsearchAPI : <<use>>
+Logstash -> ElasticsearchAPI : <<collect logs>>
+ElasticsearchAPI <- Kibana : <<expose logs>>
+Kibana - kibana_ui
+logstash_collectors -- Logstash
+Elasticsearch --> rel_plug : <<contains>>
+Elasticsearch --> lang_plug : <<contains>>
+@enduml
