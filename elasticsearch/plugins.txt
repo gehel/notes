@@ -8,15 +8,15 @@ Build:
 
 $ ./debian/rules prepare_build
 cd ..
-scp -r plugins/ copper.eqiad.wmnet:~
+scp -r plugins/ boron.eqiad.wmnet:~
 
-ssh copper.eqiad.wmnet
+ssh boron.eqiad.wmnet
 cd plugins
 DIST=jessie-wikimedia pdebuild
 exit
 
 mkdir ~/elastic-plugins
-scp 'copper.eqiad.wmnet:/var/cache/pbuilder/result/jessie-amd64/wmf-elasticsearch-search-plugins_<version>*' ~/elastic-plugins
+scp 'boron.eqiad.wmnet:/var/cache/pbuilder/result/jessie-amd64/wmf-elasticsearch-search-plugins_<version>*' ~/elastic-plugins
 scp -r ~/elastic-plugins install1002.wikimedia.org:~
 
 ssh install1002.wikimedia.org
@@ -24,8 +24,10 @@ GNUPGHOME=/root/.gnupg
 REPREPRO_BASE_DIR=/srv/wikimedia
 export GNUPGHOME
 export REPREPRO_BASE_DIR
+# replace `main` with `experimental` to deploy to experimental repo instead
 sudo -E reprepro -C main include jessie-wikimedia /home/gehel/elastic-plugins/wmf-elasticsearch-search-plugins_<version>_amd64.changes
 rm -rf ~/elastic-plugins
 
 exit
 rm -rf ~/elastic-plugins
+ssh boron.eqiad.wmnet rm -rf ~/plugins
