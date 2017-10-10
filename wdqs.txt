@@ -47,7 +47,7 @@ scap deploy-log
 scap deploy <justification>
 
 testing:
-ssh -L 9999:localhost:80 wdqs1001.eqiad.wmnet
+ssh -L 9999:localhost:80 wdqs1003.eqiad.wmnet
 ./test.sh -s http://localhost:9999/
 
 data import:
