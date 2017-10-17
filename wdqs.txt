@@ -1,6 +1,6 @@
 deploy on labs: https://wdqs-test.wmflabs.org/
 
-ssh wdqs-beta.eqiad.wmflabs
+ssh wdqs-test.eqiad.wmflabs
 cd deploy/
 git fetch
 git log HEAD..origin/master
