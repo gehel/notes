@@ -1,6 +1,6 @@
 @startuml
 
-== click model generation ==
+== click log generation ==
 oozie -> oozie: schedule label generation
 
 note left
