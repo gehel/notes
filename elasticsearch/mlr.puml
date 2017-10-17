@@ -1,6 +1,7 @@
 @startuml
 
-oozie -> hadoop: schedule label generation
+== click model generation ==
+oozie -> oozie: schedule label generation
 
 note left
   arrow signify initiator
@@ -8,35 +9,51 @@ note left
   data flow
 end note
 
-== click model generation ==
-activate hadoop
+activate oozie
 
-database hive
-hadoop -> hive: retrieve click data
-hadoop -> hive: retrieve query data
-hadoop -> hadoop: normalize queries
-hadoop -> hadoop: aggregate click data with queries
+database hdfs
+oozie -> hdfs: retrieve click data
+oozie -> hdfs: retrieve query data
+oozie -> oozie: compute search click
+oozie -> hdfs: store search click
+
+deactivate oozie
+
+== mjolnir data pipeline ==
+actor operator
+
+operator -> "mjolnir (spark)": start mjolnir
+
+activate "mjolnir (spark)"
+"mjolnir (spark)" -> hdfs: retrieve search click
+"mjolnir (spark)" -> "mjolnir (spark)": grouping queries (1st pass, stemming)
+"mjolnir (spark)" -> "inactive search\ncluster (codfw)": grouping queries (2nd pass, clustering)
+note right
+  this is exploiting an opening of firewall
+  and should be replaced by async
+  communication via kafka at some point
+end note
+"mjolnir (spark)" -> "mjolnir (spark)": sampling
+"mjolnir (spark)" -> "mjolnir (spark)": label generation\nwith DBN click model
 
 == feature vector retrieval ==
 database kafka
-hadoop -> kafka: send normalized queries for feature vectors
+"mjolnir (spark)" -> kafka: send queries for feature vectors
 
 relforge -> kafka: retrieve queries to be analyzed
 relforge --> kafka: send feature vectors back
 
-hadoop -> kafka: retrieve feature vectors
-hadoop -> hive: store query x feature vectors matrix
+"mjolnir (spark)" -> kafka: retrieve feature vectors
+"mjolnir (spark)" -> hdfs: store query x feature vectors matrix\n(training data)
 
 == machine learning ==
-hadoop -> hive: retrieve query x feature vectors matrix
-hadoop -> hadoop: create decision trees with xgboost\n
-hadoop -> hive: store decision trees
-deactivate hadoop
+"mjolnir (spark)" -> hdfs: retrieve query x feature vectors matrix
+"mjolnir (spark)" -> "mjolnir (spark)": create decision trees with xgboost\n
+"mjolnir (spark)" -> operator: store decision trees
+deactivate "mjolnir (spark)"
 
 == upload to production ==
-actor operator
 
-operator -> hive: retrieve decision trees
 operator -> "elasticsearch\ncirrus": upload decision trees to production
 note right
  upload to production
