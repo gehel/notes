@@ -12,3 +12,4 @@
 * Censum is the real thing: https://www.jclarity.com/censum/
 * allocation rate is a good way to see if the application is going crazy
 * ParallelRefProcEnabled helped in our case (as ref processing was something taking a lot of time as seen in logs)
+* GC ergonomics can be wrong
