@@ -1,0 +1,54 @@
+@startuml
+
+package production {
+
+    package relforge {
+
+        [elasticsearch]
+
+    }
+
+    package "Cirrus\nelasticsearch" {
+        [elasticsearch\nCirrus] as es_cirrus
+    }
+}
+
+package analytics {
+
+    [kafka]
+
+    [hadoop]
+
+    [hive]
+
+}
+
+@enduml
+
+
+@startuml
+
+oozie -> hadoop: schedule job
+hadoop -> hive: get
+
+@enduml
+
+# generate labels (is an action good or not) from analytics data (pageviews + cirrus requests)
+# associate a requests with the link clicked by a user
+# -> see which results are good -> named: click model
+# -> which result is interesting to raise in the ranking
+# -> if most people click on result #5, it should probably be raised in #1
+# -> if no one click on result #1, it should probably be lowered
+#
+# job scheduled with oozie which calculate those associations, aggregate search results and clicks (hadoop)
+# apply click model
+# feature collection (# page view, match of title, match of text, ...), done with relforge or with production
+# -> batching done by the pyspark driver (maybe, not sure)
+# -> send the query to ES, get back the scores for each feature
+# -> result: matrix of query, features value
+# ML: create a decision tree (xgboost)
+# upload the decision tree to production (not automated yet)
+
+
+# can we loose messages
+# should be using protocol 0.9
