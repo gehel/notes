@@ -1,0 +1,14 @@
+* starting point:
+  * WDQS has unregular load patterns
+  * GC overhead was > 5%, with > 2' pauses multiple times per day
+* jclarity team is great!
+* friends of jclarity has the best GC geeks ever: https://groups.google.com/a/jclarity.com/forum/#!forum/friends
+* -Xms is not recommended anymore
+* tune heap size first, then change the rest
+* short lived objects should stay in in young generation
+* GC cost is mostly linear with heap size
+* reading GC logs is mostly impossible, greping nearly useless
+* http://gceasy.io/ is fun
+* Censum is the real thing: https://www.jclarity.com/censum/
+* allocation rate is a good way to see if the application is going crazy
+* ParallelRefProcEnabled helped in our case (as ref processing was something taking a lot of time as seen in logs)
