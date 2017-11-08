@@ -1,5 +1,7 @@
 @startuml
-
+() tiles
+() "geolines\ngeoshapes" as geoshapes
+() "static maps" as staticmaps
 [Varnish]
 [Kartotherian]
 [Tilerator]
@@ -8,6 +10,10 @@
 database Cassandra
 database Redis
 database Postgres
+
+tiles -- Varnish
+geoshapes -- Varnish
+staticmaps -- Varnish
 
 OSM -> Postgres: import maps data
 Tilerator -left-> Redis: consume job queue

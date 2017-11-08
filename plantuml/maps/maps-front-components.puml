@@ -1,0 +1,25 @@
+@startuml
+
+() tiles
+() "geolines\ngeoshapes" as geoshapes
+() "static maps" as staticmaps
+
+
+package mediawiki {
+
+  [Kartographer]
+  [Visual Editor]
+
+}
+
+package browser {
+
+  [leaflet] ..> tiles: <<uses>>
+  [leaflet] ..> geoshapes: <<uses>>
+  [leaflet] ..> Kartographer: <<served by>>
+
+}
+
+browser ..> staticmaps
+
+@enduml
