@@ -9,6 +9,9 @@ package mediawiki {
 
   [Kartographer]
   [Visual Editor]
+  [JSON config] as JSON
+
+  Kartographer --> JSON: get overlay data
 
 }
 
@@ -20,6 +23,6 @@ package browser {
 
 }
 
-browser ..> staticmaps
+browser ..> staticmaps: <<uses>>
 
 @enduml
