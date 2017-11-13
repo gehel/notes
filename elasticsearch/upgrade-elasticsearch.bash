@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-es_server_prefix=elastic10
-es_server_suffix=.eqiad.wmnet
-first_server_index=26
+es_server_prefix=elastic20
+es_server_suffix=.codfw.wmnet
+first_server_index=1
 nb_of_servers_in_cluster=36
 
-icinga=tegmen.wikimedia.org
+icinga=einsteinium.wikimedia.org
 curator="curator --config /etc/curator/config.yaml"
 
 for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
@@ -18,6 +18,9 @@ for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
 
     echo "ready to start restart ${server}, press [enter] to start"
     read
+
+    echo "run puppet to ensure everything is up to date"
+    ssh ${server} sudo run-puppet-agent
 
     echo "disabling replication"
     ssh ${server} sudo ${curator} /etc/curator/disable-shard-allocation.yaml
@@ -38,7 +41,7 @@ for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
     ssh ${server} sudo service elasticsearch stop
 
     echo "upgrade elasticsearch"
-    ssh ${server} sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install elasticsearch
+    ssh ${server} sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install elasticsearch wmf-elasticsearch-search-plugins
 
     echo "rebooting server"
     ssh ${server} "sudo nohup reboot &> /dev/null & exit"
