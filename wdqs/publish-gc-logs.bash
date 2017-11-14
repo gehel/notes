@@ -16,7 +16,7 @@ mkdir -p ${dnl_dir}
 for host in ${hosts}; do
   echo "downloading GC logs for ${host}"
   mkdir -p ${dnl_dir}/${host}
-  files=$(ssh ${host} find "/var/log/wdqs/wdqs-blazegraph_jvm_gc*" -type f -mtime -3)
+  files=$(ssh ${host} find "/var/log/wdqs/wdqs-blazegraph_jvm_gc*" -type f -mtime -5)
   for f in ${files}; do
     rsync -HPza ${host}:${f} ${dnl_dir}/${host}
   done
