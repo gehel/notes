@@ -3,7 +3,7 @@ set -e
 
 es_server_prefix=elastic20
 es_server_suffix=.codfw.wmnet
-first_server_index=1
+first_server_index=4
 nb_of_servers_in_cluster=36
 
 icinga=einsteinium.wikimedia.org
@@ -17,6 +17,7 @@ for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
     ssh ${server} "until curl -s 127.0.0.1:9200/_cat/health | grep green; do echo -n .; sleep 10; done"
 
     echo "ready to start restart ${server}, press [enter] to start"
+    ./notify.sh echo "ready to start restart ${server}"
     read
 
     echo "run puppet to ensure everything is up to date"
