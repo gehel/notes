@@ -3,18 +3,21 @@ set -e
 
 es_server_prefix=elastic20
 es_server_suffix=.codfw.wmnet
-first_server_index=4
+first_server_index=10
 nb_of_servers_in_cluster=36
 
 icinga=einsteinium.wikimedia.org
 curator="curator --config /etc/curator/config.yaml"
 
-for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
+servers="14 20 15 21 16 22 17 23 18 24 11 12 25 26 27 28 29 30 31 32 33 34 35 36"
+
+#for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
+for i in ${servers}; do
     hostname="${es_server_prefix}${i}"
     server="${es_server_prefix}${i}${es_server_suffix}"
 
     echo "make sure cluster is green before we start"
-    ssh ${server} "until curl -s 127.0.0.1:9200/_cat/health | grep green; do echo -n .; sleep 10; done"
+    #ssh ${server} "until curl -s 127.0.0.1:9200/_cat/health | grep green; do echo -n .; sleep 10; done"
 
     echo "ready to start restart ${server}, press [enter] to start"
     ./notify.sh echo "ready to start restart ${server}"
