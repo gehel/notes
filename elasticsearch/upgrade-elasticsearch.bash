@@ -9,7 +9,7 @@ nb_of_servers_in_cluster=36
 icinga=einsteinium.wikimedia.org
 curator="curator --config /etc/curator/config.yaml"
 
-servers="14 20 15 21 16 22 17 23 18 24 11 12 25 26 27 28 29 30 31 32 33 34 35 36"
+servers="31 32 33 34 35 36"
 
 #for i in $(seq -w ${first_server_index} ${nb_of_servers_in_cluster}); do
 for i in ${servers}; do

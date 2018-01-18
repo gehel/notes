@@ -1,0 +1,14 @@
+cd /srv/deployment/kartotherian/deploy-cache/cache/
+sudo -u deploy-service git fetch
+sudo -u deploy-service git reset --hard HEAD
+sudo -u deploy-service git rebase origin/master
+cd
+sudo -u deploy-service /usr/bin/scap deploy-local -D 'log_json:False' --repo kartotherian/deploy --force
+
+
+cd /srv/deployment/tilerator/deploy-cache/cache/
+sudo -u deploy-service git fetch
+sudo -u deploy-service git reset --hard HEAD
+sudo -u deploy-service git rebase origin/master
+cd
+sudo -u deploy-service /usr/bin/scap deploy-local -D 'log_json:False' --repo tilerator/deploy --force

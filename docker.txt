@@ -19,3 +19,5 @@ export GNUPGHOME
 export REPREPRO_BASE_DIR
 # replace `main` with `experimental` to deploy to experimental repo instead
 sudo -E reprepro -C main includedeb jessie-wikimedia /home/gehel/elasticsearch_<version>_all.deb
+
+sudo -E reprepro -C 'main>thirdparty/elastic55' includedeb stretch-wikimedia /home/gehel/elasticsearch_5.5.2_all.deb
