@@ -7,6 +7,9 @@ git log HEAD..origin/master
 git rebase
 git submodule update
 git fat pull
+
+> check that md5sums of js files are coherent with wikidata/query/gui-deploy:production
+
 cd /srv/wdqs/blazegraph
 sudo rsync -av --exclude .git ~/deploy/ .
 restart services as needed
@@ -18,14 +21,6 @@ testing:
 ./test.sh -s https://wdqs-test.wmflabs.org/
 
 deploy on prod: https://query.wikidata.org/
-
-ssh tin...
-cd /srv/deployment/wdqs/wdqs
-git deploy start
-fetch / rebase
-git submodules update
-git fat...
-git deploy sync
 
 
 Tests:

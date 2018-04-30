@@ -1,0 +1,56 @@
+CheckerJob
+OtherIndex
+MassIndex
+LinksUpdate
+DeleteArchive
+DeletePages
+IncomingLinkCount
+
+ElasticaWrite
+
+@startuml
+
+control LinksUpdate
+control ElasticaWrite
+database JobQueue
+database MySQL
+database "Elasticsearch\n(codfw)" as es_codfw
+database "Elasticsearch\n(eqiad)" as es_eqiad
+
+== initial processing ==
+
+LinksUpdate <- JobQueue: receive update notification
+LinksUpdate -> MySQL: fetch page
+LinksUpdate -> MySQL: fetch links
+LinksUpdate -> MySQL: fetch other infos
+LinksUpdate -> LinksUpdate: build document
+
+alt attempt to save document to elasticsearch
+  note over LinksUpdate, ElasticaWrite
+     The writes to elasticsearch are delegated to
+     an internal instance of ElasticaWrite. In Normal
+     operations the job queue does not see those jobs.
+   end note
+  LinksUpdate -> es_codfw: save document
+  LinksUpdate -> es_eqiad: save document
+else save failure
+  LinksUpdate -> JobQueue: enqueue an ElasticaWrite job with exponential random backoff delay
+end
+
+
+== failure / freeze scenario ==
+
+ElasticaWrite <- JobQueue: receive document to write
+
+alt save document to elasticsearch
+  ElasticaWrite -> es_codfw: save document
+  ElasticaWrite -> es_eqiad: save document
+else save failure
+  alt max failures reached
+    ElasticaWrite -> ElasticaWrite: log failure and abandon
+  else retry again
+    ElasticaWrite -> JobQueue: enqueue an ElasticaWrite job with exponential random backoff delay
+  end
+end
+
+@end

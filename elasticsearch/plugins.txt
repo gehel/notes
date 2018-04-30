@@ -25,7 +25,7 @@ REPREPRO_BASE_DIR=/srv/wikimedia
 export GNUPGHOME
 export REPREPRO_BASE_DIR
 # replace `main` with `experimental` to deploy to experimental repo instead
-sudo -E reprepro -C main include jessie-wikimedia /home/gehel/elastic-plugins/wmf-elasticsearch-search-plugins_<version>_amd64.changes
+sudo -E reprepro -C component/elastic55 include jessie-wikimedia /home/gehel/elastic-plugins/wmf-elasticsearch-search-plugins_<version>_amd64.changes
 rm -rf ~/elastic-plugins
 
 exit

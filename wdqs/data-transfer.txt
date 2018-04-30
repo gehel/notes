@@ -1,0 +1,22 @@
+both:
+sudo -i depool
+sudo puppet agent --disable "data import"
+sudo service wdqs-blazegraph stop
+sudo systemctl mask wdqs-blazegraph
+sudo service wdqs-updater stop
+sudo systemctl mask wdqs-updater
+
+
+sudo iptables -A INPUT -p tcp -s wdqs2006.codfw.wmnet --dport 9876 -j ACCEPT
+
+
+target:
+touch /srv/wdqs/data_loaded
+
+both:
+sudo puppet agent --enable
+sudo run-puppet-agent
+sudo systemctl unmask wdqs-blazegraph
+sudo service wdqs-blazegraph start
+sudo systemctl unmask wdqs-updater
+sudo service wdqs-updater start

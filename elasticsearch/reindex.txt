@@ -1,0 +1,10 @@
+function outage() {
+   wiki=$1
+   start=$2
+   end=$3
+   mwscript extensions/CirrusSearch/maintenance/forceSearchIndex.php --wiki $wiki --from $start --to $end --deletes | tee -a ~/cirrus_log/$wiki.outage.log
+   mwscript extensions/CirrusSearch/maintenance/forceSearchIndex.php --wiki $wiki --from $start --to $end --queue | tee -a ~/cirrus_log/$wiki.outage.log
+}
+while read wiki ; do
+   outage $wiki '2015-03-01T20:00:00Z' '2015-03-02T00:00:00Z'
+done < /srv/mediawiki/dblists/all.dblist

@@ -1,0 +1,17 @@
+Upggrading package
+==================
+
+https://gerrit.wikimedia.org/r/#/admin/projects/operations/debs/prometheus-elasticsearch-exporter
+
+* merge tag from upstream
+* push the merge to gerrit
+* tag it as upstream/1.0.2+ds (or whatever version)
+* modify changelog
+* gerrit review
+
+on boron
+
+* git clone https://gerrit.wikimedia.org/r/operations/debs/prometheus-elasticsearch-exporter
+* git fetch --tags
+* build the source package (creates a .dsc): gbp buildpackage -us -uc -S -nc --git-ignore-branch
+* build the binary package: DIST=jessie-wikimedia pdebuild
