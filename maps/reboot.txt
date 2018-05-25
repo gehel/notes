@@ -1,0 +1,11 @@
+ssh einsteinium.wikimedia.org
+sudo icinga-downtime -h maps1001.eqiad.wmnet -d 900 -r "rebooting for kernel upgrade"
+
+ssh maps1001.eqiad.wmnet
+sudo -i depool
+sudo reboot
+
+ssh maps1001.eqiad.wmnet
+sudo -i pool
+nodetool status  -> check that all nodes are up
+
