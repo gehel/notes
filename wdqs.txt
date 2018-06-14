@@ -12,9 +12,9 @@ git fat pull
 
 cd /srv/wdqs/blazegraph
 sudo rsync -av --exclude .git ~/deploy/ .
-restart services as needed
-  sudo service wdqs-blazegraph restart
-  sudo service wdqs-updater restart
+
+sudo service wdqs-blazegraph restart
+sudo service wdqs-updater restart
 
 
 testing:
@@ -50,11 +50,10 @@ data import:
 sudo mkdir /srv/downloads
 sudo chown ${USER}: /srv/downloads
 cd /srv/downloads
-wget -cv https://dumps.wikimedia.org/wikidatawiki/entities/20170123/wikidata-20170123-all-BETA.ttl.bz2 # change date
-bunzip2 wikidata*-all-BETA.ttl.bz2
+curl https://dumps.wikimedia.org/wikidatawiki/entities/20170123/wikidata-20170123-all-BETA.ttl.bz2 | bunzip2 > wikidata-all-BETA.ttl # change date
 mkdir /srv/downloads/split
 cd /srv/deployment/wdqs/wdqs
-./munge.sh -f /srv/downloads/wikidata-*-all-BETA.ttl -d /srv/downloads/split
+./munge.sh -f /srv/downloads/wikidata-all-BETA.ttl -d /srv/downloads/split
 ./loadData.sh -n wdq -d /srv/downloads/split
 sudo touch /srv/wdqs/data_loaded
 sudo rm -rf /srv/downloads
