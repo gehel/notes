@@ -47,6 +47,7 @@ ssh -L 9999:localhost:80 wdqs1003.eqiad.wmnet
 
 data import:
 ============
+
 sudo mkdir /srv/downloads
 sudo chown ${USER}: /srv/downloads
 cd /srv/downloads
@@ -58,3 +59,7 @@ cd /srv/deployment/wdqs/wdqs
 sudo touch /srv/wdqs/data_loaded
 sudo rm -rf /srv/downloads
 sudo service wdqs-updater restart
+
+
+
+iptables -A INPUT -p tcp --dport 9876 -s 10.64.32.63 -j ACCEPT

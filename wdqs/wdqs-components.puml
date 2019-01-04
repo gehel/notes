@@ -1,0 +1,51 @@
+@startuml
+
+actor user
+
+() "SPARQL\nendpoint" as sparql
+node wdqs {
+  database "wdqs-blazegraph" as blazegraph
+  [wdqs-updater] as updater
+}
+database "Kafka main" as kafka
+[Wikidata] as wikidata
+() "Recent Changes" as rc
+
+node "external services" as ext {
+  () "http://dbpedia.org/sparql" as dbpedia
+  () "http://sparql.europeana.eu/" as europeana
+  () "http://sparql.wikipathways.org/" as wikipathways
+  () "..." as others
+}
+
+note bottom of ext
+  external services
+  are whitelisted
+  and accessed through
+  an HTTP proxy
+end note
+
+user .> sparql
+
+sparql -- blazegraph
+
+updater .> blazegraph: updates
+
+updater .down.> wikidata: retrieve\nfull changes
+updater .up.> kafka: subscribe\nto updates
+updater .up.> rc: subscribe\nto updates
+
+note right of rc
+  Depending on configuration
+  either Kafka or Recent
+  Changes is used as a source
+  of changes.
+end note
+
+
+blazegraph ..> dbpedia: <<federates>>
+blazegraph ..> europeana: <<federates>>
+blazegraph ..> wikipathways: <<federates>>
+blazegraph ..> others: <<federates>>
+
+@enduml
