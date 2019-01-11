@@ -14,4 +14,4 @@ on boron
 * git clone https://gerrit.wikimedia.org/r/operations/debs/prometheus-elasticsearch-exporter
 * git fetch --tags
 * build the source package (creates a .dsc): gbp buildpackage -us -uc -S -nc --git-ignore-branch
-* build the binary package: DIST=jessie-wikimedia pdebuild
+* build the binary package: DIST=stretch BACKPORTS=yes WIKIMEDIA=yes pdebuild
