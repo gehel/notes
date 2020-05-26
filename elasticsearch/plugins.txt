@@ -8,15 +8,15 @@ Build:
 
 $ ./debian/rules prepare_build
 cd ..
-scp -r plugins/ boron.eqiad.wmnet:~
+scp -r plugins/ deneb.codfw.wmnet:~
 
-ssh boron.eqiad.wmnet
+ssh deneb.codfw.wmnet
 cd plugins
 DIST=stretch-wikimedia pdebuild
 exit
 
 mkdir ~/elastic-plugins
-scp 'boron.eqiad.wmnet:/var/cache/pbuilder/result/stretch-amd64/wmf-elasticsearch-search-plugins_<version>*' ~/elastic-plugins
+scp 'deneb.codfw.wmnet:/var/cache/pbuilder/result/stretch-amd64/wmf-elasticsearch-search-plugins_<version>*' ~/elastic-plugins
 scp -r ~/elastic-plugins install1002.wikimedia.org:~
 
 ssh install1002.wikimedia.org
@@ -30,4 +30,4 @@ rm -rf ~/elastic-plugins
 
 exit
 rm -rf ~/elastic-plugins
-ssh boron.eqiad.wmnet rm -rf ~/plugins
+ssh deneb.codfw.wmnet rm -rf ~/plugins
