@@ -1,0 +1,36 @@
+@startuml
+
+start
+:May Hashem
+//Recruiter screen//;
+if (decision) then
+  stop
+endif
+:Hiring Manager Screen (1h)
+//Will & Guillaume//;
+:Technical task;
+:Technical task offline review
+//Engineers from//
+//Search Platform//
+//& Platform Engineering//;
+:Technical task followup interview (1h)
+//Engineers from//
+//David//
+//& Platform Engineering//;
+if (decision) then
+  stop
+endif
+:Engineering screen (1h)
+//Engineers from//
+//Zbyszko//
+//& Platform Engineering//;
+if (decision) then
+  stop
+endif
+:PM screen (1h)
+//(to be confirmed)//;
+if (final decision) then
+  stop
+endif
+stop
+@enduml

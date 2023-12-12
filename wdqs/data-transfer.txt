@@ -7,7 +7,7 @@ sudo service wdqs-updater stop
 sudo systemctl mask wdqs-updater
 
 
-sudo iptables -A INPUT -p tcp -s wdqs2006.codfw.wmnet --dport 9876 -j ACCEPT
+sudo iptables -A INPUT -p tcp -s wdqs1010.eqiad.wmnet --dport 9876 -j ACCEPT
 
 
 target:

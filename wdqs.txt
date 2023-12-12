@@ -62,4 +62,4 @@ sudo service wdqs-updater restart
 
 
 
-iptables -A INPUT -p tcp --dport 9876 -s 10.64.32.63 -j ACCEPT
+iptables -A INPUT -p tcp --dport 9876 -s 10.192.0.29 -j ACCEPT

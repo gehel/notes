@@ -1,0 +1,76 @@
+@startuml
+skinparam handwritten true
+
+
+node elastic1001 {
+  component chi as ES_chi1
+  component psi as ES_psi1
+}
+node elastic1002 {
+  component chi as ES_chi2
+  component psi as ES_psi2
+}
+node elastic1003 {
+  component chi as ES_chi3
+  component psi as ES_psi3
+}
+node elastic1004 {
+  component chi as ES_chi4
+  component omega as ES_omega4
+}
+node elastic1005 {
+  component chi as ES_chi5
+  component omega as ES_omega5
+}
+node elastic1006 {
+  component chi as ES_chi6
+  component omega as ES_omega6
+}
+
+() 9243 as 9243_1
+() 9243 as 9243_2
+() 9243 as 9243_3
+() 9243 as 9243_4
+() 9243 as 9243_5
+() 9243 as 9243_6
+
+() 9443 as 9443_1
+() 9443 as 9443_2
+() 9443 as 9443_3
+() 9643 as 9643_4
+() 9643 as 9643_5
+() 9643 as 9643_6
+
+9243_1 -down- ES_chi1
+9243_2 -down- ES_chi2
+9243_3 -down- ES_chi3
+9243_4 -down- ES_chi4
+9243_5 -down- ES_chi5
+9243_6 -down- ES_chi6
+
+9443_1 -down- ES_psi1
+9443_2 -down- ES_psi2
+9443_3 -down- ES_psi3
+9643_4 -down- ES_omega4
+9643_5 -down- ES_omega5
+9643_6 -down- ES_omega6
+
+() 9243 as 9243_lvm
+() 9443 as 9443_lvm
+() 9643 as 9643_lvm
+
+9243_lvm -down- 9243_1
+9243_lvm -down- 9243_2
+9243_lvm -down- 9243_3
+9243_lvm -down- 9243_4
+9243_lvm -down- 9243_5
+9243_lvm -down- 9243_6
+
+9443_lvm -down- 9443_1
+9443_lvm -down- 9443_2
+9443_lvm -down- 9443_3
+9643_lvm -down- 9643_4
+9643_lvm -down- 9643_5
+9643_lvm -down- 9643_6
+
+@enduml

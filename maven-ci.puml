@@ -1,0 +1,50 @@
+@startuml
+start
+:mvnw clean verify;
+:mvnw sonar:sonar;
+end
+@enduml
+
+@startuml
+start
+fork
+:mvnw clean verify;
+fork again
+:mvnw clean verify;
+:mvnw sonar:sonar;
+endfork
+end
+@enduml
+
+@startuml
+start
+:mvnw clean verify;
+fork
+  :mvnw site;
+fork again
+  :mvnw sonar:sonar;
+endfork
+end
+@enduml
+
+
+@startuml
+start
+:mvnw clean verify;
+:mvnw site;
+:mvnw sonar:sonar;
+end
+@enduml
+
+
+@startuml
+start
+fork
+:mvnw clean verify;
+:mvnw site;
+fork again
+:mvnw clean verify;
+:mvnw sonar:sonar;
+endfork
+end
+@enduml

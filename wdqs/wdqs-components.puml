@@ -1,14 +1,16 @@
 @startuml
 
-actor user
+actor "users\n* recommendation API\n* restbase\n* graphoid\n* maps\n* bots\n* ..." as user
+
+[UI]
 
 () "SPARQL\nendpoint" as sparql
 node wdqs {
   database "wdqs-blazegraph" as blazegraph
-  [wdqs-updater] as updater
+  [updater] as updater
+  [categories update] as cat_updater
 }
 database "Kafka main" as kafka
-[Wikidata] as wikidata
 () "Recent Changes" as rc
 
 node "external services" as ext {
@@ -18,6 +20,12 @@ node "external services" as ext {
   () "..." as others
 }
 
+node "Mediawiki" as mw {
+  [Mediawiki]
+  [Wikibase] as wikidata
+  database "Mediawiki Dumps" as dumps
+}
+
 note bottom of ext
   external services
   are whitelisted
@@ -25,15 +33,27 @@ note bottom of ext
   an HTTP proxy
 end note
 
-user .> sparql
+rc .. Mediawiki
 
-sparql -- blazegraph
+user .> sparql
+sparql <. UI
+
+sparql -down- blazegraph
 
 updater .> blazegraph: updates
+blazegraph <. cat_updater: updates
 
-updater .down.> wikidata: retrieve\nfull changes
-updater .up.> kafka: subscribe\nto updates
-updater .up.> rc: subscribe\nto updates
+Mediawiki .> dumps: produce categories dumps
+cat_updater ..> dumps: consumes categories dumps
+
+Mediawiki .> kafka: publish changes
+
+wikidata .> sparql: wbqc
+
+
+updater .> wikidata: retrieve\nfull changes
+updater .> kafka: subscribe\nto updates
+updater .> rc: subscribe\nto updates
 
 note right of rc
   Depending on configuration

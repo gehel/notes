@@ -1,13 +1,13 @@
 @startuml
 skinparam handwritten true
 
-Class "Index\n~2.5k" as Index
+Class "Index\n~4k" as Index
 note left: user facing abstraction
 
-Class "Shard\n(primary + replicas)\n~10k" as Shard
+Class "Shard\n(primary + replicas)\n~12k" as Shard
 note left: scalability unit
 
-Class "Segment\n~70k" as Segment
+Class "Segment\n~100k" as Segment
 note left: lucene internals
 
 Index "1" *-- "*" Shard
