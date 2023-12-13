@@ -1,0 +1,257 @@
+/*
+ * This file contains an example project. It is part of the
+ * TaskJuggler project management tool. It uses a made up software
+ * development project to demonstrate some of the basic features of
+ * TaskJuggler. Please see the TaskJuggler manual for a more detailed
+ * description of the various syntax elements.
+ */
+project acso "Superset migration to k8s"  2023-09-01 +6m {
+  # Hide the clock time. Only show the date.
+  timeformat "%Y-%m-%d"
+  # Use US format for numbers
+  numberformat "-" "" "," "." 1
+  # Use US financial format for currency values. Don't show cents.
+  currencyformat "(" ")" "," "." 0
+  # Pick a day during the project that will be reported as 'today' in
+  # the project reports. If not specified, the current day will be
+  # used, but this will likely be outside of the project range, so it
+  # can't be seen in the reports.
+  # now 2022-12-12
+  # The currency for all money values is the US Dollar.
+  currency "USD"
+
+  # We want to compare the baseline scenario to one with a slightly
+  # delayed start.
+  scenario plan "Plan" {
+    scenario delayed "Delayed"
+  }
+}
+
+# Register Good Friday as a global holiday for all resources.
+flags team
+
+# This is one way to form teams
+# Now we specify the work packages. The whole project is described as
+# a task that contains subtasks. These subtasks are then broken down
+# into smaller tasks and so on. The innermost tasks describe the real
+# work and have resources allocated to them. Many attributes of tasks
+# are inherited from the enclosing task. This saves you a lot of typing.
+task superset_migration "Superset migration to k8s" {
+
+  start ${projectstart}
+  note "https://phabricator.wikimedia.org/T347710"
+  task planning "Planning" {
+    task plan "Write lightweight design doc" {
+      duration 2 m
+      start ${projectstart}
+    }
+  }
+
+  task implementation "Implementation" {
+    task container "Create a Superset container image" {
+      duration 2 w
+      depends !!planning.plan
+      start 2023-12-10
+    }
+
+    task helm_chart "Helm chart for Superset" {
+
+      task decision "Investigate on using upstream helm chart or create a new one" {
+        duration 1 w
+        start 2024-01-05
+      }
+
+      task implement "Implement helm chart based on above decision" {
+        duration 1 w
+        start 2024-01-12
+        depends !decision, !!container
+      }
+    }
+
+    task namespaces "Create namespaces for superset and superset-next" {
+      duration 1 d
+      start 2024-01-05
+    }
+
+    task helmfile "Create helmfile deployments" {
+      duration 1 w
+      depends !helm_chart
+    }
+
+    task keytab "Create keytabs and make them available to the pods" {
+      duration 1 w
+      start 2024-01-05
+    }
+
+    task superset_running "Superset is running on k8s" {
+      depends !namespaces, !helmfile, !keytab
+    }
+  }
+
+  task migration "Migration" {
+    task migration_plan "Write a migration plan" {
+      duration 1 w
+      start 2023-12-15
+    }
+
+    task execute "Execute migration plan" {
+      duration 1 m
+      depends !migration_plan, !!implementation.superset_running
+    }
+  }
+
+  task project_complete "Project completed" {
+    depends !migration.execute
+  }
+}
+
+
+# Now the project has been specified completely. Stopping here would
+# result in a valid TaskJuggler file that could be processed and
+# scheduled. But no reports would be generated to visualize the
+# results.
+
+navigator navbar {
+  hidereport @none
+}
+
+macro TaskTip [
+  tooltip istask() -8<-
+    '''Start: ''' <-query attribute='start'->
+    '''End: ''' <-query attribute='end'->
+    ----
+    '''Notes:''' <-query attribute='note' ->
+    ----
+    '''Resources:'''
+
+    <-query attribute='resources'->
+    ----
+    '''Precursors: '''
+
+    <-query attribute='precursors'->
+    ----
+    '''Followers: '''
+
+    <-query attribute='followers'->
+    ->8-
+]
+
+textreport frame "" {
+  header -8<-
+    == Superset migration to k8s ==
+    <[navigator id="navbar"]>
+  ->8-
+  footer "----"
+  textreport index "Overview" {
+    formats html
+    center '<[report id="overview"]>'
+  }
+
+  textreport "Status" {
+    formats html
+    center -8<-
+      <[report id="status.dashboard"]>
+      ----
+      <[report id="status.completed"]>
+      ----
+      <[report id="status.ongoing"]>
+      ----
+      <[report id="status.future"]>
+    ->8-
+  }
+
+  textreport "Deliveries" {
+    formats html
+    center '<[report id="deliveries"]>'
+  }
+
+}
+
+# A traditional Gantt chart with a project overview.
+taskreport overview "" {
+  header -8<-
+    === Project Overview ===
+
+  ->8-
+  columns bsi { title 'WBS' },
+          #note,
+          name, start, end,
+          chart { ${TaskTip} }
+  timeformat "%Y-%m-%d"
+  loadunit days
+  hideresource @all
+
+  footer -8<-
+    === Current Status ===
+    N/A
+  ->8-
+}
+
+# Macro to set the background color of a cell according to the alert
+# level of the task.
+macro AlertColor [
+  cellcolor plan.alert = 0 "#90FF90" # green
+  cellcolor plan.alert = 1 "#FFFF90" # yellow
+  cellcolor plan.alert = 2 "#FF9090" # red
+]
+
+taskreport status "" {
+  columns bsi { width 50 title 'WBS' }, name { width 150 },
+          start { width 100 }, end { width 100 },
+          effort { width 100 },
+          alert { tooltip plan.journal
+                          != '' "<-query attribute='journal'->" width 150 },
+          status { width 150 }
+  scenarios delayed
+
+  taskreport dashboard "" {
+    headline "Project Dashboard (<-query attribute='now'->)"
+    columns name { title "Task" ${AlertColor} width 200},
+            resources { width 200 ${AlertColor}
+                        listtype bullets
+                        listitem "<-query attribute='name'->"
+                        start ${projectstart} end ${projectend} },
+            alerttrend { title "Trend" ${AlertColor} width 50 },
+            journal { width 350 ${AlertColor} }
+    journalmode status_up
+    journalattributes headline, author, date, summary, details
+    hidetask ~hasalert(0)
+    sorttasks alert.down, delayed.end.up
+    period %{${now} - 1w} +1w
+  }
+  taskreport completed "" {
+    headline "Already completed tasks"
+    hidetask ~(delayed.end <= ${now})
+  }
+  taskreport ongoing "" {
+    headline "Ongoing tasks"
+    hidetask ~((delayed.start <= ${now}) & (delayed.end > ${now}))
+  }
+  taskreport future "" {
+    headline "Future tasks"
+    hidetask ~(delayed.start > ${now})
+  }
+}
+
+# A list of all tasks with the percentage completed for each task
+taskreport deliveries "" {
+  headline "Project Deliverables"
+  columns bsi { title 'WBS' }, name, start, end, note { width 150 }, complete,
+          chart { ${TaskTip} }
+  taskroot superset_migration
+  hideresource @all
+  scenarios plan, delayed
+}
+
+# A graph showing resource allocation. It identifies whether each
+# resource is under- or over-allocated for.
+resourcereport resourceGraph "" {
+  scenarios delayed
+  headline "Resource Allocation Graph"
+  columns no, name, effort, rate, weekly { ${TaskTip} }
+  loadunit shortauto
+  # We only like to show leaf tasks for leaf resources.
+  hidetask ~(isleaf() & isleaf_())
+  sorttasks plan.start.up
+}
+

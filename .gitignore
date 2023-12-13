@@ -46,4 +46,6 @@ fabric.properties
 
 # Misc
 /notes.iml
-/.idea/
+.idea/
+/planning/output
+
