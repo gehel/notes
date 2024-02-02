@@ -110,7 +110,7 @@ task graph_split "WDQS Graph Split" {
     }
     task data_load "Load data into test servers" {
       start 2023-12-07
-      duration 4 w
+      end 2023-12-19
       note "https://phabricator.wikimedia.org/T350465"
       depends graph_split.split_dump, !setup
       allocate ryan
@@ -122,13 +122,15 @@ task graph_split "WDQS Graph Split" {
 
   task expose_test_servers "Expose test servers" {
     task expose "Expose test servers to the internet" {
-      duration 2 w
+      start 2023-12-19
+      end 2024-01-26
       note "https://phabricator.wikimedia.org/T351650"
       depends graph_split.test_server_setup
       allocate ryan
     }
     task ready "Ready for external testing" {
       depends !expose
+      note "https://phabricator.wikimedia.org/T350464"
     }
   }
 
