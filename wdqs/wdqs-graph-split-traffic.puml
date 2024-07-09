@@ -1,0 +1,48 @@
+@startuml
+cloud {
+  actor user1
+  actor user2
+}
+
+package "Traffic layer" {
+  [Varnish]
+  [ATS]
+}
+
+package LVS {
+  [LVS pool\nmain] as lvs_main
+  [LVS pool\nscholarly] as lvs_scholarly
+  [LVS pool\ninternal] as lvs_internal
+}
+
+package wdqs-main {
+  database "Blazegraph main\nmultiple servers" as bg_main
+}
+
+package wdqs-scholarly {
+  database "Blazegraph scholarly\nmultiple servers" as bg_scholarly
+}
+
+package wdqs-internal {
+  database "Blazegraph internal\nmultiple servers" as bg_internal
+}
+
+[Mediawiki] -> lvs_internal #red
+lvs_internal -> bg_internal #red
+
+
+user1 --> Varnish #green : request to main\nfederated with\nscholarly
+Varnish --> ATS #green
+ATS --> lvs_main #green
+lvs_main --> bg_main #green
+bg_main --> lvs_scholarly #green
+lvs_scholarly --> bg_scholarly #green
+
+user2 --> Varnish #blue : request to scholary\nfederated with\nmain
+Varnish --> ATS #blue
+ATS --> lvs_scholarly #blue
+lvs_scholarly --> bg_scholarly #blue
+bg_scholarly --> lvs_main #blue
+lvs_main --> bg_main #blue
+
+@enduml
