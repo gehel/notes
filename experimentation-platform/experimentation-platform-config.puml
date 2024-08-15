@@ -1,0 +1,39 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+
+cloud internet {
+  actor user
+}
+
+database "etcd\nor files" as etcd
+
+node "Traffic" {
+  [varnish] --> [ats] #blue
+  [varnish\nconfig\nwriter] as vcw
+  vcw -> etcd #green: read config
+  vcw -left-> varnish #green: writes VCL
+}
+
+user --> varnish #blue: user request
+
+node mediawiki {
+  [Wikimedia\nExperiments] as wme
+}
+
+[ats] --> mediawiki #blue
+
+node Growthbook as gb_pkg {
+  database MongoDB
+  [growthbook] --> MongoDB
+}
+
+database "growthbook\nproxy" as gb_proxy
+
+[growthbook] -> etcd #green: write experiment config
+wme -down-> gb_proxy #greenyellow: read config
+gb_proxy -> [growthbook] #greenyellow
+
+[mpic?] #orange
+
+@enduml

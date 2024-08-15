@@ -1,0 +1,39 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+
+cloud internet {
+  actor user
+}
+
+
+node "Traffic" {
+  [varnish] --> [ats] #blue
+}
+
+queue kafka
+[varnish] -> kafka: publish web requests
+database hdfs
+kafka -> hdfs
+
+user --> varnish #blue: user request
+
+node mediawiki {
+  [Wikimedia\nExperiments] as wme
+  [Events]
+}
+
+[Events] -> kafka
+
+[ats] --> mediawiki #blue
+
+node Growthbook as gb_pkg {
+  database MongoDB
+  [growthbook] --> MongoDB
+}
+
+[growthbook] --> hdfs: consumes metrics
+
+[mpic?] #orange
+
+@enduml
