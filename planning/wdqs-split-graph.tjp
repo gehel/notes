@@ -5,7 +5,7 @@
  * TaskJuggler. Please see the TaskJuggler manual for a more detailed
  * description of the various syntax elements.
  */
-project acso "WDQS Graph Split"  2023-09-01 +2y {
+project wdqs_split "WDQS Graph Split"  2023-09-01 +2y {
   # Hide the clock time. Only show the date.
   timeformat "%Y-%m-%d"
   # Use US format for numbers
