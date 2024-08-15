@@ -49,3 +49,4 @@ fabric.properties
 .idea/
 /planning/output
 
+/planning/*.log
