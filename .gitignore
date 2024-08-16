@@ -50,3 +50,6 @@ fabric.properties
 /planning/output
 
 /planning/*.log
+/planning/.tj3webd-*.pid
+/planning/tj3d.*.stderr
+/planning/tj3d.*.stdout

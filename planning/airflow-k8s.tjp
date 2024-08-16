@@ -1,0 +1,420 @@
+project airflow_k8s "Migrate Airflow to the dse-k8s cluster"  2024-04-15 +9m {
+
+  # Hide the clock time. Only show the date.
+  timeformat "%Y-%m-%d"
+
+  # Use US format for numbers
+  numberformat "-" "" "," "." 1
+
+  # Pick a day during the project that will be reported as 'today' in
+  # the project reports. If not specified, the current day will be
+  # used, but this will likely be outside of the project range, so it
+  # can't be seen in the reports.
+  # now 2022-12-12
+
+  # We want to compare the baseline scenario to one with a slightly
+  # delayed start.
+  scenario plan "Plan" {
+    scenario delayed "Delayed"
+  }
+}
+
+# Now we specify the work packages. The whole project is described as
+# a task that contains subtasks. These subtasks are then broken down
+# into smaller tasks and so on. The innermost tasks describe the real
+# work and have resources allocated to them. Many attributes of tasks
+# are inherited from the enclosing task. This saves you a lot of typing.
+task airflow_k8s "Migrate Airflow to the dse-k8s cluster" {
+
+  start ${projectstart}
+  note "https://phabricator.wikimedia.org/T362788"
+
+  task cephosd "Ensure that the cephosd cluster is production-ready" {
+
+    start 2024-04-20
+
+    task cephosd_metrics "Enable prometheus metrics on the cephosd cluster" {
+      note "https://phabricator.wikimedia.org/T369582"
+      start 2024-08-15
+      duration 3w
+    }
+  }
+
+  task postgres "Validate postgres operator and Ceph integration" {
+    note "https://phabricator.wikimedia.org/T364386"
+
+    task ceph_version "Update cephosd100[1-5] with the most recent stable version of Ceph" {
+      note "https://phabricator.wikimedia.org/T362993"
+      start 2024-04-24
+      end 2024-05-02
+    }
+
+    task ceph_csi "Enable the Container Storage Interface (CSI) and the Ceph CSI plugin on dse-k8s cluster" {
+      note "https://phabricator.wikimedia.org/T327259"
+      start 2024-04-17
+      end 2024-07-08
+    }
+
+    task operator_decision "Decide on which postgresql operator to use" {
+      note "https://phabricator.wikimedia.org/T362999"
+      start 2024-05-03
+      end 2024-05-13
+    }
+
+    task cloudnative_image "Build the required container images for the cloudnativepg postgresql operator" {
+      note "https://phabricator.wikimedia.org/T364795"
+      start 2024-05-14
+      end 2024-05-17
+
+      depends !operator_decision
+    }
+
+    task helm_operator "Create a helm chart for the cloudnativepg postgresql operator" {
+      note "https://phabricator.wikimedia.org/T364797"
+      start 2024-05-31
+      end 2024-08-06
+
+      depends !cloudnative_image
+    }
+
+    task helm_pg "Create a helm chart for cloudnative-pg clusters" {
+      note "https://phabricator.wikimedia.org/T368240"
+      start 2024-07-29
+      end 2024-08-12
+
+      depends !operator_decision
+    }
+
+    task deploy_operator "Deploy the cloudnativepg postgresql operator" {
+      depends !helm_operator
+    }
+
+    task validate_pg "Validate that postgresql clusters can be created as required" {
+      depends !deploy_operator
+    }
+
+    task pg_perf "Test and validate the performance characteristics of postgresql clusters created by the operator" {
+      depends !deploy_operator
+    }
+
+    task pg_resilience "Test and validate the resilience and recovery characteristics of postgresql clusters created by the operator" {
+      depends !deploy_operator
+    }
+
+    task pg_bouncer "Validate PGBouncer integration and use of Poolers" {
+      note "https://phabricator.wikimedia.org/T372256"
+      start 2024-08-12
+      end 2024-08-12
+
+      depends !validate_pg
+    }
+
+    task resize "Validate that we can resize the ceph persistent volume" {
+      note "https://phabricator.wikimedia.org/T372276"
+      start 2024-08-12
+      end 2024-08-12
+
+      depends !validate_pg
+    }
+
+    task sizing "Adjust the cluster default size and number of instances" {
+      note "https://phabricator.wikimedia.org/T372278"
+      start 2024-08-12
+      duration 1w
+
+      depends !validate_pg
+    }
+
+    task backup "Configure scheduled backups and WAL archiving to use our S3 endpoint" {
+      note "https://phabricator.wikimedia.org/T372281"
+      start 2024-08-16
+      duration 2w
+
+      depends !validate_pg
+    }
+
+    task validate_manual_backup "Validate manual backup" {
+      note "https://phabricator.wikimedia.org/T372282"
+      duration 2w
+
+      depends !backup
+    }
+
+    task validate_full_backup "Test a full-scale backup recovery." {
+      note "https://phabricator.wikimedia.org/T372283"
+      duration 2w
+
+      depends !backup
+    }
+
+    task monitoring "Create PostgreSQL monitors" {
+      note "https://phabricator.wikimedia.org/T372284"
+      duration 2w
+
+      depends !validate_pg
+    }
+
+    task dashboard "Create a PostgreSQL/cloudnative-pg Grafana dashboard" {
+      note "https://phabricator.wikimedia.org/T372285"
+      start 2024-08-12
+      end 2024-08-12
+
+      depends !validate_pg
+    }
+
+    task airflow_integration "Test the integration of the airflow chart with the cloudnative-pg-cluster chart" {
+      note "https://phabricator.wikimedia.org/T372286"
+      start 2024-08-12
+      duration 2w
+
+      depends !validate_pg, !!airflow.chart
+    }
+  }
+
+  task airflow "Adapt Airflow auth and DAG deployment method" {
+    note "https://phabricator.wikimedia.org/T364387"
+
+    start 2024-05-03
+
+    task container "Create an airflow container image using blubber/kokkuri" {
+      note "https://phabricator.wikimedia.org/T363000"
+
+      start 2024-05-03
+      end 2024-06-20
+    }
+
+    task chart "Create an airflow chart that is appropriate to our needs" {
+      note "https://phabricator.wikimedia.org/T363001"
+
+      start 2024-06-22
+      duration 6w
+
+      depends !container
+    }
+
+    task deploy "Deploy airflow scheduler via helm chart" {
+      note "https://phabricator.wikimedia.org/T368737"
+
+      start 2024-07-16
+      duration 10w
+
+      #depends !chart
+    }
+
+    task metrics "Enable metrics collection for airflow-k8s" {
+      note "https://phabricator.wikimedia.org/T369098"
+
+      duration 2w
+
+      depends !deploy
+    }
+
+    task ldap "Create an LDAP group to use for testing Airflow on k8s" {
+      note "https://phabricator.wikimedia.org/T363003"
+
+      start 2024-07-09
+      end 2024-08-07
+    }
+
+    task pg_bouncer "Create a pgbouncer image for use with Airflow -> PostgreSQL" {
+      note "https://phabricator.wikimedia.org/T368030"
+
+      start 2024-06-20
+      end 2024-06-27
+    }
+
+    task dag_deploy "Design a suitable DAG deployment method" {
+      note "https://phabricator.wikimedia.org/T368033"
+
+      start 2024-06-20
+
+      task git_sync "Create a git-sync container image to be used with airflow" {
+        note "https://phabricator.wikimedia.org/T368757"
+
+        start 2024-07-12
+        end 2024-08-07
+      }
+    }
+
+
+    task oidc "Configure airflow authentication with OIDC" {
+      note "https://phabricator.wikimedia.org/T368760"
+
+      start 2024-07-23
+      duration 2m
+    }
+
+    task dns "Create DNS aliases for the new airflow instances" {
+      depends !deploy
+      duration 1w
+    }
+
+    task traffic "Allow inbound web traffic to the new airflow instances" {
+      depends !dns
+      duration 1w
+    }
+  }
+
+  task airflow_local_executor "Migrate Airflow instances with LocalExecutor" {
+    note "https://phabricator.wikimedia.org/T364388"
+
+    depends !airflow
+
+    task analytics_test "Migrate analytics_test airflow instance to dse-k8s" {
+      duration 2w
+    }
+    task analytics "Migrate analytics airflow instance to dse-k8s" {
+      duration 2w
+    }
+    task platform_eng "Migrate platform_eng airflow instance to dse-k8s" {
+      duration 2w
+    }
+    task search "Migrate search airflow instance to dse-k8s" {
+      duration 2w
+    }
+    task research "Migrate research airflow instance to dse-k8s" {
+      duration 2w
+    }
+    task wmde "Migrate wmde airflow instance to dse-k8s" {
+      duration 2w
+    }
+  }
+
+  task airflow_k8s_executor "Migrate the LocalExecutor to KubernetesExecutor" {
+    note "https://phabricator.wikimedia.org/T364389"
+
+    depends !airflow_local_executor
+
+    task decision "Decide between the KubernetesExecutor and/or LocalKubernetesExecutor" {
+      duration 2w
+    }
+
+    task migration "Migrate all instance to the new executor model" {
+      depends !decision
+      duration 3w
+    }
+  }
+}
+
+
+# Now the project has been specified completely. Stopping here would
+# result in a valid TaskJuggler file that could be processed and
+# scheduled. But no reports would be generated to visualize the
+# results.
+
+navigator navbar {
+  hidereport @none
+}
+
+macro TaskTip [
+  tooltip istask() -8<-
+    '''Start: ''' <-query attribute='start'->
+    '''End: ''' <-query attribute='end'->
+    ----
+    '''Notes:''' <-query attribute='note' ->
+    ----
+    '''Resources:'''
+
+    <-query attribute='resources'->
+    ----
+    '''Precursors: '''
+
+    <-query attribute='precursors'->
+    ----
+    '''Followers: '''
+
+    <-query attribute='followers'->
+    ->8-
+]
+
+textreport frame "" {
+  header -8<-
+    == WDQS Graph Split ==
+    <[navigator id="navbar"]>
+  ->8-
+  footer "----"
+  textreport index "Overview" {
+    formats html
+    center '<[report id="overview"]>'
+  }
+
+  textreport "Status" {
+    formats html
+    center -8<-
+      <[report id="status.dashboard"]>
+      ----
+      <[report id="status.completed"]>
+      ----
+      <[report id="status.ongoing"]>
+      ----
+      <[report id="status.future"]>
+    ->8-
+  }
+
+
+}
+
+# A traditional Gantt chart with a project overview.
+taskreport overview "" {
+  header -8<-
+    === Project Overview ===
+
+  ->8-
+  columns bsi { title 'WBS' },
+          #note,
+          name, start, end,
+          chart { ${TaskTip} }
+  timeformat "%Y-%m-%d"
+  loadunit days
+  hideresource @all
+
+  footer -8<-
+    === Current Status ===
+    N/A
+  ->8-
+}
+
+# Macro to set the background color of a cell according to the alert
+# level of the task.
+macro AlertColor [
+  cellcolor plan.alert = 0 "#90FF90" # green
+  cellcolor plan.alert = 1 "#FFFF90" # yellow
+  cellcolor plan.alert = 2 "#FF9090" # red
+]
+
+taskreport status "" {
+  columns bsi { width 50 title 'WBS' }, name { width 150 },
+          start { width 100 }, end { width 100 },
+          effort { width 100 },
+          alert { tooltip plan.journal
+                          != '' "<-query attribute='journal'->" width 150 },
+          status { width 150 }
+
+  taskreport dashboard "" {
+    headline "Project Dashboard (<-query attribute='now'->)"
+    columns name { title "Task" ${AlertColor} width 200},
+            resources { width 200 ${AlertColor}
+                        listtype bullets
+                        listitem "<-query attribute='name'->"
+                        start ${projectstart} end ${projectend} },
+            alerttrend { title "Trend" ${AlertColor} width 50 },
+            journal { width 350 ${AlertColor} }
+    journalmode status_up
+    journalattributes headline, author, date, summary, details
+    hidetask ~hasalert(0)
+    sorttasks alert.down
+    period %{${now} - 1w} +1w
+  }
+  taskreport completed "" {
+    headline "Already completed tasks"
+    hidetask ~(plan.end <= ${now})
+  }
+  taskreport ongoing "" {
+    headline "Ongoing tasks"
+    hidetask ~((plan.start <= ${now}) & (plan.end > ${now}))
+  }
+  taskreport future "" {
+    headline "Future tasks"
+    hidetask ~(plan.start > ${now})
+  }
+}
