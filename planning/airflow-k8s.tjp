@@ -329,7 +329,7 @@ macro TaskTip [
 
 textreport frame "" {
   header -8<-
-    == WDQS Graph Split ==
+    == Airflow migration to k8s ==
     <[navigator id="navbar"]>
   ->8-
   footer "----"
