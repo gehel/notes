@@ -1,0 +1,70 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+() UI
+() API
+actor PM
+PM --> UI
+node Growthbook as gb {
+  UI -- [Growthbook]
+  API -- [Growthbook]
+  [Experiment\nAnalysis\nEngine]
+}
+
+
+() " " as eventgate_API
+node "Data Platform" as dp {
+  [EventGate] -up- eventgate_API
+
+  database Hive
+  [EventGate] --> Hive
+
+  database "Dataset Config Store" as dataset_config_store
+
+  package metrics {
+    database Presto
+    database MySQL
+    database PostgreSQL
+  }
+}
+
+
+node Mediawiki as mw {
+  database Varnish
+
+  Varnish --> [Mediawiki]: forwards requests to Mediawiki
+
+  package Mediawiki {
+    [Extension:WikimediaExperiments]
+  }
+
+  note top of Mediawiki
+    Delivers content, including features
+    and instrumentation to the user
+  end note
+
+  database "WAN cache" as wan_cache
+
+  [Extension:WikimediaExperiments] --> API: fetches client-side-only experiment config
+  [Extension:WikimediaExperiments] --> wan_cache: stores config
+
+  Mediawiki --> eventgate_API: Metrics Platform logs exposures,\nmetrics, guardrail metrics, etc...
+}
+actor User
+User --> Varnish
+
+
+node Traffic {
+  database etcd
+
+  [Experiment\nConfig\nFetcher] --> API: fetch config
+  [Experiment\nConfig\nFetcher] --> etcd: publish config
+
+  [confd\nVarnish\nconfig\nwriter] --> etcd: fetch config
+  [confd\nVarnish\nconfig\nwriter] --> Varnish: publish config
+}
+
+
+
+
+@enduml
