@@ -9,6 +9,10 @@ APT
 * curl
 * pip
 * fonts-powerline
+* gimp
+* inotify-tools
+* openjdk-8-jdk
+* openjdk-8-source
 
 Snap
 * intellij
