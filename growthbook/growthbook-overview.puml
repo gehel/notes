@@ -12,7 +12,7 @@ node Growthbook as gb {
 }
 
 
-() " " as eventgate_API
+() "EventGate\nendpoint" as eventgate_API
 node "Data Platform" as dp {
   [EventGate] -up- eventgate_API
 
