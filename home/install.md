@@ -13,6 +13,7 @@ APT
 * inotify-tools
 * openjdk-8-jdk
 * openjdk-8-source
+* xclip
 
 Snap
 * intellij
