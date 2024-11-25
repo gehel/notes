@@ -1,11 +1,4 @@
-/*
- * This file contains an example project. It is part of the
- * TaskJuggler project management tool. It uses a made up software
- * development project to demonstrate some of the basic features of
- * TaskJuggler. Please see the TaskJuggler manual for a more detailed
- * description of the various syntax elements.
- */
-project acso "Superset migration to k8s"  2023-09-01 +6m {
+project growthbook "growthbook"  2024-11-01 +6m {
   # Hide the clock time. Only show the date.
   timeformat "%Y-%m-%d"
   # Use US format for numbers
@@ -27,19 +20,10 @@ project acso "Superset migration to k8s"  2023-09-01 +6m {
   }
 }
 
-# Register Good Friday as a global holiday for all resources.
-flags team
-
-# This is one way to form teams
-# Now we specify the work packages. The whole project is described as
-# a task that contains subtasks. These subtasks are then broken down
-# into smaller tasks and so on. The innermost tasks describe the real
-# work and have resources allocated to them. Many attributes of tasks
-# are inherited from the enclosing task. This saves you a lot of typing.
-task superset_migration "Superset migration to k8s" {
+task growthbook "Growthbook" {
 
   start ${projectstart}
-  note "https://phabricator.wikimedia.org/T347710"
+  note "https://phabricator.wikimedia.org/"
   task planning "Planning" {
     task plan "Write lightweight design doc" {
       duration 2 m
