@@ -39,4 +39,3 @@ IntelliJ plugins
 * SonarLint
 * CheckStyle-IDEA
 * Key Promoter X
-
