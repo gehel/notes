@@ -1,0 +1,250 @@
+project dpe_q3 "DPE Q3"  2025-01-01 +3m {
+
+  timeformat "%Y-%m-%d"
+
+}
+
+leaves special "Offsite" 2025-02-03 +5d
+
+resource directors "Directors" {
+  resource dir_olja "Olja Dimitrievic"
+}
+
+resource pm "Product Managers" {
+  resource pm_virginia "Virginia Poundstone"
+}
+
+resource em "Engineering Managers" {
+  managers dir_olja
+  resource em_andreas "Andreas Hoelzl"
+  resource em_dan "Dan Andreescu"
+  resource em_guillaume "Guillaume Lederrey"
+}
+
+resource principal "Principal SWE" {
+  managers dir_olja
+  resource pri_adam "Adam Baso"
+  resource pri_andrew "Andrew Otto"
+}
+
+resource swe "Software Engineers" {
+  resource swe_de "Data Engineering SWE" {
+    resource swe_antoine "Antoine Qu'hen"
+    resource swe_gabriele "Gabriele Modena"
+    resource swe_joseph "Joseph Allemandou"
+    resource swe_thomas "Thomas Chin"
+    resource swe_sandra "Sandra Ebele Nwachukwu"
+    resource swe_aleksandar "Aleksandar Mastilovic"
+    resource swe_xabriel "Xabriel Collazo Mojica"
+  }
+
+  resource swe_exp_platform "Experimentation Platform SWE" {
+    managers em_dan
+    resource swe_sam "Sam Smith"
+    resource swe_clare "Clare Ming"
+    resource swe_jennifer "Jennifer Ebe"
+    resource swe_marcel "Marcel Ruiz Forns"
+    resource swe_santi "Santiago Faci"
+  }
+
+  resource swe_search "Search Platform SWE" {
+    managers em_guillaume
+    resource swe_erik "Erik Bernhardson" {
+      leaves special "Sabbatical" 2025-01-01 +2m
+    }
+    resource swe_david "David Causse"
+    resource swe_peter "Peter Fischer"
+    resource cp_lin_trey "Trey Jones"
+  }
+}
+
+resource dpe_sre "DPE SRE" {
+  managers em_guillaume
+  resource sre_ben "Ben Tullis"
+  resource sre_brian "Brian King"
+  resource sre_ryan "Ryan Kemper"
+  resource sre_steve "Stephen Munene"
+  resource ser_balthazar "Balthazar Rouberol"
+}
+
+
+task dumps2 "Dumps 2" {
+  responsible swe_xabriel
+  allocate swe_xabriel
+
+  task intermediary_table "intermediary table" {
+    effort 3w
+  }
+
+  task migrate_movements_insights "Migrate 1 Movement Insights use case to use Dumps 2" {
+    effort 3w
+    depends !intermediary_table
+  }
+
+  task publish_xml "Publish XML" {
+    effort 3w
+    depends !migrate_movements_insights
+  }
+}
+
+task temp_accounts "Temp Accounts" {
+  responsible swe_marcel
+  allocate swe_marcel
+  effort 2m
+  end 2025-03-24
+}
+
+task domain_event_experiment "Domain Event Publishing Experiment" {
+  responsible pri_andrew
+  allocate pri_andrew
+  task design "Design" {
+    effort 9w
+  }
+  task development "Development" {
+    effort 3w
+    depends !design
+  }
+}
+
+task exp_lab "Experimentation Lab" {
+  responsible swe_sam
+  start 2025-01-06
+  task dogfood "Dogfood" {
+    responsible em_dan
+    allocate swe_santi, swe_clare
+    task design "Design" {
+      effort 2w
+    }
+    task development "Development" {
+      effort 6w
+      depends !design
+    }
+  }
+  task ctr_instrument "CTR Standard Instrument" {
+    responsible em_dan
+    allocate swe_santi, swe_clare, swe_sam
+    task design "Design" {
+      effort 2w
+    }
+    task deployment "Deployment" {
+      effort 2w
+      depends !design
+    }
+    task impact "Expected impact" {
+      depends !deployment
+      purge allocate
+    }
+  }
+}
+
+
+task opensearch_migration "Elasticsearch to OpenSearch migration" {
+  responsible sre_brian
+  task deployment "Deployment" {
+    duration 3m
+    allocate dpe_sre, swe_david
+    limits { weeklymax 4h }
+  }
+  task impact "Expected impact" {
+    depends !deployment
+  }
+}
+
+task search_mlr "Improvements to MLR" {
+  responsible swe_gabriele
+  task research "Research and Discovery" {
+    allocate swe_gabriele
+    duration 1m
+  }
+  task development "Development" {
+    allocate swe_gabriele
+    depends !research
+    duration 2m
+  }
+}
+
+task airflow_migration "Migrate Airflow to k8s" {
+  responsible sre_ben
+  task deployment "Deployment" {
+    allocate dpe_sre
+    duration 1m
+    limits { weeklymax 4h }
+  }
+  task impact "Expected impact" {
+    depends !deployment
+  }
+}
+
+task hadoop_upgrade "Spark + Hadoop upgrade" {
+  responsible sre_ben
+  task design "Design" {
+    duration 2m
+    allocate sre_ben
+    limits { weeklymax 4h }
+  }
+  task deployment "Deployment" {
+    duration 1m
+    depends !design
+    allocate dpe_sre
+    limits { weeklymax 4h }
+  }
+}
+
+
+navigator navbar {
+  hidereport @none
+}
+
+macro TaskTip [
+  tooltip istask() -8<-
+    '''Start: ''' <-query attribute='start'->
+    '''End: ''' <-query attribute='end'->
+    ----
+    '''Notes:''' <-query attribute='note' ->
+    ----
+    '''Lead:'''
+
+    <-query attribute='responsible'->
+    ----
+    '''Resources:'''
+
+    <-query attribute='resources'->
+    ----
+    '''Precursors: '''
+
+    <-query attribute='precursors'->
+    ----
+    '''Followers: '''
+
+    <-query attribute='followers'->
+    ->8-
+]
+
+textreport frame "" {
+  header -8<-
+    == DPE Q3 ==
+    <[navigator id="navbar"]>
+  ->8-
+  footer "----"
+  textreport index "Overview" {
+    formats html
+    center '<[report id="overview"]>'
+  }
+}
+
+taskreport overview "" {
+  header -8<-
+    === Project Overview ===
+
+  ->8-
+  columns bsi { title 'WBS' },
+          #note,
+          name, start, end,
+          chart { ${TaskTip} }
+  timeformat "%Y-%m-%d"
+  loadunit days
+  hideresource @all
+  sorttasks tree
+
+  footer "----"
+}
