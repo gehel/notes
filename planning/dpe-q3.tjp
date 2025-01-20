@@ -1,7 +1,5 @@
 project dpe_q3 "DPE Q3"  2025-01-01 +3m {
-
   timeformat "%Y-%m-%d"
-
 }
 
 leaves special "Offsite" 2025-02-03 +5d
@@ -72,16 +70,16 @@ task dumps2 "Dumps 2" {
   responsible swe_xabriel
   allocate swe_xabriel
 
-  task intermediary_table "intermediary table" {
+  task intermediary_table "[Dumps 2] intermediary table" {
     effort 3w
   }
 
-  task migrate_movements_insights "Migrate 1 Movement Insights use case to use Dumps 2" {
+  task migrate_movements_insights "[Dumps 2] Migrate 1 Movement Insights use case to use Dumps 2" {
     effort 3w
     depends !intermediary_table
   }
 
-  task publish_xml "Publish XML" {
+  task publish_xml "[Dumps 2] Publish XML" {
     effort 3w
     depends !migrate_movements_insights
   }
@@ -100,7 +98,7 @@ task domain_event_experiment "Domain Event Publishing Experiment" {
   task design "Design" {
     effort 9w
   }
-  task development "Development" {
+  task development "[Domain Event] Development" {
     effort 3w
     depends !design
   }
@@ -112,10 +110,10 @@ task exp_lab "Experimentation Lab" {
   task dogfood "Dogfood" {
     responsible em_dan
     allocate swe_santi, swe_clare
-    task design "Design" {
+    task design "[Exp Lab - dogfood] Design" {
       effort 2w
     }
-    task development "Development" {
+    task development "[Exp Lab - dogfood] Development" {
       effort 6w
       depends !design
     }
@@ -123,40 +121,100 @@ task exp_lab "Experimentation Lab" {
   task ctr_instrument "CTR Standard Instrument" {
     responsible em_dan
     allocate swe_santi, swe_clare, swe_sam
-    task design "Design" {
+    task design "[Exp Lab - CTR] Design" {
       effort 2w
     }
-    task deployment "Deployment" {
+    task deployment "[Exp Lab - CTR] Deployment" {
       effort 2w
       depends !design
     }
-    task impact "Expected impact" {
+    task impact "[Exp Lab - CTR] Expected impact" {
       depends !deployment
       purge allocate
     }
   }
+  task end_to_end_testing "End to end testing for Preview Alpha Release"
+  task rename "Rename Metrics Platform"
+  task alpha "Alpha Release"
+  task audit_schema_instrumentation "Audit existing schema and instruments to identify adoption risks"
+  task research_practices "Research and document current product team practices"
+  task edge_unique_consult "Edge Unique Community communiation"
+  task edg_unique_implementation "Edge Unique IDs implementation"
+  task more "More tasks not represented here"
 }
-
+task new_pms "Hire and Onboard new PMs" {
+  responsible pm_virginia
+  allocate pm_virginia
+  limits { weeklymax 4h }
+  task hire_pm "Hire new PMs" {
+    duration 1m
+  }
+  task onboard_pm "Onboard new PMs" {
+    duration 1m
+    depends !hire_pm
+  }
+}
 
 task opensearch_migration "Elasticsearch to OpenSearch migration" {
   responsible sre_brian
-  task deployment "Deployment" {
+  task deployment "[Elasticsearch migration] Deployment" {
     duration 3m
     allocate dpe_sre, swe_david
     limits { weeklymax 4h }
   }
-  task impact "Expected impact" {
+  task impact "[Elasticsearch migration] Expected impact" {
     depends !deployment
   }
 }
 
+task maintenance "Maintenance" {
+  task dumps1 "Dumps 1 maintenance" {
+    duration 3m
+    allocate sre_ben, swe_xabriel, em_dan
+    limits { weeklymax 4h }
+  }
+  task commons_impact_metrics "Commons Impact Metrics maintenance" {
+    responsible swe_marcel
+    duration 3m
+    allocate swe_marcel
+    limits { weeklymax 4h }
+  }
+  task aqs "AQS maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task webrequests "Webrequests pipeline maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+
+  task wikistats_and_dashboards "Wikistats & other dahsboarding tools maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task mediawiki_history "MediaWiki History pipeline maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task storage_and_core "Storage and core infrastructure maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task downstream "Downstream data pipelines maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+}
+
+task hire_em "Hire EM"
+
 task search_mlr "Improvements to MLR" {
   responsible swe_gabriele
-  task research "Research and Discovery" {
+  task research "[MLR] Research and Discovery" {
     allocate swe_gabriele
     duration 1m
   }
-  task development "Development" {
+  task development "[MLR] Development" {
     allocate swe_gabriele
     depends !research
     duration 2m
@@ -165,24 +223,24 @@ task search_mlr "Improvements to MLR" {
 
 task airflow_migration "Migrate Airflow to k8s" {
   responsible sre_ben
-  task deployment "Deployment" {
+  task deployment "[Airflow k8s] Deployment" {
     allocate dpe_sre
     duration 1m
     limits { weeklymax 4h }
   }
-  task impact "Expected impact" {
+  task impact "[Airflow k8s] Expected impact" {
     depends !deployment
   }
 }
 
 task hadoop_upgrade "Spark + Hadoop upgrade" {
   responsible sre_ben
-  task design "Design" {
+  task design "[Hadoop upgrade] Design" {
     duration 2m
     allocate sre_ben
     limits { weeklymax 4h }
   }
-  task deployment "Deployment" {
+  task deployment "[Hadoop upgrade] Deployment" {
     duration 1m
     depends !design
     allocate dpe_sre
@@ -230,6 +288,11 @@ textreport frame "" {
     formats html
     center '<[report id="overview"]>'
   }
+  textreport "ResourceGraph" {
+    formats html
+    title "Resource Graph"
+    center '<[report id="resourceGraph"]>'
+  }
 }
 
 taskreport overview "" {
@@ -247,4 +310,13 @@ taskreport overview "" {
   sorttasks tree
 
   footer "----"
+}
+
+resourcereport resourceGraph "" {
+  headline "Resource Allocation Graph"
+  columns no, name, effort,  weekly { ${TaskTip} }
+  loadunit shortauto
+  # We only like to show leaf tasks for leaf resources.
+  hidetask ~(isleaf() & isleaf_())
+  sorttasks plan.start.up
 }
