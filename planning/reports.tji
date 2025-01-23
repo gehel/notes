@@ -1,0 +1,71 @@
+navigator navbar {
+  hidereport @none
+}
+
+macro TaskTip [
+  tooltip istask() -8<-
+    '''Start: ''' <-query attribute='start'->
+    '''End: ''' <-query attribute='end'->
+    ----
+    '''Notes:''' <-query attribute='note' ->
+    ----
+    '''Lead:'''
+
+    <-query attribute='responsible'->
+    ----
+    '''Resources:'''
+
+    <-query attribute='resources'->
+    ----
+    '''Precursors: '''
+
+    <-query attribute='precursors'->
+    ----
+    '''Followers: '''
+
+    <-query attribute='followers'->
+    ->8-
+]
+
+textreport frame "" {
+  header -8<-
+    == DPE Q3 ==
+    <[navigator id="navbar"]>
+  ->8-
+  footer "----"
+  textreport index "Overview" {
+    formats html
+    center '<[report id="overview"]>'
+  }
+  textreport "ResourceGraph" {
+    formats html
+    title "Resource Graph"
+    center '<[report id="resourceGraph"]>'
+  }
+}
+
+taskreport overview "" {
+  header -8<-
+    === Project Overview ===
+
+  ->8-
+  columns bsi { title 'WBS' },
+          #note,
+          name, start, end,
+          chart { ${TaskTip} }
+  timeformat "%Y-%m-%d"
+  loadunit days
+  hideresource @all
+  sorttasks tree
+
+  footer "----"
+}
+
+resourcereport resourceGraph "" {
+  headline "Resource Allocation Graph"
+  columns no, name, effort,  weekly { ${TaskTip} }
+  loadunit shortauto
+  # We only like to show leaf tasks for leaf resources.
+  hidetask ~(isleaf() & isleaf_())
+  sorttasks plan.start.up
+}

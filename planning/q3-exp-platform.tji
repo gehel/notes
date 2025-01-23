@@ -1,0 +1,39 @@
+task exp_lab "Experimentation Lab" {
+  responsible sam
+  start 2025-01-06
+  task dogfood "Dogfood" {
+    responsible dan
+    allocate santi, clare
+    task design "[Exp Lab - dogfood] Design" {
+      effort 2w
+    }
+    task development "[Exp Lab - dogfood] Development" {
+      effort 6w
+      depends !design
+    }
+  }
+  task ctr_instrument "CTR Standard Instrument" {
+    responsible dan
+    allocate santi, clare, sam
+    task design "[Exp Lab - CTR] Design" {
+      effort 2w
+    }
+    task deployment "[Exp Lab - CTR] Deployment" {
+      effort 2w
+      depends !design
+    }
+    task impact "[Exp Lab - CTR] Expected impact" {
+      depends !deployment
+      purge allocate
+    }
+  }
+
+  task end_to_end_testing "End to end testing for Preview Alpha Release"
+  task rename "Rename Metrics Platform"
+  task alpha "Alpha Release"
+  task audit_schema_instrumentation "Audit existing schema and instruments to identify adoption risks"
+  task research_practices "Research and document current product team practices"
+  task edge_unique_consult "Edge Unique Community communiation"
+  task edg_unique_implementation "Edge Unique IDs implementation"
+  task more "More tasks not represented here"
+}

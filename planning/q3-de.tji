@@ -1,0 +1,76 @@
+task dumps2 "Dumps 2" {
+  responsible xabriel
+  allocate xabriel
+
+  task intermediary_table "[Dumps 2] intermediary table" {
+    effort 3w
+  }
+
+  task migrate_movements_insights "[Dumps 2] Migrate 1 Movement Insights use case to use Dumps 2" {
+    effort 3w
+    depends !intermediary_table
+  }
+
+  task publish_xml "[Dumps 2] Publish XML" {
+    effort 3w
+    depends !migrate_movements_insights
+  }
+}
+
+task temp_accounts "Temp Accounts" {
+  responsible marcel
+  allocate marcel
+  effort 2m
+  end 2025-03-24
+}
+
+task domain_event_experiment "Domain Event Publishing Experiment" {
+  responsible andrew
+  allocate andrew
+  task design "Design" {
+    effort 9w
+  }
+  task development "[Domain Event] Development" {
+    effort 3w
+    depends !design
+  }
+}
+
+task maintenance "Maintenance" {
+  task dumps1 "Dumps 1 maintenance" {
+    duration 3m
+    allocate ben, xabriel, dan
+    limits { weeklymax 4h }
+  }
+  task commons_impact_metrics "Commons Impact Metrics maintenance" {
+    responsible marcel
+    duration 3m
+    allocate marcel
+    limits { weeklymax 4h }
+  }
+  task aqs "AQS maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task webrequests "Webrequests pipeline maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+
+  task wikistats_and_dashboards "Wikistats & other dahsboarding tools maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task mediawiki_history "MediaWiki History pipeline maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task storage_and_core "Storage and core infrastructure maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+  task downstream "Downstream data pipelines maintenance" {
+    duration 3m
+    limits { weeklymax 4h }
+  }
+}

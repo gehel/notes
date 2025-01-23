@@ -1,0 +1,56 @@
+resource dpe "Data Platform Engineering" {
+  resource olja "Olja Dimitrievic"
+  resource virginia "Virginia Poundstone"
+  resource adam "Adam Baso" {
+    managers olja
+  }
+  resource andrew "Andrew Otto" {
+    managers olja
+  }
+
+  resource de "Data Engineering" {
+    resource andreas "Andreas Hoelzl" {
+      managers olja
+    }
+    managers andreas
+    resource antoine "Antoine Qu'hen"
+    resource gabriele "Gabriele Modena"
+    resource joseph "Joseph Allemandou"
+    resource thomas "Thomas Chin"
+    resource sandra "Sandra Ebele Nwachukwu"
+    resource aleksandar "Aleksandar Mastilovic"
+    resource xabriel "Xabriel Collazo Mojica"
+  }
+
+  resource exp_platform "Experimentation Platform" {
+    resource dan "Dan Andreescu" {
+      managers olja
+    }
+    managers dan
+    resource sam "Sam Smith"
+    resource clare "Clare Ming"
+    resource jennifer "Jennifer Ebe"
+    resource marcel "Marcel Ruiz Forns"
+    resource santi "Santiago Faci"
+  }
+
+  resource search "Search Platform" {
+    resource guillaume "Guillaume Lederrey" {
+      managers olja
+    }
+    managers guillaume
+    resource erik "Erik Bernhardson" {
+      leaves special "Sabbatical" 2025-01-01 +2m
+    }
+    resource david "David Causse"
+    resource peter "Peter Fischer"
+    resource trey "Trey Jones"
+  }
+  resource dpe_sre "DPE SRE" {
+    resource ben "Ben Tullis"
+    resource brian "Brian King"
+    resource ryan "Ryan Kemper"
+    resource steve "Stephen Munene"
+    resource balthazar "Balthazar Rouberol"
+  }
+}

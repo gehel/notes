@@ -1,0 +1,14 @@
+task new_pms "Hire and Onboard new PMs" {
+  responsible virginia
+  allocate virginia
+  limits { weeklymax 4h }
+  task hire_pm "Hire new PMs" {
+    duration 1m
+  }
+  task onboard_pm "Onboard new PMs" {
+    duration 1m
+    depends !hire_pm
+  }
+}
+
+task hire_em "Hire EM"

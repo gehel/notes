@@ -1,0 +1,70 @@
+task opensearch_migration "Elasticsearch to OpenSearch migration" {
+  responsible brian
+  allocate dpe_sre, david
+  limits { weeklymax 4h }
+  start 2025-01-25
+  task relforge "[Elasticsearch migration] Relforge" {
+    duration 1m
+  }
+  task cloudelastic "[Elasticsearch migration] Cloudelastic" {
+    depends !relforge
+    duration 1w
+  }
+  task production "[Elasticsearch migration] Production" {
+    depends !cloudelastic
+    duration 3w
+  }
+  task impact "[Elasticsearch migration] Expected impact" {
+    depends !production
+    purge allocate
+  }
+}
+
+task airflow_migration "Migrate Airflow to k8s" {
+  responsible ben
+  task deployment "[Airflow k8s] Deployment" {
+    allocate dpe_sre
+    duration 1m
+    limits { weeklymax 4h }
+  }
+  task impact "[Airflow k8s] Expected impact" {
+    depends !deployment
+  }
+}
+
+task wdqs_graph_split "WDQS Graph Split" {
+  responsible ryan
+  allocate ryan, brian
+  task internal "[WDQS Graph Split] Migration of internal endpoints" {
+    start 2025-01-01
+    duration 4w
+  }
+  task temp_full "[WDQS Graph Split] Temporary full endpoint for Scholia" {
+    start 2025-02-10
+    duration 1w
+  }
+  task temp_transition "[WDQS Graph Split] Scholia transition to temp endpoint" {
+    duration 3w
+    depends !temp_full
+    purge allocate
+  }
+  task decommission "[WDQS Graph Split] Decommission full graph (except temp full endpoint)" {
+    duration 3w
+    depends !temp_transition
+  }
+}
+
+task hadoop_upgrade "Spark + Hadoop upgrade" {
+  responsible ben
+  task design "[Hadoop upgrade] Design" {
+    duration 2m
+    allocate ben
+    limits { weeklymax 4h }
+  }
+  task deployment "[Hadoop upgrade] Deployment" {
+    duration 1m
+    depends !design
+    allocate dpe_sre
+    limits { weeklymax 4h }
+  }
+}

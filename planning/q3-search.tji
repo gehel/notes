@@ -1,0 +1,12 @@
+task search_mlr "Improvements to MLR" {
+  responsible gabriele
+  task research "[MLR] Research and Discovery" {
+    allocate gabriele
+    duration 1m
+  }
+  task development "[MLR] Development" {
+    allocate gabriele
+    depends !research
+    duration 2m
+  }
+}
