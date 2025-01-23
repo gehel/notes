@@ -15,6 +15,8 @@ APT
 * openjdk-8-source
 * xclip
 * tj3
+* inkscape
+* ack
 
 Snap
 * intellij
