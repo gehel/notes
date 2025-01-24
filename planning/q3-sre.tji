@@ -1,24 +1,7 @@
-task opensearch_migration "Elasticsearch to OpenSearch migration" {
-  responsible brian
-  allocate dpe_sre, david
-  limits { weeklymax 4h }
-  start 2025-01-25
-  task relforge "[Elasticsearch migration] Relforge" {
-    duration 1m
-  }
-  task cloudelastic "[Elasticsearch migration] Cloudelastic" {
-    depends !relforge
-    duration 1w
-  }
-  task production "[Elasticsearch migration] Production" {
-    depends !cloudelastic
-    duration 3w
-  }
-  task impact "[Elasticsearch migration] Expected impact" {
-    depends !production
-    purge allocate
-  }
-}
+task security_review "Security review of DPE infrastructure"
+task hdfs_storage "HDFS Storage"
+task exp_platform_support "Support for Experimentation Platform"
+task dumps_k8s_php "Dumps 1 migration to k8s"
 
 task airflow_migration "Migrate Airflow to k8s" {
   responsible ben
@@ -51,6 +34,28 @@ task wdqs_graph_split "WDQS Graph Split" {
   task decommission "[WDQS Graph Split] Decommission full graph (except temp full endpoint)" {
     duration 3w
     depends !temp_transition
+  }
+}
+
+task opensearch_migration "Elasticsearch to OpenSearch migration" {
+  responsible brian
+  allocate dpe_sre, david
+  limits { weeklymax 4h }
+  start 2025-01-25
+  task relforge "[Elasticsearch migration] Relforge" {
+    duration 1m
+  }
+  task cloudelastic "[Elasticsearch migration] Cloudelastic" {
+    depends !relforge
+    duration 1w
+  }
+  task production "[Elasticsearch migration] Production" {
+    depends !cloudelastic
+    duration 3w
+  }
+  task impact "[Elasticsearch migration] Expected impact" {
+    depends !production
+    purge allocate
   }
 }
 

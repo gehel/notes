@@ -1,0 +1,11 @@
+project dpe_q3 "DPE Q3 - SRE"  2025-01-01 +3m {
+  timeformat "%Y-%m-%d"
+}
+
+leaves special "Offsite" 2025-02-03 +5d
+
+include "resources.tji"
+
+include "q3-search.tji"
+
+include "reports.tji"

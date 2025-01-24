@@ -1,3 +1,7 @@
+task support_we3_1 "Support WE 3.1 - Content Recommendation"
+task support_wdqs_graph_split "Support WDQS Graph Split"
+task support_elasticsearch_migration "Support Elasticsearch migration to OpenSearch"
+
 task search_mlr "Improvements to MLR" {
   responsible gabriele
   task research "[MLR] Research and Discovery" {
@@ -10,3 +14,5 @@ task search_mlr "Improvements to MLR" {
     duration 2m
   }
 }
+
+task kuromoji_sudachi "Language improvements to Japanese - Kuromoji / Sudachi"
