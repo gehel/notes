@@ -1,4 +1,4 @@
-APT
+# APT
 * fish
 * dropbox
 * openjdk-11-jdk
@@ -18,11 +18,12 @@ APT
 * inkscape
 * ack
 
-Snap
+# Snap
 * intellij
 * kicad
+* spotify
 
-Other
+# Other
 * chrome
 * Prusa Slicer
 * https://chromewebstore.google.com/detail/gnome-shell-integration/gphhapmejobijbbhgpjhcjognlahblep?pli=1
@@ -35,7 +36,7 @@ Other
 * https://github.com/oh-my-fish/theme-bobthefish
 * https://virtualfish.readthedocs.io/en/latest/install.html#installing
 
-IntelliJ plugins
+# IntelliJ plugins
 * gerrit
 * Infinitest
 * SpotBugs
