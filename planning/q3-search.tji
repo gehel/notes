@@ -4,14 +4,23 @@ task support_elasticsearch_migration "Support Elasticsearch migration to OpenSea
 
 task search_mlr "Improvements to MLR" {
   responsible gabriele
-  task research "[MLR] Research and Discovery" {
-    allocate gabriele
+  allocate gabriele
+  task research "[MLR] Research and Discovery - categories simple/hard queries for improve training" {
     duration 1m
   }
-  task development "[MLR] Development" {
-    allocate gabriele
-    depends !research
-    duration 2m
+  task deploy_mlr "[MLR] Redeploy re-trained MLR models" {
+    start 2025-02-10
+    task deploy_models "[MLR] Deploy models trained in December" {
+      duration 2w
+    }
+    task ab_test "[MLR] Run another A/B test on newly trained models" {
+      duration 2w
+      depends !deploy_models
+    }
+  }
+  task doc_mlops "[MLR] Document what is needed to automate deployment of MLR models" {
+    start 2025-02-10
+    duration 1m
   }
 }
 

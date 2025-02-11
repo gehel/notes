@@ -1,5 +1,37 @@
-task security_review "Security review of DPE infrastructure"
-task hdfs_storage "HDFS Storage"
+task security_review "Security review of DPE infrastructure" {
+  responsible ben
+  start 2025-01-24
+  task listing "List places where we might have PII" {
+    start 2025-02-10
+    duration 1 w
+  }
+  task other "Other work unkown at this time" {
+    depends !listing
+    end 2025-03-31
+  }
+}
+task hdfs_storage "HDFS Storage" {
+  responsible ben
+  task estimation "Estimation of storage needs" {
+    purge responsible
+    responsible andreas
+    start 2025-01-01
+    duration 7 w
+  }
+  task hardware_request_1 "Hardware Requests 1" {
+    start 2025-01-01
+    end 2025-01-31
+  }
+  task hardware_1_received "Hardware 1 received" {
+    start 2025-03-01
+    depends !hardware_request_1
+    milestone
+  }
+  task hardware_1_install "Hardware 1 configuration" {
+    depends !hardware_1_received
+    duration 4 w
+  }
+}
 task exp_platform_support "Support for Experimentation Platform"
 task dumps_k8s_php "Dumps 1 migration to k8s"
 
@@ -7,11 +39,12 @@ task airflow_migration "Migrate Airflow to k8s" {
   responsible ben
   task deployment "[Airflow k8s] Deployment" {
     allocate dpe_sre
-    duration 1m
+    duration 1.5m
     limits { weeklymax 4h }
   }
-  task impact "[Airflow k8s] Expected impact" {
+  task completion "[Airflow k8s] Migration completed" {
     depends !deployment
+    milestone
   }
 }
 
@@ -55,7 +88,7 @@ task opensearch_migration "Elasticsearch to OpenSearch migration" {
   }
   task impact "[Elasticsearch migration] Expected impact" {
     depends !production
-    purge allocate
+    milestone
   }
 }
 
