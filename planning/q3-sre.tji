@@ -76,15 +76,30 @@ task opensearch_migration "Elasticsearch to OpenSearch migration" {
   limits { weeklymax 4h }
   start 2025-01-25
   task relforge "[Elasticsearch migration] Relforge" {
-    duration 1m
+    task packaging "[Elasticsearch migration] Packaging OpenSearch plugins" {
+      start 2025-02-10
+      duration 1w
+    }
+    task servers "[Elasticsearch migration] Move servers around" {
+      duration 1w
+      start 2025-02-10
+    }
+    task puppet "[Elasticsearch migration] Puppet / Cookbooks" {
+      duration 3w
+      end 2025-02-28
+    }
   }
   task cloudelastic "[Elasticsearch migration] Cloudelastic" {
     depends !relforge
     duration 1w
   }
-  task production "[Elasticsearch migration] Production" {
+  task production_eqiad "[Elasticsearch migration] Production - codfw" {
     depends !cloudelastic
-    duration 3w
+    duration 2w
+  }
+  task production "[Elasticsearch migration] Production - codfw" {
+    depends !production_eqiad
+    duration 2w
   }
   task impact "[Elasticsearch migration] Expected impact" {
     depends !production
