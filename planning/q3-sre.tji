@@ -53,14 +53,24 @@ task wdqs_graph_split "WDQS Graph Split" {
   allocate ryan, brian
   task internal "[WDQS Graph Split] Migration of internal endpoints" {
     start 2025-01-01
-    duration 4w
+    task endpoints "[WDQS Graph Split] Create internal endpoints" {
+      duration 4w
+    }
+    task rework "[WDQS Graph Split] Required changes to Constraint Checks" {
+      duration 6w
+      depends !endpoints
+    }
+    task migrate "[WDQS Graph Split] Migrate internal traffic" {
+      duration 1w
+      depends !rework
+    }
   }
   task temp_full "[WDQS Graph Split] Temporary full endpoint for Scholia" {
     start 2025-02-10
-    duration 1w
+    duration 3w
   }
   task temp_transition "[WDQS Graph Split] Scholia transition to temp endpoint" {
-    duration 3w
+    duration 4w
     depends !temp_full
     purge allocate
   }
@@ -72,7 +82,7 @@ task wdqs_graph_split "WDQS Graph Split" {
 
 task opensearch_migration "Elasticsearch to OpenSearch migration" {
   responsible brian
-  allocate dpe_sre, david
+  allocate brian, balthazar, david
   limits { weeklymax 4h }
   start 2025-01-25
   task relforge "[Elasticsearch migration] Relforge" {
@@ -84,16 +94,19 @@ task opensearch_migration "Elasticsearch to OpenSearch migration" {
       duration 1w
       start 2025-02-10
     }
-    task puppet "[Elasticsearch migration] Puppet / Cookbooks" {
-      duration 3w
-      end 2025-02-28
+    task validate "[Elasticsearch migration] validate OpenSearch" {
+      depends !packaging,!servers
+      end 2025-03-03
     }
+  }
+  task puppet "[Elasticsearch migration] Puppet / Cookbooks" {
+    duration 6w
   }
   task cloudelastic "[Elasticsearch migration] Cloudelastic" {
     depends !relforge
     duration 1w
   }
-  task production_eqiad "[Elasticsearch migration] Production - codfw" {
+  task production_eqiad "[Elasticsearch migration] Production - eqiad" {
     depends !cloudelastic
     duration 2w
   }
