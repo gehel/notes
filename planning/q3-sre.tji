@@ -37,14 +37,27 @@ task dumps_k8s_php "Dumps 1 migration to k8s"
 
 task airflow_migration "Migrate Airflow to k8s" {
   responsible ben
+  start 2025-01-01
   task deployment "[Airflow k8s] Deployment" {
     allocate dpe_sre
-    duration 1.5m
     limits { weeklymax 4h }
+    task product_analytics "[Airflow k8s] Analytics Product" {
+      start 2025-02-15
+      duration 2w
+    }
+    task analytics "[Airflow k8s] Analytics" {
+      start 2025-02-15
+      duration 4w
+      note "check with Aleksandar"
+    }
   }
   task completion "[Airflow k8s] Migration completed" {
     depends !deployment
     milestone
+  }
+  task cleanup "[Airflow k8s] Cleanup" {
+    depends !completion
+    duration 2w
   }
 }
 
