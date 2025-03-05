@@ -18,22 +18,27 @@ task hdfs_storage "HDFS Storage" {
     start 2025-01-01
     duration 7 w
   }
-  task hardware_request_1 "Hardware Requests 1" {
+  task hardware_request_hdd "Hardware Requests - Hard Drives" {
     start 2025-01-01
     end 2025-01-31
   }
-  task hardware_1_received "Hardware 1 received" {
+  task hardware_hdd_received "Hardware HDD received" {
     start 2025-03-01
-    depends !hardware_request_1
+    depends !hardware_request_hdd
     milestone
   }
-  task hardware_1_install "Hardware 1 configuration" {
-    depends !hardware_1_received
+  task hardware_hdd_install "Plugging & config HDD" {
+    depends !hardware_hdd_received
     duration 4 w
   }
 }
 task exp_platform_support "Support for Experimentation Platform"
-task dumps_k8s_php "Dumps 1 migration to k8s"
+task dumps_k8s_php "Dumps 1" {
+  task dumps_php8 "Dumps 1 can run on PHP8"
+  task dumps_k8s "Dumps 1 are running on k8s" {
+    task dumps_pull_images "Dumps 1 - enable pulling images from the private image registry"
+  }
+}
 
 task airflow_migration "Migrate Airflow to k8s" {
   responsible ben
@@ -70,26 +75,37 @@ task wdqs_graph_split "WDQS Graph Split" {
       duration 4w
     }
     task rework "[WDQS Graph Split] Required changes to Constraint Checks" {
-      duration 6w
+      end 2025-03-03
       depends !endpoints
+    }
+    task wikidata_dumps_fixed "Fix wikidata dumps" {
+      milestone
+      start 2025-03-15
+    }
+    task reload "[WDQS Graph Split] data reload" {
+      duration 2w
+      depends !wikidata_dumps_fixed, !rework
     }
     task migrate "[WDQS Graph Split] Migrate internal traffic" {
       duration 1w
-      depends !rework
+      depends !rework, !reload
     }
   }
-  task temp_full "[WDQS Graph Split] Temporary full endpoint for Scholia" {
-    start 2025-02-10
-    duration 3w
-  }
-  task temp_transition "[WDQS Graph Split] Scholia transition to temp endpoint" {
-    duration 4w
-    depends !temp_full
-    purge allocate
+
+  task migrate_public "[WDQS Graph Split] Migrate public traffic" {
+    task temp_full "[WDQS Graph Split] Temporary full endpoint for Scholia" {
+      start 2025-02-10
+      end 2025-03-05
+    }
+    task temp_transition "[WDQS Graph Split] Scholia transition to temp endpoint" {
+      duration 4w
+      depends !temp_full
+      purge allocate
+    }
   }
   task decommission "[WDQS Graph Split] Decommission full graph (except temp full endpoint)" {
     duration 3w
-    depends !temp_transition
+    depends !migrate_public, !internal
   }
 }
 
