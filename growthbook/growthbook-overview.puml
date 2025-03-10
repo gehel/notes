@@ -3,8 +3,8 @@
 
 () UI
 () API
-actor PM
-PM --> UI
+actor "Experiment Owner" as ExpOwner
+ExpOwner --> UI
 node Growthbook as gb {
   UI -- [Growthbook]
   API -- [Growthbook]
@@ -35,7 +35,14 @@ node Mediawiki as mw {
   Varnish --> [Mediawiki]: forwards requests to Mediawiki
 
   package Mediawiki {
-    [Extension:WikimediaExperiments]
+    [Extension:EventStreamConfig]
+    [Extension:MetricsPlatform]
+    [Extension:EventLogging]
+    [Extension:EventBus]
+
+    [Extension:EventStreamConfig] --> [Extension:EventLogging]
+    [Extension:MetricsPlatform] --> [Extension:EventLogging]
+    [Extension:EventLogging] --> [Extension:EventBus]
   }
 
   note top of Mediawiki
@@ -45,13 +52,13 @@ node Mediawiki as mw {
 
   database "WAN cache" as wan_cache
 
-  [Extension:WikimediaExperiments] --> API: fetches client-side-only experiment config
-  [Extension:WikimediaExperiments] --> wan_cache: stores config
+  [Extension:MetricsPlatform] --> API: fetches client-side-only experiment config
+  [Extension:MetricsPlatform] --> wan_cache: stores config
 
   Mediawiki --> eventgate_API: Metrics Platform logs exposures,\nmetrics, guardrail metrics, etc...
 }
-actor User
-User --> Varnish
+actor Reader
+Reader --> Varnish
 
 
 node Traffic {
