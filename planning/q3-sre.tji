@@ -133,18 +133,18 @@ task opensearch_migration "Elasticsearch to OpenSearch migration" {
   }
   task cloudelastic "[Elasticsearch migration] Cloudelastic" {
     depends !relforge
-    duration 1w
+    duration 1.7w
+  }
+  task production_codfw "[Elasticsearch migration] Production - codfw" {
+    depends !cloudelastic
+    duration 3w
   }
   task production_eqiad "[Elasticsearch migration] Production - eqiad" {
-    depends !cloudelastic
-    duration 2w
-  }
-  task production "[Elasticsearch migration] Production - codfw" {
-    depends !production_eqiad
-    duration 2w
+    depends !production_codfw
+    duration 3w
   }
   task impact "[Elasticsearch migration] Expected impact" {
-    depends !production
+    depends !production_eqiad
     milestone
   }
 }
