@@ -48,12 +48,17 @@ task airflow_migration "Migrate Airflow to k8s" {
     limits { weeklymax 4h }
     task product_analytics "[Airflow k8s] Analytics Product" {
       start 2025-02-15
-      duration 2w
+      end 2025-03-03
     }
     task analytics "[Airflow k8s] Analytics" {
       start 2025-02-15
-      duration 4w
-      note "check with Aleksandar"
+      duration 6w
+      note "Aleksandar is migrating DAGs manually"
+    }
+    task platform_eng "[Airflow k8s] Platform Engineering" {
+      start 2025-03-03
+      duration 3w
+      note "Waiting for the GO from Marco / Cormac"
     }
   }
   task completion "[Airflow k8s] Migration completed" {
