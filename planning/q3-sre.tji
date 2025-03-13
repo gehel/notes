@@ -32,11 +32,39 @@ task hdfs_storage "HDFS Storage" {
     duration 4 w
   }
 }
-task exp_platform_support "Support for Experimentation Platform"
+
+task exp_platform_support "Support for Experimentation Platform" {
+  duration 3m
+}
+
 task dumps_k8s_php "Dumps 1" {
-  task dumps_php8 "Dumps 1 can run on PHP8"
-  task dumps_k8s "Dumps 1 are running on k8s" {
-    task dumps_pull_images "Dumps 1 - enable pulling images from the private image registry"
+  task dumps_php8 "Dumps 1 can run on PHP8" {
+    start 2025-02-01
+    end 2025-02-12
+  }
+  task dumps_k8s "Dumps 1 are running on k8s / Airflow" {
+    task dumps_pull_images "Dumps 1 - enable pulling images from the private image registry" {
+      start 2025-02-16
+      end 2025-02-17
+    }
+    task dags "Write airflow DAGs" {
+      start 2025-03-10
+      duration 1w
+      depends !dumps_pull_images
+      note "also contains all config files, which will take time"
+    }
+    task one_wiki "Run 1 wiki in k8s / Airflow" {
+      duration 1w
+      depends !dags
+    }
+    task copy_dumps "Copy dumps from Ceph to NFS" {
+      duration 1w
+      depends !one_wiki
+    }
+    task ramp_up "Slowly deploy to all wikis" {
+      duration 4w
+      depends !copy_dumps
+    }
   }
 }
 
