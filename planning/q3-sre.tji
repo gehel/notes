@@ -120,8 +120,8 @@ task wdqs_graph_split "WDQS Graph Split" {
       depends !wikidata_dumps_fixed, !rework
     }
     task migrate "[WDQS Graph Split] Migrate internal traffic" {
-      duration 1w
-      depends !rework, !reload
+      duration 4w
+      depends !rework
     }
   }
 
