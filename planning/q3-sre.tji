@@ -12,6 +12,7 @@ task security_review "Security review of DPE infrastructure" {
 }
 task hdfs_storage "HDFS Storage" {
   responsible ben
+  note "https://grafana.wikimedia.org/goto/iKv2mshHR?orgId=1"
   task estimation "Estimation of storage needs" {
     purge responsible
     responsible andreas
@@ -27,9 +28,15 @@ task hdfs_storage "HDFS Storage" {
     depends !hardware_request_hdd
     milestone
   }
+  task new_servers "New servers received and configured" {
+    start 2025-03-05
+    end 2025-03-21
+    note "https://phabricator.wikimedia.org/T377878 https://phabricator.wikimedia.org/T386390"
+  }
   task hardware_hdd_install "Plugging & config HDD" {
-    depends !hardware_hdd_received
-    duration 4 w
+    depends !hardware_hdd_received, !new_servers
+    duration 6 w
+    note "We know what to do, waiting for 2 new batches of servers - https://phabricator.wikimedia.org/T385485"
   }
 }
 
