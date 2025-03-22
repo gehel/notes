@@ -50,6 +50,7 @@ task dumps_k8s_php "Dumps 1" {
     end 2025-02-12
   }
   task dumps_k8s "Dumps 1 are running on k8s / Airflow" {
+    note "https://phabricator.wikimedia.org/T388378"
     task dumps_pull_images "Dumps 1 - enable pulling images from the private image registry" {
       start 2025-02-16
       end 2025-02-17
@@ -78,6 +79,7 @@ task dumps_k8s_php "Dumps 1" {
 task airflow_migration "Migrate Airflow to k8s" {
   responsible ben
   start 2025-01-01
+  note "https://phabricator.wikimedia.org/T362788"
   task deployment "[Airflow k8s] Deployment" {
     allocate dpe_sre
     limits { weeklymax 4h }
