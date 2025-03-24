@@ -122,14 +122,14 @@ task wdqs_graph_split "WDQS Graph Split" {
     }
     task wikidata_dumps_fixed "Fix wikidata dumps" {
       milestone
-      start 2025-03-15
+      start 2025-03-28
     }
     task reload "[WDQS Graph Split] data reload" {
       duration 2w
       depends !wikidata_dumps_fixed, !rework
     }
     task migrate "[WDQS Graph Split] Migrate internal traffic" {
-      duration 4w
+      duration 6w
       depends !rework
     }
   }
