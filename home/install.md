@@ -17,6 +17,7 @@
 * tj3
 * inkscape
 * ack
+* meld
 
 # Snap
 * intellij
