@@ -18,6 +18,7 @@
 * inkscape
 * ack
 * meld
+* openssh-server
 
 # Snap
 * intellij
