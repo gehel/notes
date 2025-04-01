@@ -175,11 +175,11 @@ task opensearch_migration "Elasticsearch to OpenSearch migration" {
   }
   task cloudelastic "[Elasticsearch migration] Cloudelastic" {
     depends !relforge
-    duration 1.7w
+    end 2025-03-21
   }
   task production_codfw "[Elasticsearch migration] Production - codfw" {
     depends !cloudelastic
-    duration 3w
+    duration 4w
   }
   task production_eqiad "[Elasticsearch migration] Production - eqiad" {
     depends !production_codfw
