@@ -134,7 +134,7 @@ task wdqs_graph_split "WDQS Graph Split" {
     }
   }
 
-  task migrate_public "[WDQS Graph Split] Migrate public traffic" {
+  task migrate_public "[WDQS Graph Split] Migrating public traffic" {
     task temp_full "[WDQS Graph Split] Temporary full endpoint for Scholia" {
       start 2025-02-10
       end 2025-03-05
@@ -143,6 +143,11 @@ task wdqs_graph_split "WDQS Graph Split" {
       duration 4w
       depends !temp_full
       purge allocate
+    }
+    task cut_over "[WDQS Graph Split] Cutover - query.wd.o serving main graph only" {
+      start 2025-05-10
+      duration 1d
+      depends !temp_transition
     }
   }
   task decommission "[WDQS Graph Split] Decommission full graph (except temp full endpoint)" {
