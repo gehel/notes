@@ -1,0 +1,9 @@
+project dpe_q2 "DPE Q2 - SRE"  2025-10-01 +3m {
+  timeformat "%Y-%m-%d"
+}
+
+include "resources.tji"
+
+include "FY2025-2026-q2-sre.tji"
+
+include "reports.tji"

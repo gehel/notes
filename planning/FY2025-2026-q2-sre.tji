@@ -1,0 +1,59 @@
+task exp_platform_support "Support for Experimentation Platform" {
+  task growthbook "Growthbook" {
+    responsible ben
+    duration 3w
+    note "https://phabricator.wikimedia.org/T405749"
+  }
+}
+
+task opensearch "OpenSearch on Kubernetes" {
+  responsible brian
+  duration 2m
+  note "https://phabricator.wikimedia.org/T362105"
+}
+
+task hadoop_replacement "Hadoop Replacement" {
+  responsible ben
+  task exploration "Exploration" {
+    task infra "Infrastructure" {
+      note "https://phabricator.wikimedia.org/T318712"
+      duration 2w
+    }
+    task test_job "Test Job" {
+      duration 4w
+      depends !infra
+    }
+  }
+  task decision "Decision to continue" {
+    depends !exploration
+  }
+}
+
+task airflow_dev_env "User Migration from Run dev instances to airflow devenv" {
+  responsible steve
+  duration 4w
+}
+
+
+task dumps "Dumps 1 + 2 integration explorations" {
+
+}
+
+task dbt "DBT Setup" {
+
+}
+
+task dp_analyst "Data Platform Analyst Workflows Roadmap" {
+  task datahub_upgrade "DataHub upgrade" {
+    duration 1m
+    note "https://phabricator.wikimedia.org/T402408"
+  }
+  task stat_machines_ceph "enable shared home directories on the stat servers" {
+    duration 3w
+    note "https://phabricator.wikimedia.org/T378735"
+  }
+}
+
+task semantic_search "Semantic Search" {
+
+}
