@@ -1,4 +1,4 @@
-project growthbook "growthbook"  2024-11-01 +6m {
+project growthbook 'growthbook' 'version' 2024-11-01 +6m {
   # Hide the clock time. Only show the date.
   timeformat "%Y-%m-%d"
   # Use US format for numbers

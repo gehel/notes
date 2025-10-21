@@ -1,0 +1,27 @@
+task opensearch "OpenSearch on Kubernetes" {
+  responsible brian
+  note "https://phabricator.wikimedia.org/T362105"
+
+  task ceph "Persistent volumes" {
+    duration 1w
+  }
+  task secrets "Secrets" {
+    start 2025-10-06
+    duration 1d
+  }
+  task tls "TLS" {
+    start 2025-10-08
+    duration 3d
+  }
+  task access "Access control" {
+    start 2025-10-08
+    duration 3d
+  }
+  task test_env "Test environment ready" {
+    depends !ceph, !secrets, !tls, !access
+  }
+  task productionize "Productionize" {
+    depends !test_env
+    duration 1m
+  }
+}

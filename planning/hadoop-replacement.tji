@@ -1,0 +1,16 @@
+task hadoop_replacement "Hadoop Replacement" {
+  responsible ben
+  task exploration "Exploration" {
+    task infra "Infrastructure" {
+      note "https://phabricator.wikimedia.org/T318712"
+      duration 2w
+    }
+    task test_job "Test Job" {
+      duration 4w
+      depends !infra
+    }
+  }
+  task decision "Decision to continue" {
+    depends !exploration
+  }
+}

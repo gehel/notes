@@ -1,0 +1,38 @@
+task exp_platform_support 'Support for Experimentation Platform' {
+  start 2025-10-20
+  task growthbook "Growthbook" {
+    responsible ben
+    note "https://phabricator.wikimedia.org/T405749"
+    task postgres "Deploy Postgres" {
+      note "https://phabricator.wikimedia.org/T406578"
+      duration 1w
+    }
+    task packaging "Package pieces" {
+      duration 1w
+      start 2025-10-21
+    }
+
+    task growthbook "Deploy FerretDB and GrowthBook" {
+      depends !postgres, !packaging
+      duration 1w
+      note "https://phabricator.wikimedia.org/T406579"
+    }
+    task data_access "Link Growthbook to the Data Lake" {
+      duration 3w
+      depends !growthbook
+    }
+    task ready_for_test "Ready for test by X-Platform team" {
+      depends !data_access
+    }
+    task datalake "Investigate limiting GrowthBook's access to the Data Lake" {
+      note "https://phabricator.wikimedia.org/T406580"
+      duration 1w
+      depends !data_access
+    }
+    task sso "Integrate GrowthBook with CAS-SSO" {
+      duration 2w
+      start 2025-12-01
+      depends !growthbook
+    }
+  }
+}
