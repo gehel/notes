@@ -1,0 +1,3 @@
+task my_task_id "Some Task" {
+    depends other.tasks
+}

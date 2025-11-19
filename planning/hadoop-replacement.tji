@@ -3,7 +3,7 @@ task hadoop_replacement "Hadoop Replacement" {
   task exploration "Exploration" {
     task infra "Infrastructure" {
       note "https://phabricator.wikimedia.org/T318712"
-      duration 2w
+      duration 4w
     }
     task test_job "Test Job" {
       duration 4w

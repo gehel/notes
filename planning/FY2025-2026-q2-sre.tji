@@ -1,8 +1,8 @@
 task airflow_dev_env "User Migration from Run dev instances to airflow devenv" {
   responsible steve
-  duration 4w
+  start 2025-10-01
+  end 2025-11-17
 }
-
 
 task dumps "Dumps 1 + 2 integration explorations" {
 
