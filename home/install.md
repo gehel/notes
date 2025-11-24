@@ -19,6 +19,7 @@
 * ack
 * meld
 * openssh-server
+* yubikey-manager-qt
 
 # Snap
 * intellij
