@@ -31,7 +31,7 @@ task opensearch "OpenSearch on Kubernetes" {
       note "https://phabricator.wikimedia.org/T362114"
       start 2025-10-24
       duration 4w
-    }cd
+    }
     task alerts "Create Alerts" {
       note "https://phabricator.wikimedia.org/T408640"
       start 2025-11-20
