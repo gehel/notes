@@ -25,12 +25,12 @@ task opensearch "OpenSearch on Kubernetes" {
     task sre_doc "Create SRE-scoped documentation for OpenSearch on K8s" {
       note "https://phabricator.wikimedia.org/T408616"
       start 2025-11-06
-      duration 4w
+      duration 6w
     }
     task dashboards "Create dashboards" {
       note "https://phabricator.wikimedia.org/T362114"
       start 2025-10-24
-      duration 4w
+      duration 8w
     }
     task alerts "Create Alerts" {
       note "https://phabricator.wikimedia.org/T408640"
@@ -39,8 +39,24 @@ task opensearch "OpenSearch on Kubernetes" {
     }
     task common_operations "test common operations" {
       note "https://phabricator.wikimedia.org/T402833"
-      start 2025-11-20
+      start 2026-01-01
       duration 4w
+    }
+    task benchmarking "Benchmarking" {
+      start 2026-01-01
+      duration 2w
+    }
+
+    task dc_codfw "Deploy an OpenSearch cluster in dse-k8s-codfw" {
+      note "https://phabricator.wikimedia.org/T408643"
+      start 2025-10-30
+      duration 7w
+    }
+
+    task dc_writes "Allow applications to target specific DC for writes" {
+      note "https://phabricator.wikimedia.org/T410956"
+      start 2025-12-02
+      duration 1w
     }
     task separate_users "Create separate user for the OpenSearch operator" {
       note "https://phabricator.wikimedia.org/T408919"

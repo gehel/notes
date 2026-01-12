@@ -39,7 +39,6 @@ task growthbook "Growthbook" {
     }
 
     task helm_chart "Helm chart for Superset" {
-
       task decision "Investigate on using upstream helm chart or create a new one" {
         duration 1 w
         start 2024-01-05
