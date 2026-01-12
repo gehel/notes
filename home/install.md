@@ -10,7 +10,7 @@
 * pip
 * fonts-powerline
 * gimp
-* inotify-tools
+* inotify-toolscd 
 * openjdk-8-jdk
 * openjdk-8-source
 * xclip
