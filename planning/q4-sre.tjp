@@ -1,0 +1,30 @@
+project dpe_sre_q4 "DPE Q4 - SRE"  2026-04-01 +5m {
+  timeformat "%Y-%m-%d"
+}
+
+include "resources.tji"
+
+task onboarding_atsuko "Onboarding of Atsuko" {
+  responsible atsuko
+  start 2026-04-01
+  duration 1m
+}
+
+task wdqs_support "Support Wikidata Platform" {
+  duration 3m
+}
+task test_kitchen_support "Support Test Kitchen" {
+  duration 3m
+}
+task search_support "Support Search Platform" {
+  duration 3m
+}
+task de_support "Support Data Engineering" {
+  duration 3m
+}
+
+include "hadoop_k8s_ceph.tji"
+include "kafka_upgrade.tji"
+include "opensearch_semantic.tji"
+
+include "reports.tji"

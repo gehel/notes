@@ -1,0 +1,4 @@
+task kafka_upgrade "Kafka upgrade" {
+  responsible balthazar
+  duration 3m
+}

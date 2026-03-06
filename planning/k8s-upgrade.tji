@@ -1,0 +1,4 @@
+task k8s_upgrade "K8s upgrade" {
+  responsible ben
+  duration 3m
+}

@@ -10,7 +10,4 @@ task hadoop_replacement "Hadoop Replacement" {
       depends !infra
     }
   }
-  task decision "Decision to continue" {
-    depends !exploration
-  }
 }

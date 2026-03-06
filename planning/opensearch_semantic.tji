@@ -1,0 +1,4 @@
+task opensearch_semantic "OpenSearch - Semantic Search" {
+  responsible brian
+  duration 3m
+}

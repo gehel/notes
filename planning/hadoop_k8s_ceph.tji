@@ -1,0 +1,4 @@
+task hadoop_k8s_ceph "Migration of Hadoop to k8s + Ceph" {
+  responsible ben
+  duration 3m
+}
