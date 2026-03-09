@@ -26,5 +26,6 @@ task de_support "Support Data Engineering" {
 include "hadoop_k8s_ceph.tji"
 include "kafka_upgrade.tji"
 include "opensearch_semantic.tji"
+include "k8s-upgrade.tji"
 
 include "reports.tji"

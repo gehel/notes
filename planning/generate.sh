@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-projects="FY2025-2026-q2-sre"
+projects="FY2025-2026-q4-sre"
 
 while inotifywait -e MODIFY -r .; do
   for project in ${projects}; do
