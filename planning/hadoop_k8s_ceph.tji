@@ -1,4 +1,48 @@
 task hadoop_k8s_ceph "Migration of Hadoop to k8s + Ceph" {
   responsible ben
-  duration 3m
+
+  task k8s_ready "K8s prerequisite are completed" {
+    task hardware "Add k8s nodes with local storage" {
+      duration 2w
+    }
+    task k8s_upgrade "K8s upgrade to allow access to local mount points" {
+      duration 1w
+    }
+  }
+
+  task spark_logs "Access to Spark logs" {
+    duration 2w
+    depends !k8s_ready
+  }
+  task spark_history_server "Spark history server" {
+    duration 2w
+    depends !spark_logs
+  }
+
+  task aqs_hourly_manual "Test AQS job manually, using node affinity" {
+    depends !k8s_ready
+    duration 1w
+  }
+  task aqs_prod "Productionize AQS job with Airflow" {
+    depends !aqs_hourly_manual, !spark_logs
+    duration 2w
+  }
+
+  task yarn_to_k8s_impact "Analyze impacts of Yarn -> k8s" {
+    responsible joseph
+    task metrics_baseline "Create baseline metrics for yarn jobs" {
+      duration 1m
+    }
+    task compare_aqs_hourly "Compare AQS hourly metrics between yarn and k8s" {
+      depends !metrics_baseline, !!aqs_prod
+      duration 1w
+      note "This will raise as yet unknown issues!!"
+    }
+  }
+
+  task spark_ui "Spark UI" {
+    duration 1w
+    depends !k8s_ready
+  }
+
 }

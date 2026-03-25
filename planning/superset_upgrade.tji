@@ -1,0 +1,3 @@
+task superset_upgrade "Superset Upgrade" {
+  duration 4w
+}

@@ -14,18 +14,36 @@ task wdqs_support "Support Wikidata Platform" {
   duration 3m
 }
 task test_kitchen_support "Support Test Kitchen" {
-  duration 3m
+  task user_management "User management" {
+    duration 3m
+  }
 }
 task search_support "Support Search Platform" {
-  duration 3m
+  task opensearch_semantic "OpenSearch - Semantic Search" {
+    responsible brian
+    duration 3m
+  }
 }
 task de_support "Support Data Engineering" {
   duration 3m
 }
 
+task opensearch_operations "OpenSearch operations" {
+
+}
+
+task spark_upgrade "Spark Upgrade" {
+  duration 1m
+}
+
 include "hadoop_k8s_ceph.tji"
 include "kafka_upgrade.tji"
-include "opensearch_semantic.tji"
 include "k8s-upgrade.tji"
-
+include "opensearch_upgrade.tji"
+include "superset_upgrade.tji"
 include "reports.tji"
+
+# operations
+# superset upgrade
+# airflow upgrade
+# spark upgrade

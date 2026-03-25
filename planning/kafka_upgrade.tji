@@ -1,4 +1,42 @@
 task kafka_upgrade "Kafka upgrade" {
   responsible balthazar
-  duration 3m
+
+  task mirrormaker "Mirrormaker -> k8s" {
+    responsible balthazar
+    duration 3w
+  }
+
+  task cookbooks "Create necessary cookbooks / automations" {
+    duration 3w
+  }
+
+  task upgrade "Kafka upgrade" {
+    depends !mirrormaker, !cookbooks
+    task test "Upgrade Kafka test" {
+      duration 1w
+    }
+    task logging "Upgrade Kafka logging" {
+      duration 1w
+      depends !test
+    }
+    task main "Upgrade Kafka main" {
+      duration 1w
+      depends !logging
+    }
+    task jumbo "Upgrade Kafka jumbo" {
+      duration 1w
+      depends !main
+    }
+  }
+  task os_upgrade "Upgrade to Trixie" {
+    depends !upgrade
+    duration 1w
+  }
+  task cleanups "Various simplifications with new Kafka version" {
+    depends !upgrade
+    task tls "Simplification of TLS management" {
+      duration 2w
+    }
+  }
+
 }
