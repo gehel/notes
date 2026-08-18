@@ -53,3 +53,5 @@ fabric.properties
 /planning/.tj3webd-*.pid
 /planning/tj3d.*.stderr
 /planning/tj3d.*.stdout
+
+/private
