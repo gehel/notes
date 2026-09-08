@@ -14,10 +14,15 @@ replacement.
 
 ## Status
 
-**Round 1 of the config review is done — see [config-review.md](config-review.md).** Eight
-open findings, three integrations (Pi-hole, IotaWatt, OctoPrint) broken by the `home/network`
-VLAN renumber being the highest priority. `automations.yaml`, scenes, dashboards, and the
-Z-Wave mesh health question are flagged but not yet gone through in depth.
+**Round 1 of the config review is done — see [config-review.md](config-review.md).** Highest
+priority was three integrations broken by the `home/network` VLAN renumber: **Pi-hole fixed and
+verified** (see [changelog.md](changelog.md)); IotaWatt pending (device currently powered off);
+OctoPrint still open. Seven other findings open, `automations.yaml`/scenes/dashboards/the
+Z-Wave mesh health question not yet gone through in depth.
+
+Convention for these fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
+integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP
+wouldn't.
 
 ## Getting the config for review
 

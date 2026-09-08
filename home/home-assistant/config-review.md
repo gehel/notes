@@ -5,30 +5,35 @@ Round 1: 2026-09-08, against `config/` synced with
 First full pass since starting this project — see [README.md](README.md) for why.
 
 **Open findings only.** A finding leaves this document once fixed and verified, moving to
-`changelog.md` (not created yet — nothing has been fixed here so far).
+[changelog.md](changelog.md) with the evidence.
 
 ## Open findings
 
-### 1. Three integrations still point at pre-VLAN-renumber addresses (high)
+### 1. Two integrations still point at pre-VLAN-renumber addresses (high)
 
 The `home/network` VLAN migration renumbered everything from `192.168.1.0/24` to
 `192.168.10/20/30.0/24` (see `home/network/vlan.md`). Three HA config entries were never
-updated and still hold the dead old addresses:
+updated and still held the dead old addresses. **Pi-hole is fixed — see `changelog.md`.**
+Convention going forward: **hostname, not IP** (Pi-hole itself defines these in its local DNS)
+— `pihole.home.ledcom.fr`, `iotawatt.home.ledcom.fr`, and presumably an equivalent for OctoPrint
+if one exists.
 
 | Integration | Stored `data.host` | Should be | Evidence |
 |---|---|---|---|
-| Pi-hole | `192.168.1.40` | `192.168.20.40` | Currently failing outright: `Error setting up entry Pi-Hole for pi_hole` in today's log, both v6 and v5 API attempts |
-| IotaWatt | `192.168.1.50` | `192.168.30.50` | `source: user` — a manually-entered host, so it will never self-heal via rediscovery |
-| OctoPrint | `192.168.1.81` | `192.168.30.80` or `.81` (check which port it's actually on) | Also has an open **reauth** issue since 2026-06-11, predating the renumber — likely two separate problems on the same entry |
+| IotaWatt | `192.168.1.50` | `iotawatt.home.ledcom.fr` | `source: user` — a manually-entered host, so it will never self-heal via rediscovery. Device is currently powered off — Guillaume to reconfigure once it's back up |
+| OctoPrint | `192.168.1.81` | `octoprint.home.ledcom.fr` if it exists, else the new IP | Also has an open **reauth** issue since 2026-06-11, predating the renumber — likely two separate problems on the same entry |
 
 **Why Onkyo and the Samsung TV didn't have this problem, for context:** those integrations are
 zeroconf/SSDP-discovered, so they picked up their new `192.168.10.x` addresses automatically
 the moment the devices re-announced themselves after the renumber (`modified_at: 2026-09-07`
 on both). IotaWatt/Pi-hole/OctoPrint are all manually-configured hosts (`source: user` or a
-one-time `zeroconf` claim that doesn't re-trigger), so nothing rediscovers them — they need a
-manual fix via **Settings → Devices & Services → (integration) → Reconfigure**.
+one-time `zeroconf` claim that doesn't re-trigger), so nothing rediscovers them.
 
-Fix each one via the UI reconfigure flow, then confirm no more connection errors in the log.
+**Neither Pi-hole nor IotaWatt offered a "Reconfigure" option** in Settings → Devices &
+Services — apparently not implemented by these integrations. Fixed instead via delete +
+re-add (**+ Add Integration**, same host field, new value). Confirmed safe beforehand: both
+integrations key their entities off the device's own identity (Pi-hole: a generated ID;
+IotaWatt: the device MAC), not the host, so entity IDs survive a delete + re-add unchanged.
 
 ### 2. `configuration.yaml`'s `logger:` block is malformed — debug logging and ZHA's custom quirks path are silently not applied (medium)
 
