@@ -1,3 +1,0 @@
-
-clear all cache:
-salted cmd.run 'service varnish stop; rm -f /srv/sd*/varnish*; service varnish start'

@@ -1,7 +1,0 @@
-task my_task_id "Some Task" {
-    depends other.tasks
-    task my_subtask "My Subtask" {
-      depends my_other_task_
-      start 2025-11-10
-    }
-}
