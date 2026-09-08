@@ -34,6 +34,7 @@ snapshot, not a source of truth.
 | [vlan.md](vlan.md) | **Active, Phase 5 next.** VLAN design, device inventory, address plan, migration reference |
 | [wifi.md](wifi.md) | Wireless: the channel fix already applied, the 5 GHz plan, mikrotik4 build |
 | [config-review.md](config-review.md) | Open findings and the hardware/architecture decisions |
+| [firewall.md](firewall.md) | Every live firewall rule, in evaluation order, on all three devices |
 | [changelog.md](changelog.md) | Every closed finding, with the output that verified it |
 | [network.md](network.md) | The two diagrams and how to regenerate them |
 | [performance.md](performance.md) | Throughput investigation — the MikroTik is not the cause |
@@ -60,8 +61,10 @@ tighten. The "second laptop" from the device inventory is still unidentified.
 - Both existing APs are 2.4 GHz only. TX power rose 16 -> 20 dBm as a side effect of the
   channel fix; deliberately not adjusted yet.
 
-**Main router** — [config-review.md](config-review.md). mikrotik4 has never been reviewed. It
-needs the full S1-S16 pass when it returns.
+**Main router** — [config-review.md](config-review.md). Findings 19-22 from the post-Phase-4
+review round (2026-09-08): a dead TEMP rule and other firewall debris safe to delete, IPv6 never
+extended to `vlan-services`/`vlan-iot`, and a minor `connection-state=new` inconsistency on
+`chain=input`. mikrotik4 has never been reviewed; needs the full S1-S16 pass when it returns.
 
 **Hardware, pending the replacement Swisscom box.**
 - RB5009UG+S+IN for the edge role. Check the new box's port speeds and whether it supports

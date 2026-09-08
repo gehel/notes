@@ -2,10 +2,15 @@
 
 Covers every MikroTik on the network. Round 1 reviewed 2026-09-03, round 2 from 2026-09-04,
 re-verified 2026-09-05 against [dumps/](dumps/), collected with
-[dump-configs.sh](scripts/dump-configs.sh). **Addresses below updated 2026-09-07** after the VLAN
-segmentation renumber (Phases 0-2, see [vlan.md](vlan.md) / [changelog.md](changelog.md)) —
+[dump-configs.sh](scripts/dump-configs.sh). **Round 3: 2026-09-08**, against fresh dumps taken
+after Phase 4's firewall policy went live — the post-migration pass this document had flagged as
+still needed. **Addresses below updated 2026-09-07** after the
+VLAN segmentation renumber (Phases 0-2, see [vlan.md](vlan.md) / [changelog.md](changelog.md)) —
 everything else in this document is a historical record from the original review dates and
 intentionally still shows the addresses as they were *at the time each finding was made*.
+
+The live firewall ruleset itself — every chain, in order, on all three devices — is documented
+separately in [firewall.md](firewall.md), generated from this same round of dumps.
 
 | Device | Model | Address | Role |
 |---|---|---|---|
@@ -14,8 +19,9 @@ intentionally still shows the addresses as they were *at the time each finding w
 | mikrotik3 | RB750Gr3 (hEX) — 256 MB, 880 MHz quad-core | `192.168.10.3/24` static on `bridge` | L2 bridge, 5 ports |
 | mikrotik4 | — | `192.168.10.4` reserved, offline | being returned to service |
 
-All three reachable devices run RouterOS 7.24.2, current as of 2026-09-05. `bridge-fon`
-(`192.168.2.0/24`) no longer exists — removed in Phase 0 of the VLAN work.
+All three reachable devices run RouterOS 7.24.2, current as of 2026-09-08 (RouterBOOT current
+on mikrotik1 too — re-checked this round). `bridge-fon` (`192.168.2.0/24`) no longer exists —
+removed in Phase 0 of the VLAN work.
 
 **Open findings only.** A finding leaves this document once it has been fixed **and**
 verified against device output — never when it is reported done. Closed items move to
@@ -26,35 +32,89 @@ findings `S<n>`, so the two sets never collide.
 
 ## Open findings
 
-### Planned: full config review once the VLAN migration is complete
+### 19. Dead Phase-3 TEMP rule, and it's been unreachable dead code the whole time (low)
 
-Noted 2026-09-08, not started. After [vlan.md](vlan.md)'s migration finishes (all devices moved,
-Phase 4/5 applied), do a full review pass of the resulting config, same spirit as Rounds 1-2
-above but covering everything the VLAN work added or touched.
+Found 2026-09-08, reviewing the post-Phase-4 dump. `chain=forward` position 59 on mikrotik1,
+comment *"TEMP: iot mqtt via users, remove at Phase 4"*, is still enabled:
 
-**Specifically called out: audit every firewall rule that opens a port, and confirm it matches
-`connection-state=new` (or otherwise narrowly scopes what "new" traffic looks like) rather than
-accepting broadly.** Motivated directly by two things found during the VLAN migration: (1)
-RouterOS silently marks a forward-chain accept rule combining `in-interface=`/`out-interface=`
-with `dst-address=`/`dst-port=` as `I - INVALID` (unenforced, no error) when
-`connection-state=new` is missing — confirmed live and now fixed throughout `vlan.md`'s Phase 4
-draft, but worth checking nothing similar slipped through elsewhere in the *existing* ruleset;
-(2) more generally, a rule that accepts more than "new" traffic for its stated purpose (e.g. all
-traffic instead of just connection-initiating packets) is broader than it needs to be and is
-exactly the kind of thing a fresh-eyes review should catch after the pressure of an active
-migration has passed.
+```
+chain=forward action=accept connection-state=new protocol=tcp \
+    dst-address=192.168.20.60 in-interface=vlan-users out-interface=vlan-services dst-port=1883
+```
 
-**Also noted 2026-09-08, for the same post-migration pass:** Home Assistant's MikroTik
-integration reports mikrotik2 as running RouterOS 7.23.3 and needing an upgrade to 7.24.2.
-Checked directly against today's dump — mikrotik2 is actually already on 7.24.2 (matches the
-rest of the network), so this is stale integration-side cached state, not a real gap. Still
-worth investigating why HA hasn't refreshed it. Separately: the integration is supposed to be
-able to *trigger* a RouterOS upgrade — worth testing whether that actually works, on a device
-and a moment where an unexpected reboot is low-risk.
+It was added during Home Assistant's migration so IoT devices still on `vlan-users` at the time
+could keep reaching HA's MQTT broker. Every device that needed it (Kids light, ceiling fan,
+IotaWatt, OctoPrint) has since moved to `vlan-iot`, where the permanent `iot: MQTT to HA` rule
+already covers them — so it's obsolete either way. But it's also **not currently a live hole**:
+RouterOS's `/ip/firewall/filter/print` numbers rules by real evaluation position across every
+chain, and this one sits at position 59 — *after* position 51, `chain=forward action=drop` with
+no conditions at all ("Drop all other forward traffic"). An unconditional drop is terminating,
+so no `chain=forward` rule after it, including this one, is ever reached. It was almost
+certainly added with a plain `/add` rather than `place-before=` during Home Assistant's
+migration — the exact append-after-the-catch-all bug already documented for the Pi-hole
+`services: internet` rule in [changelog.md](changelog.md) — meaning it likely never actually
+granted the access its comment describes, even during the migration window it was meant for.
+
+Remove it regardless — it's inert debris either way, and leaving dead rules with misleading
+comments around is its own hazard for whoever edits this ruleset next.
+
+### 20. Firewall debris safe to delete outright (low)
+
+Found 2026-09-08. None of these are reachable or risky as configured — they're housekeeping,
+the kind of thing a fresh-eyes pass after the migration pressure is exactly for:
+
+- **Two bridge-main-scoped IPv4 rules are dead**, `chain=input` "DHCP server" (rule 8) and
+  `chain=forward` "Home can connect everywhere" (rule 22): both match `in-interface=bridge-main`,
+  but all real traffic now arrives tagged as `vlan-users`/`vlan-services`/`vlan-iot`, each with
+  its own working rule already in place (rules 14 and 29). This is the same leftover pattern
+  [ipv6.md](ipv6.md) already flagged and left in place for its own `bridge-main` pair — worth
+  clearing both protocols' debris together rather than leaving two more "harmless but dead"
+  rules to explain to a future reader.
+- **Two disabled TEMP rules are pure debris**: "ceiling fan: TEMP internet for setup" and
+  "iot: TEMP internet for phone/device pairing, DISABLE AFTER" (rules 36-37). Correctly
+  disabled and inert, but nothing re-enables them safely without re-deriving why they existed —
+  delete rather than leave disabled indefinitely.
+- **The disabled `chain=input` rule referencing `address-list=home`** (rule 11, from finding 2's
+  original fix) now references a list that does not exist at all — confirmed empty in
+  `/ip/firewall/address-list/print`. Already inert twice over; delete it.
+
+### 21. IPv6 firewall was never extended to `vlan-services`/`vlan-iot` (low)
+
+Found 2026-09-08. [ipv6.md](ipv6.md)'s "Migrated onto `vlan-users`" work moved the router's own
+IPv6 address, RA and firewall rules from `bridge-main` onto `vlan-users` — but only `vlan-users`.
+`/ipv6/firewall/filter/print` has an input and a forward accept for `bridge-main` (dead, see
+finding 20's IPv4 twin) and for `vlan-users`, and nothing at all for `vlan-services` or
+`vlan-iot`. Both fall through to the chain's terminating drops.
+
+**Not a security problem — it fails closed** — but it's an undocumented gap, not a decision: the
+IPv4 policy explicitly grants `services -> internet: allow` (added deliberately during Pi-hole's
+migration, [changelog.md](changelog.md)), while IPv6 silently gives `vlan-services` no internet
+access at all. For `vlan-iot` the accidental result actually matches the intended "no internet of
+any kind" policy — but for the wrong reason, and it would silently break the day someone adds a
+real IPv6 rule to `vlan-iot` without realizing there was never a matching input accept either.
+Add `chain=input`/`chain=forward` accepts for `vlan-services` and `vlan-iot` mirroring the
+`vlan-users` pair, or explicitly decide IPv6 stays users-only and drop the dead `bridge-main`
+rules so the ruleset stops looking incomplete.
+
+### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)
+
+Found 2026-09-08, the exact audit this document had planned to run. Every `chain=forward` accept
+already declares `connection-state=new` consistently. On `chain=input`, only "iot: NTP from
+gateway" does; the DHCP, `mgmt`, DNS and HA-API accepts don't. Not exploitable — `chain=input`
+rule 1 (`accept established,related`) already intercepts non-new traffic before any of these are
+reached — but worth tidying to the same standard as the forward chain, since the whole reason
+this document tracks `connection-state=new` is that RouterOS's own `I - INVALID` behavior punishes
+inconsistency here on other chains. Low priority; no known live impact.
+
+**Home Assistant's MikroTik integration reports mikrotik2 as running RouterOS 7.23.3** (noted
+2026-09-08, still true). Checked directly against this round's dump — mikrotik2 is actually
+already on 7.24.2. Stale integration-side cached state, not a real gap; still worth investigating
+why HA hasn't refreshed it, and whether the integration's upgrade-trigger feature actually works
+(test on a device/moment where an unexpected reboot is low-risk).
 
 ### mikrotik4 has never been reviewed
 
-`192.168.1.4` was unreachable on port 22 on every dump run through 2026-09-05 17:13, so no
+`192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no
 finding in this document or in the changelog says anything about its configuration.
 
 When it returns to service it needs the full pass the switches got — input-chain firewall,
@@ -63,7 +123,7 @@ address, SSH hardened, and a proven MAC-Telnet recovery path. It is already in t
 address list on every device and holds a `.4` reservation on mikrotik1, so it will come up
 reachable.
 
-Nothing else is open. mikrotik1, mikrotik2 and mikrotik3 are clear.
+Nothing else is open. mikrotik2 and mikrotik3 are clear; mikrotik1 has findings 19-22 above.
 
 ## The architectural item: VLAN segmentation
 
