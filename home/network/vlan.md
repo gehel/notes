@@ -47,8 +47,17 @@ moved out of order (see Decisions above) and confirmed working in HA via `tuya-l
 live-discovered policy gap (`services -> iot` tcp/6668) was closed. Also where the `I -
 INVALID` finding grew a lot more nuanced — see `README.md`'s hard-won lessons. **Step 6 (Kids
 light) also done and verified 2026-09-08** — connected to HA over the (newly-applied,
-permanent) `iot: MQTT to HA` rule, and confirmed the DHCP-option-42 assumption below. **Steps 4
-and 5 (OctoPrint, IotaWatt) are what's left.**
+permanent) `iot: MQTT to HA` rule, and confirmed the DHCP-option-42 assumption below.
+
+**Step 4 (OctoPrint): router-side config prepared 2026-09-08, not yet verified** — the device
+was powered off. DHCP reservations and the `iot-internet` exception are in place; its wired
+port (mikrotik2 `ether24-slave-local`, physically confirmed, not in the original port plan
+since it was wireless-only when that was drawn up) is now tagged for `vlan-iot` too, ready for
+whenever that known-dead cable is fixed. Still to do once it's actually running: join
+`LEDCOM-IoT`, update HA's integration, confirm the plugin update path actually works, and check
+whether HA needs a port beyond the 80/443 already open. See `changelog.md`.
+
+**Step 5 (IotaWatt) is what's left.**
 
 **One open item, not a blocker:** the "second laptop" from the device inventory below is still
 unidentified. Also corrected in this document,
@@ -332,8 +341,9 @@ there ever needs them; nothing currently attached to mikrotik3 uses anything but
 |---|---|---|---|---|
 | `ether1-gateway` | trunk to mikrotik1 | 10 | 10 | 20, 30 |
 | `ether16-slave-local` | trunk to mikrotik3 | 10 | 10 | 20, 30 |
-| `ether21-slave-local` | Home Assistant — moves to `services` in Phase 3 | 10 | 10 | — |
-| `ether23-slave-local` | Pi-hole — moves to `services` in Phase 3 | 10 | 10 | — |
+| `ether21-slave-local` | Home Assistant (`services`, moved 2026-09-08) | 20 | 20 | — |
+| `ether23-slave-local` | Pi-hole (`services`, moved 2026-09-08) | 20 | 20 | — |
+| `ether24-slave-local` | OctoPrint wired (`iot`, tagged 2026-09-08 — cable currently down, ready for when it's fixed) | 30 | 30 | — |
 | all other ports | unused | 10 | 10 | — |
 | `bridge-local` itself | management address | — | — | 10 |
 

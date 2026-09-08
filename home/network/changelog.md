@@ -549,6 +549,36 @@ is no longer part of the Phase 3 device migration — `vlan.md`'s device invento
 design, policy matrix, trunk/port plan, and migration table were all updated to reflect it
 staying on `users` permanently.
 
+### Phase 3, step 4 — OctoPrint router-side config prepared, not yet verified (2026-09-08)
+
+OctoPrint was powered off, so this is router-side prep only — deliberately not claimed as
+"done and verified" until it's actually running and tested.
+
+`scripts/phase3-18-octoprint-mikrotik1.rsc`: both DHCP reservations (wifi, in use; wired,
+known-dead cable but kept for when it's fixed) moved to `192.168.30.81`/`.80` on `dhcp-iot`;
+both addresses added to the `iot-internet` address-list with the actual allow rule (tcp
+80/443 to WAN) — the "named exception" design decided back on 2026-09-06 but never applied
+since nothing was on `vlan-iot` yet. Deliberately skipped a direct `iot-internet -> WAN udp/53`
+rule from the original design sketch — the general `iot: DNS to pi-hole` rule already covers
+this via Pi-hole's own recursion, so a second path would be redundant. Printed clean, no `I -
+INVALID` flag (had both interfaces + `connection-state=new` from the start).
+
+**A real gap caught before it could bite:** the original port/trunk plan never assigned
+OctoPrint's wired connection to any specific physical port, since it was wireless-only when
+that plan was drawn up and its cable was already known dead. Guillaume physically checked and
+found it plugged into mikrotik2's `ether24-slave-local`. Tagged for VLAN 30 via
+`scripts/phase3-19-octoprint-mikrotik2-port.rsc` (same read-modify-write approach as the
+Pi-hole/HA moves, to avoid retyping VLAN 10's long untagged list) — so whenever that cable is
+actually fixed, it comes up on the right VLAN without anyone having to remember this step.
+Port shows `Flags: I - INACTIVE` (no link detected) — normal, given the cable is still down;
+not the same `I` as the firewall's `I - INVALID`, and expected to clear once there's a live
+link.
+
+**Not verified, left for when OctoPrint is actually running:** whether HA's OctoPrint
+integration needs a port beyond what `HA -> Tasmota/IotaWatt` (tcp/80) already opens — if it
+uses OctoPrint's own default port 5000 instead, that'll need a new rule, discovered live the
+same way tuya-local's port 6668 was for the ceiling fan.
+
 ### Phase 3, step 6 — Kids light migrated to iot (2026-09-08)
 
 Wireless Tasmota device, no port to move. Moved via
