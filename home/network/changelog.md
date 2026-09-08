@@ -562,12 +562,17 @@ work — printed clean immediately, no follow-up fix needed this time.
 Guillaume rejoined the device to `LEDCOM-IoT` via Tasmota's own console/web config (not
 scripted). **Verified: connected to HA successfully.**
 
-**Confirmed one of `vlan.md`'s "known unverified assumptions": Tasmota ignores DHCP option 42
-entirely.** It kept its previously-configured NTP server, which — with no internet access on
-`vlan-iot` by design — is unreachable, so it was silently running on stale time rather than
-failing loudly (a real concern for a kids' light, if it has any bedtime/schedule automation).
-Fixed via Tasmota's own console: `NtpServer1 192.168.30.1` (mikrotik1's `vlan-iot` address).
-Still unverified for ESPHome (IotaWatt) — check the same way when that device migrates.
+**DHCP option 42 finding, corrected twice — full account in `vlan.md`'s "Known unverified
+assumptions" #3.** After migrating, the device was still pointed at `192.168.10.1` — the exact
+value this project's own `ntp-users` option-42 entry provides, acquired while it was still on
+`vlan-users` and persisted across the VLAN move rather than refreshed. Manually repointed via
+Tasmota's console (`NtpServer1 192.168.30.1`, confirmed applied) — but time still didn't sync.
+**Actual remaining root cause:** mikrotik1's `chain=input` had no rule permitting UDP/123 from
+`vlan-iot` at all — the Phase 4 draft's `iot: NTP from gateway` rule was never pulled forward
+like the others were. Fixed via `scripts/phase3-17-iot-ntp-input.rsc` — printed clean, no `I`
+flag, resolving the open question of whether the interface-completeness half of that finding
+also applies to `chain=input` (it doesn't appear to — see `README.md`). **Verified: Tasmota's
+`Status 7` shows correct local time**, no longer stuck at the 1970 epoch.
 
 ### Phase 3, step 7 — ceiling fan migrated to iot, out of order (2026-09-08)
 

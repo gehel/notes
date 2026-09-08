@@ -445,7 +445,8 @@ not expected to be an issue since these are plain routed queries with no NAT inv
 why, and `changelog.md` for the router-side application. Reconfiguring it in Home Assistant
 (rejoining `LEDCOM-IoT`, re-pairing) is Guillaume's own next action, not scripted here.
 
-**Step 6 (Kids light) done and verified 2026-09-08** — see `changelog.md`.
+**Step 6 (Kids light) done and verified 2026-09-08, including its NTP fix** — see
+`changelog.md`.
 
 | # | Device | To | Also change | Verify |
 |---|---|---|---|---|
@@ -754,13 +755,26 @@ Listed so they are not mistaken for established fact.
    go missing. A specific RouterOS defect, not fixable from the config side. See the printer's
    mDNS finding under Phase 4 above for the full packet-capture evidence. Static IP addressing
    is the confirmed, permanent workaround for any cross-VLAN mDNS consumer.
-3. ~~DHCP option 42 uptake.~~ **Confirmed 2026-09-08 on the Kids light (Tasmota), the first
-   Tasmota device migrated: it ignores option 42 entirely** and kept its own previously
-   configured NTP server — which, with no internet access on `vlan-iot` by design, is
-   unreachable, so it was silently running on stale time rather than failing loudly. Fixed via
-   Tasmota's own console: `NtpServer1 192.168.30.1` (mikrotik1's `vlan-iot` address — exactly
-   what this network already provides as the local NTP server). Still unverified for ESPHome
-   specifically (IotaWatt, not yet migrated) — check the same way when that device moves.
+3. ~~DHCP option 42 uptake.~~ **Resolved 2026-09-08 on the Kids light, twice corrected along
+   the way — full sequence kept since each correction is the actual lesson.** First observation: after migrating, it was still pointed at `192.168.10.1` — not a
+   random default, but the *exact* `ntp-users` option-42 value this project created on
+   2026-09-07 while the device was still on `vlan-users`. Initially wrote this up as "Tasmota
+   ignores option 42 entirely" — wrong, or at least unproven; the only thing actually
+   confirmed is that an old, DHCP-or-otherwise-acquired value **persisted across the VLAN
+   migration** rather than being refreshed. Whether a fresh DHCP renewal alone would have
+   picked up the new network's option-42 value was never tested, since manual reconfiguration
+   was done instead (`NtpServer1 192.168.30.1`, applied and confirmed via Tasmota's console).
+   **That manual fix was correct but time still didn't sync** — the actual remaining blocker
+   was that mikrotik1's `chain=input` had no rule permitting UDP/123 from `vlan-iot` at all
+   (the Phase 4 draft's `iot: NTP from gateway` rule, never pulled forward like the others).
+   Fixed via `scripts/phase3-17-iot-ntp-input.rsc`. **Net takeaway: don't assume a device's
+   automatically-acquired NTP config survives a VLAN move — check and re-point it by hand
+   either way — and a "correct" device-side fix can still fail silently if the matching
+   router-side rule was never actually applied.** **Verified fixed:** Tasmota's `Status 7`
+   shows correct local time (`2026-09-08T15:26:23`, not the epoch stall). Still worth testing
+   fresh, cleanly, on the next device (IotaWatt/ESPHome, not yet migrated): does an actual DHCP
+   renewal on the new network's scope update its NTP server, or does it also need manual
+   reconfiguration?
 4. **RB2011 hardware offload for VLAN filtering.** If bridge VLAN filtering is not offloaded
    to the switch chips, forwarding moves to a 600 MHz single core. Watch CPU during Phase 3;
    the throughput measurements in [performance.md](performance.md) are the baseline. Not

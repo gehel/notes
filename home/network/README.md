@@ -213,5 +213,7 @@ outstanding test is a host plugged directly into the Internet-Box.
     flag once enabled for real — so a disabled rule's cleanliness proves nothing about whether
     it'll be valid once turned on. Enable and re-check, don't just trust the print from while
     it was off.
-  - Not verified whether any of this applies to `chain=input` (no `out-interface=` concept
-    applies there).
+  - **Checked on `chain=input`, 2026-09-08: no `I` flag** on an `input` rule combining
+    `in-interface=` with `dst-port=` and `connection-state=new` (`iot: NTP from gateway`) —
+    the interface-completeness half of this seems specific to `chain=forward`, consistent with
+    `chain=input` having no `out-interface=` concept to be incomplete about.
