@@ -24,6 +24,12 @@ if one exists.
 | IotaWatt | `192.168.1.50` | `iotawatt.home.ledcom.fr` | `source: user` — a manually-entered host, so it will never self-heal via rediscovery. Device is currently powered off — Guillaume to reconfigure once it's back up |
 | OctoPrint | `192.168.1.81` | `octoprint.home.ledcom.fr` if it exists, else the new IP | Also has an open **reauth** issue since 2026-06-11, predating the renumber — likely two separate problems on the same entry |
 
+**OctoPrint status 2026-09-08: mid-reimage** — Guillaume lost the system password and is
+reimaging the SD card fresh (config backed up via OctoPrint's own Settings → Backup & Restore
+first). This will need a fresh HA integration entry regardless (new host, and almost certainly
+a new API key once OctoPrint is reinstalled), which naturally resolves both the stale-address
+and reauth halves of this row at once rather than needing two separate fixes.
+
 **Why Onkyo and the Samsung TV didn't have this problem, for context:** those integrations are
 zeroconf/SSDP-discovered, so they picked up their new `192.168.10.x` addresses automatically
 the moment the devices re-announced themselves after the renumber (`modified_at: 2026-09-07`
