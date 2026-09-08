@@ -121,7 +121,30 @@ HA — consistent with the finding's prediction that the `homeassistant` API use
 policy would likely block triggering it from HA's own "Install" button.
 
 **Verified against `home/network`'s own fresh dump** (`dumps/mikrotik2-switch.txt`,
-2026-09-08 21:57:25), not yet re-checked from HA's side: `/system/routerboard/print` shows
-`current-firmware: 7.24.2` matching `upgrade-firmware: 7.24.2`. HA's own `update.*_routerboard`
-entity should reflect this on its next poll — worth a glance next HA sync, but the router-side
-fact is confirmed either way.
+2026-09-08 21:57:25): `/system/routerboard/print` shows `current-firmware: 7.24.2` matching
+`upgrade-firmware: 7.24.2`. **Also confirmed from HA's side** on the next sync:
+`update.under_the_stairs_mikrotik_2_routerboard` now shows `installed_version`/`latest_version`
+both `7.24.2`, state `off` (no update pending).
+
+## OctoPrint reimaged, reconfigured, and moved to `vlan-iot` (was part of finding 1, high, closed 2026-09-08)
+
+`config-review.md`'s finding 1: OctoPrint's HA integration held the pre-renumber
+`192.168.1.81` and had a separate open reauth issue since 2026-06-11. Guillaume lost the
+system password, backed up OctoPrint's config via its own Settings → Backup & Restore, and
+reimaged the SD card fresh — which resolved both problems at once by necessity, same pattern
+as finding 9's prediction: a fresh OS means a fresh OctoPrint install with a new API key, so
+the HA integration entry had to be recreated regardless.
+
+New entry points at **`octoprint-wifi.home.ledcom.fr`** (hostname, matching the
+`iot-internet` address-list naming already used on mikrotik1 —
+`home/network/dumps/mikrotik1-main.txt`), fresh `entry_id`
+(`01M21CPY0KC4Z8ZG96KGJ5A6PA`, replacing the old reauth-flagged
+`01KBN54W3AQH7RP37SPW9XGM62` — that old reauth issue is now stale/moot, same pattern as the
+mikrotik ones in finding 8).
+
+**Verified:** zero `octoprint`-related log lines across 2+ hours since the new entry was
+created (20:52 to 22:53), where the old entry had been erroring or flagged for reauth.
+`home/network`'s fresh CAPsMAN registration table shows a freshly-connected client on
+`LEDCOM-IoT` (uptime ~53 minutes at dump time, matching the reimage timeline) — consistent
+with OctoPrint rejoining the correct SSID/VLAN post-reimage. `home/network/vlan.md`'s device
+migration table updated to mark OctoPrint fully verified, not just router-side-applied.

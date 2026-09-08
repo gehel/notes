@@ -10,25 +10,17 @@ First full pass since starting this project — see [README.md](README.md) for w
 
 ## Open findings
 
-### 1. Two integrations still point at pre-VLAN-renumber addresses (high)
+### 1. One integration still points at a pre-VLAN-renumber address (high)
 
 The `home/network` VLAN migration renumbered everything from `192.168.1.0/24` to
 `192.168.10/20/30.0/24` (see `home/network/vlan.md`). Three HA config entries were never
-updated and still held the dead old addresses. **Pi-hole is fixed — see `changelog.md`.**
-Convention going forward: **hostname, not IP** (Pi-hole itself defines these in its local DNS)
-— `pihole.home.ledcom.fr`, `iotawatt.home.ledcom.fr`, and presumably an equivalent for OctoPrint
-if one exists.
+updated and still held the dead old addresses. **Pi-hole and OctoPrint are fixed — see
+`changelog.md`.** Convention going forward: **hostname, not IP** (Pi-hole itself defines these
+in its local DNS) — `pihole.home.ledcom.fr`, `octoprint-wifi.home.ledcom.fr`.
 
 | Integration | Stored `data.host` | Should be | Evidence |
 |---|---|---|---|
 | IotaWatt | `192.168.1.50` | `iotawatt.home.ledcom.fr` | `source: user` — a manually-entered host, so it will never self-heal via rediscovery. Device is currently powered off — Guillaume to reconfigure once it's back up |
-| OctoPrint | `192.168.1.81` | `octoprint.home.ledcom.fr` if it exists, else the new IP | Also has an open **reauth** issue since 2026-06-11, predating the renumber — likely two separate problems on the same entry |
-
-**OctoPrint status 2026-09-08: mid-reimage** — Guillaume lost the system password and is
-reimaging the SD card fresh (config backed up via OctoPrint's own Settings → Backup & Restore
-first). This will need a fresh HA integration entry regardless (new host, and almost certainly
-a new API key once OctoPrint is reinstalled), which naturally resolves both the stale-address
-and reauth halves of this row at once rather than needing two separate fixes.
 
 **Why Onkyo and the Samsung TV didn't have this problem, for context:** those integrations are
 zeroconf/SSDP-discovered, so they picked up their new `192.168.10.x` addresses automatically
