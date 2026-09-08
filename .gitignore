@@ -55,3 +55,9 @@ fabric.properties
 /planning/tj3d.*.stdout
 
 /private
+
+# Raw MikroTik config dumps and backups: MAC addresses, DHCP reservations,
+# serial numbers, network layout, and (backups) largely-unredacted config.
+# See home/network/README.md.
+/home/network/dumps/
+/home/network/backups/
