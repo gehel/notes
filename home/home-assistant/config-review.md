@@ -54,13 +54,6 @@ limitation — it should be including the router's own identity in the unique ID
 interface MAC); worth a note in `home/network` as a known HA-integration quirk of the two-router
 CAPsMAN setup, and possibly a bug report upstream.
 
-### 5. `smart_thermostat` (HACS) is installed but unused and unmaintained (low)
-
-`custom_components/smart_thermostat` (`ScratMan/HASmartThermostat`) has no config entry at all
-— it's dead weight, superseded by `better_thermostat`. HACS's own tracked data shows no release
-since `2024.12.0` (fetched as recently as 2026-02-16, so this isn't a stale-cache artifact).
-Safe to remove via HACS.
-
 ### 6. InfluxDB connection timeouts (low, needs a live check)
 
 ```

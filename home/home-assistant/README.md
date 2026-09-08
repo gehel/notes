@@ -14,13 +14,14 @@ replacement.
 
 ## Status
 
-**Round 1 of the config review is done — see [config-review.md](config-review.md).** Three
+**Round 1 of the config review is done — see [config-review.md](config-review.md).** Four
 findings closed so far, see [changelog.md](changelog.md): Pi-hole's stale post-renumber
 address, `configuration.yaml`'s malformed `logger:`/`zha:` block (which was silently keeping
-ZHA's custom water-valve quirk from loading), and the Irrigation automation's misdirected
-`numeric_state` trigger. IotaWatt's address fix is pending (device currently powered off);
-OctoPrint and five other findings remain open; `automations.yaml`, scenes, dashboards, and the
-Z-Wave mesh health question not yet gone through in depth.
+ZHA's custom water-valve quirk from loading), the Irrigation automation's misdirected
+`numeric_state` trigger, and the unused `smart_thermostat` HACS component. IotaWatt's address
+fix is pending (device currently powered off); OctoPrint and four other findings remain open;
+`automations.yaml`, scenes, dashboards, and the Z-Wave mesh health question not yet gone
+through in depth.
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP

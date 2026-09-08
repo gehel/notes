@@ -70,3 +70,16 @@ threshold, it was just wired to the wrong entities.
 the post-restart log (the "Irrigation" warnings visible in the round-2 sync were from the
 *old*, pre-restart session still running the previous broken version, consistent with that
 sync having raced the restart per finding 2 above).
+
+## `smart_thermostat` (HACS) removed (was finding 5, low, closed 2026-09-08)
+
+`config-review.md`'s finding 5: `custom_components/smart_thermostat`
+(`ScratMan/HASmartThermostat`) had no config entry at all, unmaintained since `2024.12.0`, dead
+weight superseded by `better_thermostat`. Removed via HACS.
+
+**Verified:** `.storage/hacs.repositories`'s `smart_thermostat` entry no longer has
+`installed`/`installed_commit`/`version_installed` — HACS itself no longer considers it
+installed. The `custom_components/smart_thermostat` folder is still on disk as of this sync —
+expected, HACS can't delete a loaded integration's files from a running instance, so that
+finishes on the next restart. Not worth restarting just for this; it'll clear on its own next
+time HA restarts for another reason.
