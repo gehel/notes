@@ -75,20 +75,6 @@ network renumber is done (they held pre-renumber addresses — see finding 1's n
 discussion of why zeroconf-discovered entries self-heal). Watching; check next sync whether
 they've settled on current addresses harmlessly or gone back to being worth re-ignoring.
 
-### 10. An App has been removed from its repository (needs the exact name to act on)
-
-Live in Settings → System → Repairs (`hassio: issue_addon_detached_addon_remove`) — an
-installed App's source repository is gone, so Supervisor can no longer update or manage it.
-Guillaume's recollection: possibly Prometheus or InfluxDB, unconfirmed. **This is also the
-best current candidate for the original "app integration no longer available" issue this whole
-project started from** — worth checking the exact App name in that repair card's details
-before doing anything else with it.
-
-If it turns out to be InfluxDB: that App is still actively configured
-(`configuration.yaml`'s `influxdb:` section, `localhost:8086`) and finding 6's connection
-timeouts are unexplained so far — a detached/broken InfluxDB App would directly explain both at
-once. Worth checking together once the name's confirmed.
-
 ## Not yet reviewed
 
 - `automations.yaml` (16 KB, ~15 automations) — only scanned for a couple of anti-patterns

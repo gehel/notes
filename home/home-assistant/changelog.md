@@ -148,3 +148,23 @@ created (20:52 to 22:53), where the old entry had been erroring or flagged for r
 `LEDCOM-IoT` (uptime ~53 minutes at dump time, matching the reimage timeline) — consistent
 with OctoPrint rejoining the correct SSID/VLAN post-reimage. `home/network/vlan.md`'s device
 migration table updated to mark OctoPrint fully verified, not just router-side-applied.
+
+## Detached-App repair, closed unresolved (was finding 10, closed 2026-09-08)
+
+`config-review.md`'s finding 10: a live `hassio: issue_addon_detached_addon_remove` repair,
+Guillaume's guess was Prometheus or InfluxDB, and the best candidate so far for the project's
+original "app no longer available" motivation.
+
+**Closed without being identified — it disappeared from Settings → System → Repairs on its
+own.** Guillaume didn't dismiss it; nothing else changed that he's aware of. The one piece of
+circumstantial evidence found in `.storage/repairs.issue_registry`: a `hassio`-domain issue
+created this morning (9 seconds after that day's first restart) went from
+`dismissed_version: null` to `dismissed_version: '2026.9.1'` (the currently-running version)
+between two syncs — plausibly this one, but `hassio`-domain issue IDs are opaque hashes in
+storage, not the human-readable slug shown in the UI, so this was never confirmed to be the
+same issue.
+
+**Left open, unresolved:** the original "app integration no longer available" motivation for
+this whole project — this was the leading candidate and it evaporated before being identified.
+If it recurs, or if Guillaume identifies which App it was after the fact, worth a fresh look
+then; not worth chasing further right now with no reproducible evidence.

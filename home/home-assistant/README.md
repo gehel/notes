@@ -6,20 +6,19 @@ started 2026-09-08. Home Assistant runs at `192.168.20.60` on the `services` VLA
 
 ## Why
 
-An app integration Home Assistant depends on is no longer available (deprecated/removed).
-**Best current candidate: [config-review.md](config-review.md) finding 10** — an App detached
-from its repository, showing live in Settings → System → Repairs, possibly Prometheus or
-InfluxDB — pending confirmation of the exact name.
+An app integration Home Assistant depends on is no longer available (deprecated/removed) —
+**still not identified.** The leading candidate (a detached App repair, see
+[changelog.md](changelog.md)'s finding 10) disappeared on its own before it could be confirmed.
+Pick this up again if it recurs or if Guillaume identifies it after the fact.
 
 ## Status
 
-**Round 1 of the config review is done — see [config-review.md](config-review.md).** Seven
+**Round 1 of the config review is done — see [config-review.md](config-review.md).** Eight
 items closed so far, see [changelog.md](changelog.md) — most recently OctoPrint, reimaged
 and reconfigured onto `vlan-iot` with a fresh hostname-based config entry. IotaWatt's address
 fix is the only piece of finding 1 left (device currently powered off); the un-ignored
-`dlna_dmr` entries (watching) and the detached App (finding 10 — still need that name) remain
-open; `automations.yaml`, scenes, dashboards, and the Z-Wave TRV battery question not yet gone
-through in depth.
+`dlna_dmr` entries (watching) remain open; `automations.yaml`, scenes, dashboards, and the
+Z-Wave TRV battery question not yet gone through in depth.
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP
