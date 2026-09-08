@@ -73,13 +73,31 @@ Both the Onkyo receiver and the Samsung TV have a `dlna_dmr` config entry with
 `onkyo`/`samsungtv` integrations that are in real use. Harmless, but safe to delete from
 **Settings → Devices & Services → Ignored** if you want the list clean.
 
-### 8. Accumulated un-cleared HACS "restart required" repairs (informational)
+### 8. Stale/uninformative entries in `repairs.issue_registry` (mixed priority)
 
-`repairs.issue_registry` has HACS "restart required" entries going back to 2025-02-09, one per
-component version bump, never dismissed. Each is superseded by a newer one rather than cleared,
-suggesting HA hasn't had a clean restart in a while relative to how often HACS updates things.
-Not urgent — a routine restart clears the live ones — but worth doing before assuming the
-system is in the state the config files describe.
+Revisited 2026-09-08 after a confirmed restart (finding 2's fix) — **the original theory here
+was wrong.** All 23 issues, including HACS "restart required" entries going back to
+2025-02-09, are still present byte-for-byte identical after that restart. These aren't cleared
+by restarting; they look like orphaned bookkeeping HACS/hassio never actively purges once
+superseded by a newer entry. Breaking down what's actually in there:
+
+- **13 HACS "restart required" entries (one per component version bump, oldest 2025-02-09):**
+  survived a real restart, so treat as permanent cosmetic noise, not a live "needs restart"
+  signal. Safe to dismiss in Settings → Repairs if the clutter bothers you; no known functional
+  impact either way.
+- **The two `mikrotik` reauth issues turned out to be moot, not current:** they reference
+  config entry IDs (`01KZRMCPZXVWTAXGX5C7YRTBTG`, `01KZRM9Y1G2SSZ1PQFAT1NYNJG`) that no longer
+  exist — the three current `mikrotik` entries were all freshly created 2026-09-08T11:18,
+  presumably when reconfigured with post-renumber hostnames. Safe to dismiss.
+- **The `octoprint` reauth issue is real**, not stale — its entry ID matches the current
+  OctoPrint config entry. Already tracked under finding 1, not a separate problem.
+- **5 `hassio`-domain issues still unexplained**: `unhealthy_system_setup` (since 2026-02-14),
+  `unhealthy_system_supervisor` (since 2026-03-13), and three with opaque hex IDs (2026-04-25,
+  2026-07-02, 2026-08-29, plus one from 2026-09-08 — today). Can't read their actual text from
+  static config — these are translated at runtime, not stored as readable strings. "Unhealthy"
+  Supervisor states are a different category from HACS noise (they cover real problems like
+  Docker/OS setup issues), so **worth checking Settings → System → Repairs directly** rather
+  than assuming these are equally safe to ignore.
 
 ## Not yet reviewed
 
