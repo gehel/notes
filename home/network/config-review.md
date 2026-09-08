@@ -46,6 +46,32 @@ DNS server instead of Pi-hole) was found and fixed 2026-09-07 — see
 [changelog.md](changelog.md#ipv6-rdnss-was-leaking-the-isps-own-dns-server-bypassing-pi-hole-2026-09-07)
 and [ipv6.md](ipv6.md#resolved-rdnss-was-leaking-the-isps-own-dns-server-bypassing-pi-hole).
 
+### Planned: full config review once the VLAN migration is complete
+
+Noted 2026-09-08, not started. After [vlan.md](vlan.md)'s migration finishes (all devices moved,
+Phase 4/5 applied), do a full review pass of the resulting config, same spirit as Rounds 1-2
+above but covering everything the VLAN work added or touched.
+
+**Specifically called out: audit every firewall rule that opens a port, and confirm it matches
+`connection-state=new` (or otherwise narrowly scopes what "new" traffic looks like) rather than
+accepting broadly.** Motivated directly by two things found during the VLAN migration: (1)
+RouterOS silently marks a forward-chain accept rule combining `in-interface=`/`out-interface=`
+with `dst-address=`/`dst-port=` as `I - INVALID` (unenforced, no error) when
+`connection-state=new` is missing — confirmed live and now fixed throughout `vlan.md`'s Phase 4
+draft, but worth checking nothing similar slipped through elsewhere in the *existing* ruleset;
+(2) more generally, a rule that accepts more than "new" traffic for its stated purpose (e.g. all
+traffic instead of just connection-initiating packets) is broader than it needs to be and is
+exactly the kind of thing a fresh-eyes review should catch after the pressure of an active
+migration has passed.
+
+**Also noted 2026-09-08, for the same post-migration pass:** Home Assistant's MikroTik
+integration reports mikrotik2 as running RouterOS 7.23.3 and needing an upgrade to 7.24.2.
+Checked directly against today's dump — mikrotik2 is actually already on 7.24.2 (matches the
+rest of the network), so this is stale integration-side cached state, not a real gap. Still
+worth investigating why HA hasn't refreshed it. Separately: the integration is supposed to be
+able to *trigger* a RouterOS upgrade — worth testing whether that actually works, on a device
+and a moment where an unexpected reboot is low-risk.
+
 ### mikrotik4 has never been reviewed
 
 `192.168.1.4` was unreachable on port 22 on every dump run through 2026-09-05 17:13, so no

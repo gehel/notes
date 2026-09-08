@@ -178,3 +178,40 @@ outstanding test is a host plugged directly into the Internet-Box.
   address changed — a renumber can quietly *remove* a security restriction, not just break
   connectivity. In each case the actual list of references was longer than what was remembered
   going in. See `changelog.md`'s VLAN segmentation entry for the full account.
+- **A pure L2 switch whose only IP is a management address needs its own default route the
+  moment a management client can be on a different subnet than that address** — not just
+  correct bridge/VLAN forwarding. mikrotik2 and mikrotik3 had only their directly-connected
+  route; every prior management connection to them had come from within their own subnet, so
+  the gap stayed invisible until Home Assistant's VLAN migration made it the first cross-subnet
+  client. The failure is silent: the switch accepts the incoming SYN (confirmed live in the
+  firewall counters) but has no route to send the reply, so the TCP handshake never completes
+  and **nothing at all gets logged** — not even a failed-login line. That absence of any log
+  entry, on a service that *does* clearly log both successes and failures otherwise (see next
+  point), is itself the tell that this is a routing problem, not a credentials or firewall one.
+- **RouterOS logs a failed API/web/ssh login clearly, but not under the `account` topic** —
+  it's `system,error,critical login failure for user X from Y via api`, filed under
+  `error,critical`. Filtering `/log/print` by `topics~"account"` (which does catch successful
+  logins) will show nothing for failures and can wrongly suggest a connection never arrived at
+  all.
+- **Firewall rule packet/byte counters are cumulative since the rule's creation and are not
+  reset by a `/set` that changes its match criteria.** A nonzero counter on a rule that existed
+  before you retargeted it (e.g. changing `src-address=`) proves nothing about whether *current*
+  traffic matches — it may be entirely leftover from the old criteria. `reset-counters` before
+  a retry is the only way to get a clean signal.
+- **RouterOS's `I - INVALID` flag on a forward-chain rule (silently unenforced, no error) has
+  more than one trigger, still not fully characterized — treat it as "always print and check
+  after any rule with multiple matchers," not as a single fixable rule.** Confirmed triggers so
+  far, found across the printer/Pi-hole/HA/ceiling-fan work:
+  - An `accept` rule missing `connection-state=new`.
+  - An `accept` *or* `drop` rule combining `src-address=`/`dst-address=`/`dst-port=`/`port=`
+    with only *one* of `in-interface=`/`out-interface=` — needs both together, or neither.
+  - An `accept` *or* `drop` rule combining **both** `src-address=` and `dst-address=` together
+    with *no* interface matcher at all — also needs both interfaces added, even though a rule
+    with only one of the two addresses and no interface is fine.
+  - **Also important: RouterOS does not evaluate/show `I - INVALID` on a `disabled=yes` rule.**
+    The ceiling fan's DNS-drop rules were created disabled, looked clean, and only revealed the
+    flag once enabled for real — so a disabled rule's cleanliness proves nothing about whether
+    it'll be valid once turned on. Enable and re-check, don't just trust the print from while
+    it was off.
+  - Not verified whether any of this applies to `chain=input` (no `out-interface=` concept
+    applies there).

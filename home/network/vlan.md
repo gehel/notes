@@ -34,7 +34,19 @@ to `users`, verified 2026-09-08 — discovery and adding it worked cleanly from 
 non-technical user's own phone and laptop. The printer is no longer part of the Phase 3 device
 migration. **Step 2 (Pi-hole) also done and verified 2026-09-08**, including a real firewall
 gap found and fixed along the way (`services -> internet: allow` was missing from the live
-ruleset and from Phase 4's own script — see that section). **Step 3 (Home Assistant) is next.**
+ruleset and from Phase 4's own script — see that section). **Step 3 (Home Assistant) done and
+verified 2026-09-08** — local and remote HTTPS access, and the MikroTik integration reaching
+all three routers. The integration took real work to get right: two mistakes made and fixed
+along the way (an idempotency guard that skipped creating a needed address-list, and a rule
+added without `place-before=` that landed dead after the catch-all drop — a repeat of a mistake
+already documented for the `services: internet` rule), plus the actual root cause, which was
+neither of those — mikrotik2 and mikrotik3 had no default route at all, so they could accept
+HA's connection but never reply. Full account, including why the failure produced no log
+entries at all, in `changelog.md`. **Step 7 (Ceiling fan) also done and verified 2026-09-08**,
+moved out of order (see Decisions above) and confirmed working in HA via `tuya-local` after a
+live-discovered policy gap (`services -> iot` tcp/6668) was closed. Also where the `I -
+INVALID` finding grew a lot more nuanced — see `README.md`'s hard-won lessons. **Step 4
+(OctoPrint) is next.**
 
 **One open item, not a blocker:** the "second laptop" from the device inventory below is still
 unidentified. Also corrected in this document,
@@ -78,7 +90,8 @@ says so.
 | `users -> services` | full for `mgmt` hosts, named services for everyone else |
 | `users -> iot` | full for `mgmt` hosts only |
 | IoT time | NTP server on mikrotik1, advertised by DHCP option 42 |
-| IoT DNS | direct to Pi-hole, to keep per-device attribution |
+| IoT DNS | direct to Pi-hole, to keep per-device attribution — **except the ceiling fan**, see below |
+| Ceiling fan's standing drop rule | **retired 2026-09-08**, superseded by `vlan-iot` isolation — see below |
 | Fonera | **removed entirely**, `bridge-fon` config deleted |
 | Rollback | scheduled auto-revert before every risky change |
 
@@ -106,6 +119,30 @@ phone and laptop without manual IP configuration — that requirement outweighs 
 device segmented. The printer is wired, low-risk, and was the least security-sensitive device
 in `services` anyway; reverting it costs nothing else in the design.
 
+**Ceiling fan moved out of order, 2026-09-08 — wanted it working that same night.** `vlan.md`
+had said to do this device last, since it already carried a standing security restriction and
+was judged the worst one to debug first if the IoT VLAN plumbing itself had an untested issue.
+Guillaume moved it first anyway, explicitly overriding that caution, to have it working that
+evening. Also decided at the same time: the standing `chain=forward action=drop
+src-address=192.168.10.63` rule (a "deliberately distrusted device" restriction from an earlier
+config-review round — see `changelog.md`) is **retired, not carried forward to the new
+address**. `vlan-iot` provides the same isolation by construction (no general allow exists for
+it yet, so anything not explicitly permitted already falls to the catch-all drop) — a
+per-device rule restating that is redundant now that segmentation does the job network-wide,
+where before this specific rule was the *only* thing containing this specific device.
+
+**IoT DNS, ceiling-fan exception.** The general `iot -> Pi-hole DNS` allow (pulled forward from
+Phase 4, same reasoning as `services: internet` for Pi-hole) applies to every `vlan-iot`
+device — except this one, which gets an explicit `drop` for DNS specifically, placed *before*
+the general allow so it takes precedence. Steady state: this device gets no DNS at all, even
+though its VLAN-mates do. **Not enabled immediately** — the fan's own known phone-home
+behavior to a vendor cloud service (see `changelog.md`'s original review) means tonight's
+reconfiguration likely needs DNS to complete, so the drop rules are created `disabled=yes` and
+a temporary internet-access toggle (`ceiling fan: TEMP internet for setup`, `tcp dst-port=
+80,443`, `out-interface=ether1`) is enabled instead. Once HA confirms the fan is working:
+disable the internet toggle, enable both DNS-drop rules — commands are in
+`scripts/phase3-10-ceilingfan-mikrotik1.rsc`'s own comments.
+
 ## Target design
 
 ```
@@ -122,12 +159,19 @@ mikrotik2 and mikrotik3 stay pure L2 and simply carry the tags.
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
 | **users** | allow | — | `mgmt` full; else DNS/HA | `mgmt` full only | `mgmt` list only |
-| **services** | allow | **drop + log** | — | HA: 6053, 80 | `mgmt` list only |
+| **services** | allow | **drop + log** | — | HA: 6053, 80, 6668 | `mgmt` list only |
 | **iot** | **DROP** | drop | Pi-hole 53, HA 1883 | — | NTP 123 to gateway |
 
 The one hole in IoT containment is `iot -> services` on tcp/1883, because the MQTT broker
 runs on the HA host and devices connect outbound to it. Written narrowly: that host, that
 port, nothing else.
+
+**Port 6668 added 2026-09-08**, found live while pairing the ceiling fan: HA's `tuya-local`
+integration talks directly to the device over Tuya's local protocol (bypassing Tuya's cloud),
+not anticipated in the original matrix. Applied early via
+`scripts/phase3-13-ha-tuya-local.rsc`, same shape as the existing `HA -> Tasmota/IotaWatt`
+rule below (not scoped to one device's address, since any future Tuya-local device needs the
+same access) — added directly to the Phase 4 draft.
 
 ### The IoT internet exception
 
@@ -194,7 +238,7 @@ confirmed. Worth adding a proper reservation for the TV's real MAC next time thi
 | Device | Address | Attachment | Last seen |
 |---|---|---|---|
 | Pi-hole | `.20.40` | mikrotik2 `ether23` | live, migrated 2026-09-08 |
-| Home Assistant | `.20.60` (target) | mikrotik2 `ether21` | live, not yet migrated |
+| Home Assistant | `.20.60` | mikrotik2 `ether21` | live, migrated 2026-09-08 |
 
 ### iot — VLAN 30, 192.168.30.0/24 (not yet migrated — Phase 3)
 
@@ -393,13 +437,17 @@ per-client attribution still intact (queries by real client IP, not collapsed to
 not expected to be an issue since these are plain routed queries with no NAT involved between
 `users` and `services`, but worth a glance next time the Pi-hole UI is open anyway.
 
+**Step 3 (Home Assistant) done and verified 2026-09-08** — see `changelog.md`.
+
+**Step 7 (Ceiling fan) done out of order, 2026-09-08** — see the Decisions section above for
+why, and `changelog.md` for the router-side application. Reconfiguring it in Home Assistant
+(rejoining `LEDCOM-IoT`, re-pairing) is Guillaume's own next action, not scripted here.
+
 | # | Device | To | Also change | Verify |
 |---|---|---|---|---|
-| 3 | Home Assistant | services (`mikrotik2 ether21` -> `pvid=20`) | see reference checklist below | local and remote access; MikroTik integration reconnects |
 | 4 | OctoPrint | iot (wireless) | join `LEDCOM-IoT`, add to `iot-internet` list, update HA's integration | plugin update succeeds; HA sees it |
 | 5 | IotaWatt | iot | new SSID, broker hostname, `NtpServer1 192.168.30.1` | appears in HA |
 | 6 | Kids light | iot | same | responds in HA; schedule still fires |
-| 7 | Ceiling fan | iot | same | responds in HA |
 
 **Reference checklist for steps 2-3, from a full `dump-configs.sh` grep of all three devices
 (2026-09-07) for `192.168.10.40` and `192.168.10.60` — do this grep again before actually
@@ -462,11 +510,13 @@ first.
 it at Phase 4. Write the removal down — a forgotten temporary rule is indistinguishable from
 a deliberate one six months later.
 
-**Do the ceiling fan last.** It already has a `forward action=drop` rule aimed at it, so it is
-the device most likely to produce a confusing result if anything else is wrong.
+~~Do the ceiling fan last.~~ **Overridden 2026-09-08** — done first instead, see the Decisions
+section above. The reasoning here (the standing drop rule made it the riskiest device to debug
+first) no longer fully applies anyway, since that rule is now retired rather than carried
+forward.
 
-**Do not batch step 5-7.** A Tasmota device that fails to join `LEDCOM-IoT` is offline until
-you reach its fallback AP or reflash it. One device, verify fully, then the next.
+**Do not batch the remaining IoT devices.** A Tasmota device that fails to join `LEDCOM-IoT` is
+offline until you reach its fallback AP or reflash it. One device, verify fully, then the next.
 
 ### Phase 4 — firewall policy and tightening
 
@@ -489,7 +539,63 @@ the already-unconditional "Drop all other forward traffic" and made it dead):
     in-interface=vlan-services out-interface=ether1 comment="services: internet"
 ```
 
+**A second rule pulled forward, 2026-09-08: HA's MikroTik integration needs `services -> users`
+to mikrotik2/mikrotik3.** Found testing the HA migration: the integration reached mikrotik1
+fine (HA and mikrotik1 share `vlan-services` directly — mikrotik1 holds an address on every
+VLAN, so that's not a cross-VLAN hop at all), but got "Failed to connect" on mikrotik2 and
+mikrotik3, whose management addresses (`192.168.10.2`, `192.168.10.3`) live on `vlan-users`.
+Reaching them means mikrotik1 forwarding `vlan-services -> vlan-users`, which nothing allows —
+the account restriction and the `HA API access` rule (updated on all three devices, see
+`changelog.md`) only control the *destination* device's own input chain; they don't get HA's
+packets there in the first place. Narrow exception, not a blanket `services -> users` allow —
+same shape as `iot -> services`'s one hole below.
+
+**First attempt landed the rule dead.** `scripts/phase3-08-ha-mikrotik-integration-access.rsc`
+used a plain `/add`, which appends to the end of the chain — after the unconditional "Drop all
+other forward traffic" catch-all, so the rule was correctly written but never evaluated.
+Exactly the mistake already documented above for the `services: internet` rule, repeated here
+by not applying it consistently. Fixed by moving the existing rule
+(`scripts/phase3-08c-ha-mikrotik-rule-reorder.rsc`) rather than recreating it. The version
+below has `place-before=` built in from the start:
+
+```
+/ip/firewall/address-list/add list=ha-mikrotik-targets address=192.168.10.2 comment=mikrotik2
+/ip/firewall/address-list/add list=ha-mikrotik-targets address=192.168.10.3 comment=mikrotik3
+/ip/firewall/filter/add chain=forward action=accept connection-state=new \
+    src-address=192.168.20.60 dst-address-list=ha-mikrotik-targets protocol=tcp dst-port=8728 \
+    in-interface=vlan-services out-interface=vlan-users \
+    comment="HA MikroTik integration: services -> users API" \
+    place-before=[find where comment="Drop all other forward traffic"]
+```
+
 The rest of Phase 4 below is unchanged and still waits for every device to be in place.
+**`connection-state=new` added throughout, 2026-09-08** — every `accept` rule below originally
+lacked it; the printer/Pi-hole/HA work found that a forward-chain accept rule combining
+`in-interface=`/`out-interface=` with `dst-address=`/`dst-port=` shows RouterOS's `I - INVALID`
+flag (silently not enforced) without it, confirmed live on the `TEMP: iot mqtt` rule added for
+HA. Not added to the `drop` rules — those are intentional catch-alls and adding it would narrow
+what they actually block.
+
+**Corrected 2026-09-08, ceiling fan work: `connection-state=new` alone isn't sufficient.**
+Three rules below (`iot: MQTT to HA`, both `iot: DNS to pi-hole` rules, `iot exception:
+updates`, `users: DNS`, `users: HA web`) originally specified only *one* of `in-interface=`/
+`out-interface=` alongside an address/port matcher — confirmed live to also show `I - INVALID`
+despite already having `connection-state=new`. Contrast with `Home can connect everywhere`
+(one interface, no address/port matcher: valid) and the HA-integration/`TEMP: iot mqtt` rules
+(both interfaces, with address/port matchers: valid) — the actual rule is that an address/port
+matcher combined with an interface matcher needs **both** interface directions specified
+together, not just one. Fixed below by adding the missing complementary interface to each.
+Not verified whether this also affects `chain=input` (no `out-interface=` concept applies
+there) — check the `iot: NTP from gateway` rule specifically when Phase 4 is actually applied.
+
+**Further refined the same evening, ceiling fan lockdown:** this isn't limited to `accept`
+rules or to "one interface + address matcher" — a `drop` rule combining both `src-address=`
+*and* `dst-address=` together, with *no* interface matcher at all, also showed `I - INVALID`
+once enabled (the fan's DNS-drop rules). Also: **RouterOS doesn't evaluate the flag on a
+`disabled=yes` rule at all** — these looked clean when created disabled and only showed the
+problem once switched on. See `README.md`'s hard-won lessons for the fuller, still-not-fully-
+characterized list of triggers — treat `I - INVALID` as something to check after any multi-
+matcher rule, not as one fixed rule to remember.
 
 ```
 # address lists
@@ -498,42 +604,55 @@ The rest of Phase 4 below is unchanged and still waits for every device to be in
 # --- forward chain, in order, before the existing catch-all drop ---
 
 # iot -> services: the one hole in containment, written narrowly
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-iot \
-    dst-address=192.168.20.60 protocol=tcp dst-port=1883 comment="iot: MQTT to HA"
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-iot \
-    dst-address=192.168.20.40 port=53 protocol=udp comment="iot: DNS to pi-hole"
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-iot \
-    dst-address=192.168.20.40 port=53 protocol=tcp comment="iot: DNS to pi-hole"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
+    out-interface=vlan-services dst-address=192.168.20.60 protocol=tcp dst-port=1883 \
+    comment="iot: MQTT to HA"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
+    out-interface=vlan-services dst-address=192.168.20.40 port=53 protocol=udp \
+    comment="iot: DNS to pi-hole"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
+    out-interface=vlan-services dst-address=192.168.20.40 port=53 protocol=tcp \
+    comment="iot: DNS to pi-hole"
 
 # the named internet exception, then the wall
-/ip/firewall/filter/add chain=forward action=accept src-address-list=iot-internet \
-    out-interface=ether1 protocol=tcp dst-port=80,443 comment="iot exception: updates"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
+    src-address-list=iot-internet out-interface=ether1 protocol=tcp dst-port=80,443 \
+    comment="iot exception: updates"
 /ip/firewall/filter/add chain=forward action=drop in-interface=vlan-iot \
     log=yes log-prefix="iot-drop" comment="iot: deny everything else"
 
 # services -> users: denied, but logged so exceptions arrive as evidence
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-services \
-    out-interface=vlan-iot dst-port=80 protocol=tcp comment="HA -> Tasmota/IotaWatt"
+# (the HA-MikroTik-integration exception above also lives in this section)
+/ip/firewall/filter/add chain=forward action=accept connection-state=new \
+    in-interface=vlan-services out-interface=vlan-iot dst-port=80 protocol=tcp \
+    comment="HA -> Tasmota/IotaWatt"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new \
+    in-interface=vlan-services out-interface=vlan-iot dst-port=6668 protocol=tcp \
+    comment="HA -> Tuya local (fan)"
 /ip/firewall/filter/add chain=forward action=drop in-interface=vlan-services \
     out-interface=vlan-users log=yes log-prefix="infra2users" comment="services: no users"
 
 # users -> services: mgmt full, everyone else named services
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-users \
-    out-interface=vlan-services src-address-list=mgmt comment="mgmt hosts: full"
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-users \
-    dst-address=192.168.20.40 port=53 protocol=udp comment="users: DNS"
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-users \
-    dst-address=192.168.20.60 protocol=tcp dst-port=443 comment="users: HA web"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new \
+    in-interface=vlan-users out-interface=vlan-services src-address-list=mgmt \
+    comment="mgmt hosts: full"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-users \
+    out-interface=vlan-services dst-address=192.168.20.40 port=53 protocol=udp \
+    comment="users: DNS"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-users \
+    out-interface=vlan-services dst-address=192.168.20.60 protocol=tcp dst-port=443 \
+    comment="users: HA web"
 /ip/firewall/filter/add chain=forward action=drop in-interface=vlan-users \
     out-interface=vlan-services log=yes log-prefix="users2services"
 
 # users -> iot: mgmt only
-/ip/firewall/filter/add chain=forward action=accept in-interface=vlan-users \
-    out-interface=vlan-iot src-address-list=mgmt comment="mgmt hosts: iot"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new \
+    in-interface=vlan-users out-interface=vlan-iot src-address-list=mgmt \
+    comment="mgmt hosts: iot"
 /ip/firewall/filter/add chain=forward action=drop in-interface=vlan-users out-interface=vlan-iot
 
 # --- input chain: NTP for iot ---
-/ip/firewall/filter/add chain=input action=accept in-interface=vlan-iot \
+/ip/firewall/filter/add chain=input action=accept connection-state=new in-interface=vlan-iot \
     protocol=udp dst-port=123 comment="iot: NTP from gateway" \
     place-before=[find comment="Drop anything else!"]
 ```
@@ -596,6 +715,10 @@ After a week of normal use:
 
 - Convert genuine hits into narrow rules, or confirm there were none and set `log=no`.
 - Remove the temporary `users -> services tcp/1883` rule from Phase 3.
+- **Once the whole migration is done: full config review, see
+  [config-review.md](config-review.md#planned-full-config-review-once-the-vlan-migration-is-complete)**
+  — in particular, audit every port-opening firewall rule for `connection-state=new`, not just
+  the ones this project added.
 - Confirm the `iot-internet` list still contains exactly one address. **An allow-list of one
   is a decision; an allow-list of six is the policy having been quietly abandoned** — if it
   has grown, that is the signal to give those devices their own VLAN with internet rather
@@ -604,6 +727,13 @@ After a week of normal use:
   new device on `iot`. If it misbehaves, check whether repeated multicast traverses the
   forward chain — **not verified**.
 - Consider moving VLAN 10 to tagged-only on the trunks.
+- **Narrow `services -> internet` from blanket allow to specific protocols.** Noted
+  2026-09-08. The rule added early for Pi-hole (`comment="services: internet"`, see Phase 4
+  above) allows all forward traffic from `vlan-services` to `ether1` — broader than it needs
+  to be. `services` devices' actual internet needs are narrow and known (Pi-hole: DNS lookups
+  to its configured upstreams; HA: HTTPS for cloud integrations/updates) — replace the blanket
+  accept with specific `dst-port=53,80,443` (or narrower, once HA's actual needs are known
+  post-migration) rules, same shape as the `iot-internet` exception list above.
 
 ## Known unverified assumptions
 

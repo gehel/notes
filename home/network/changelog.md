@@ -549,6 +549,127 @@ is no longer part of the Phase 3 device migration — `vlan.md`'s device invento
 design, policy matrix, trunk/port plan, and migration table were all updated to reflect it
 staying on `users` permanently.
 
+### Phase 3, step 7 — ceiling fan migrated to iot, out of order (2026-09-08)
+
+Moved before OctoPrint/IotaWatt/Kids light, deliberately overriding `vlan.md`'s "do this one
+last" caution, to have it working that same evening. Wireless device, no port to move.
+
+`scripts/phase3-10-ceilingfan-mikrotik1.rsc`: DHCP reservation to `192.168.30.63`/`dhcp-iot`;
+**retired the standing `chain=forward action=drop src-address=192.168.10.63` rule** (a
+"deliberately distrusted device" restriction from an earlier config-review round) rather than
+carrying it to the new address — `vlan-iot` isolation now does that job by construction; added
+the general `iot -> Pi-hole DNS` accept rules (pulled forward from Phase 4, first real device
+on `vlan-iot`); added the fan's own DNS-drop rules, created `disabled=yes`; added a
+tcp/80,443 internet-access toggle for the fan specifically, created enabled, for that night's
+reconfiguration (the fan is known to phone home to a vendor cloud service, confirmed in its
+original config-review finding, so reconfiguration needed DNS+internet).
+
+**A second, broader temporary rule** (`scripts/phase3-12-iot-temp-internet.rsc`): whole-`vlan-
+iot` internet access, no port restriction, enabled for pairing Guillaume's phone to
+`LEDCOM-IoT` during the Tuya app's pairing flow — broader than the usual named-exception
+pattern, justified by being short-lived and by not wanting a guessed-wrong port to cost a
+retry mid-pairing.
+
+**A real, previously-unanticipated policy gap found live:** HA's `tuya-local` integration talks
+directly to the device over Tuya's local protocol (tcp/6668), bypassing Tuya's cloud — not in
+the original policy matrix, which only listed HA on 6053/80 for ESPHome/Tasmota. Added
+`services -> iot` tcp/6668 (`scripts/phase3-13-ha-tuya-local.rsc`), same shape as the existing
+`HA -> Tasmota/IotaWatt` rule; folded into `vlan.md`'s policy matrix and Phase 4 draft.
+
+Once HA confirmed the fan working: disabled both temporary internet rules and enabled the
+fan's DNS-drop rules (`scripts/phase3-14-ceilingfan-lockdown.rsc`). **Verified the fan still
+responds correctly in HA after lockdown** — dropping its DNS didn't affect local Tuya control,
+as expected.
+
+**Further work on the `I - INVALID` flag, refining what was already found for HA:** three new
+rules added during this step (`iot: DNS to pi-hole` ×2, `ceiling fan: TEMP internet for setup`)
+showed the flag despite already having `connection-state=new` — because each specified only
+*one* interface direction alongside an address/port matcher, not both. Fixed by adding the
+missing interface (`scripts/phase3-11-fix-invalid-rules.rsc`). Then, once the fan's DNS-drop
+rules were finally *enabled* (they were created `disabled=yes` and looked clean while off), the
+flag appeared on *them* too — a `drop` rule combining `src-address=` and `dst-address=` with
+no interface at all. Fixed by adding both interfaces there as well
+(`scripts/phase3-15-fix-dns-drop-invalid.rsc`). Net finding: RouterOS doesn't evaluate this flag
+on disabled rules at all, and the actual set of triggers is broader than "accept rules need
+`connection-state=new`" — see `README.md`'s hard-won lessons for the fuller list. Also applied
+the same interface-completeness fixes to `vlan.md`'s Phase 4 draft, which had five more rules
+with the identical one-interface-plus-address/port pattern, so Phase 4 doesn't hit this again
+when it's actually run.
+
+**Verified throughout via the forward chain's own `print` output** (not just individual rule
+checks) — printing the whole chain in order after each change caught the ordering and
+placement issues immediately, which checking one rule at a time would have missed.
+
+### Phase 3, step 3 — Home Assistant migrated to services (2026-09-08)
+
+Moved via `scripts/phase3-06a-ha-mikrotik2-port.rsc` (mikrotik2: `ether21-slave-local` from
+VLAN 10 to VLAN 20 — this time VLAN 20's untagged list already had Pi-hole's port on it, so the
+script read-modified-appended both sides programmatically rather than overwriting, to avoid
+dropping Pi-hole's membership). `scripts/phase3-06c-ha-mikrotik1.rsc` moved the DHCP
+reservation to `192.168.20.60`/`dhcp-services`, updated the dst-nat HTTPS port forward *and*
+its paired forward-chain rule, and added a temporary `users -> services tcp/1883` rule for IoT
+devices still on `users` to reach HA's MQTT broker (to be removed at Phase 4, per `vlan.md`).
+`scripts/phase3-06b-`/`-06d-ha-mikrotik*.rsc` updated the `homeassistant` account's
+`address=192.168.20.60/32` restriction and the *"HA API access (post-renumber)"* rule's
+`src-address=`, independently on mikrotik2 and mikrotik3 (same pattern as Pi-hole: these exist
+as separate copies per device, not shared config).
+
+**Verified quickly:** DHCP lease bound at `192.168.20.60`; local HTTPS
+(`https://192.168.20.60`) and remote/external HTTPS both worked immediately.
+
+**The MikroTik integration inside HA took much longer to get right, through two real mistakes
+before the actual root cause:**
+
+1. **Real gap, found and fixed:** nothing allowed `vlan-services -> vlan-users` at all — the
+   account restriction and API-access rule only govern the *destination's own input chain*;
+   they don't get HA's packets there. Added a narrow exception
+   (`scripts/phase3-08-ha-mikrotik-integration-access.rsc`): an address-list of just
+   mikrotik2/mikrotik3's management IPs, `src-address=192.168.20.60`, `dst-port=8728`.
+2. **Mistake 1 — my own idempotency guard was wrong.** The address-list `add`s were guarded by
+   `find where address=<ip>` with no list filter; both IPs already existed in the `mgmt` list
+   (from Phase 2), so the guard concluded "already exists" and silently skipped creating the
+   `ha-mikrotik-targets` entries — the filter rule referenced an empty list and matched
+   nothing. An unverified claim in my own comment ("neither address is used elsewhere") turned
+   out to be false. Fixed in `scripts/phase3-08b-ha-mikrotik-targets-fix.rsc`, matched by
+   `comment=` instead (safely distinct from the `mgmt` list's differently-worded comments).
+3. **Mistake 2 — repeated a mistake already documented in this same file.** The filter rule was
+   added with a plain `/add`, landing it *after* the unconditional "Drop all other forward
+   traffic" catch-all — dead on arrival, exactly the failure mode already written up for the
+   `services: internet` rule above, not applied consistently here. Fixed by moving the rule
+   (`scripts/phase3-08c-ha-mikrotik-rule-reorder.rsc`) rather than recreating it.
+4. **A genuine RouterOS finding, not a mistake:** once correctly placed, the rule still showed
+   `I - INVALID` until `connection-state=new` was added — a forward-chain accept rule combining
+   `in-interface=`/`out-interface=` with `dst-address=`/`dst-port=` needs it on this RouterOS
+   version, confirmed by comparison with every other working custom rule on this router (all of
+   which already had it). Fixed the same gap throughout `vlan.md`'s Phase 4 draft while it was
+   fresh, before it could bite again later.
+5. **The actual root cause, after all of the above was already correct:** mikrotik2 and
+   mikrotik3 had **no default route at all** — only the directly-connected `192.168.10.0/24`.
+   Every prior management connection to their own IPs had come from within `vlan-users` itself
+   (same subnet, no gateway needed for the reply); HA's new address was the first-ever
+   cross-subnet connection to either switch's management IP. They could accept the incoming SYN
+   (confirmed live: fresh packets matched the input-chain rule on both), but had no route back
+   out to reply, so the TCP handshake never completed — explaining why **nothing at all** was
+   ever logged, not even a `login failure`: the API layer never saw a completed connection.
+   Root-caused via a careful reset-counters-then-retry test isolating each hop, plus checking
+   `/log/print` for a `login failure` message (found in an *old*, pre-migration log entry,
+   confirming RouterOS does log auth failures clearly — just under `system,error,critical`, not
+   the `account` topic, a wrong filter that cost real time here). Fixed with
+   `scripts/phase3-09-switch-default-routes.rsc` — `/ip/route/add dst-address=0.0.0.0/0
+   gateway=192.168.10.1` on each switch. **Confirmed working on both mikrotik2 and mikrotik3.**
+
+**A caution for next time:** the packet counters this session initially misled — RouterOS
+firewall rule counters are cumulative since the rule's *creation* and are not reset by a
+`/set` that changes match criteria, so a nonzero counter on a long-lived rule proved nothing
+about current traffic. `reset-counters` before a retry, on a freshly-relevant rule, is the
+reliable way to get a clean signal.
+
+**Likely worth adding to README.md's hard-won lessons:** a pure L2 switch whose only IP is a
+management address needs its own default route the moment any management client can be on a
+different subnet than that address — not just correct bridge/VLAN forwarding. The failure mode
+is silent and produces no log at all, which makes it easy to misdiagnose as a firewall or
+credentials problem.
+
 ### Phase 3, step 2 — Pi-hole migrated to services (2026-09-08)
 
 Moved via `scripts/phase3-05a-pihole-mikrotik2-port.rsc` (mikrotik2: `ether23-slave-local` from
