@@ -1,0 +1,72 @@
+// Address plan - which device sits on which subnet.
+// Physical cabling is a different picture: see network.dot / network.svg.
+//
+//   ./render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg
+//
+// ASCII only: the bundled font drops typographic dashes and middle dots.
+
+nwdiag {
+  default_fontsize = 10;
+  node_width = 140;
+  node_height = 70;
+
+  network wan {
+    address = "10.1.1.0/24";
+    label = "Internet-Box link";
+
+    internetbox [address = ".1", label = "Internet-Box\ngigabit ports\ncaps the line"];
+    mikrotik1   [address = ".101 DHCP"];
+  }
+
+  network lan {
+    address = "192.168.1.0/24";
+    label = "bridge-main\nhome.ledcom.ch\ngw .1  DNS .40";
+
+    group infra {
+      label = "MikroTik: static, in mgmt";
+      color = "#dbeafe";
+
+      mikrotik1 [address = ".1", label = "mikrotik1\nRB2011\nedge + CAPsMAN"];
+      mikrotik2 [address = ".2", label = "mikrotik2\nCRS125\nL2 + AP ch11"];
+      mikrotik3 [address = ".3", label = "mikrotik3\nRB750Gr3\nL2 office"];
+      mikrotik4 [address = ".4", label = "mikrotik4\nSXTsq Lite2\nPLANNED ch6"];
+    }
+
+    group services {
+      label = "Services";
+      color = "#ede9fe";
+
+      pihole [address = ".40", label = "Pi-hole\nDNS for the LAN"];
+      hass   [address = ".60", label = "Home Assistant\nuser homeassistant"];
+    }
+
+    group trusted {
+      label = "Trusted";
+      color = "#dcfce7";
+
+      desktop [address = ".90", label = "desktop\nin mgmt"];
+      laptops [address = "DHCP", label = "2 laptops\noccasional"];
+    }
+
+    group iotdev {
+      label = "IoT: flat today, destined for a VLAN with NO internet";
+      color = "#fed7aa";
+
+      kidslight [address = ".61", label = "Kids light\nTasmota"];
+      kitchen   [address = ".62", label = "Kitchen light\nTasmota"];
+      fan       [address = ".63", label = "Ceiling fan\nHombli\nforward DROP"];
+      dehum     [address = ".71", label = "Dehumidifier\nESPHome"];
+      octoprint [address = ".80 .81", label = "OctoPrint\nwired + wifi"];
+    }
+
+    fonera [address = ".101", label = "Fonera\nMAIN lan, not\non bridge-fon"];
+  }
+
+  network fon {
+    address = "192.168.2.0/24";
+    label = "bridge-fon\nfon.home.ledcom.ch\nNO LINK today";
+
+    mikrotik1 [address = ".1"];
+    unused    [label = "ether6-10\nall down\npool .100-.200 idle"];
+  }
+}
