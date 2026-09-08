@@ -66,38 +66,53 @@ separate device), so this isn't a VLAN/routing issue like finding 1. Worth check
 InfluxDB App is actually running and its own resource usage; "lost 30 events" means a gap in
 history for that window, not just a log nuisance.
 
-### 7. Two `dlna_dmr` entries are dead weight, superseded by native integrations (low)
+### 7. Two `dlna_dmr` entries are dead weight, superseded by native integrations (low) — in progress
 
 Both the Onkyo receiver and the Samsung TV have a `dlna_dmr` config entry with
 `source: "ignore"` (deliberately dismissed at some point) sitting alongside the actual
-`onkyo`/`samsungtv` integrations that are in real use. Harmless, but safe to delete from
-**Settings → Devices & Services → Ignored** if you want the list clean.
+`onkyo`/`samsungtv` integrations that are in real use.
 
-### 8. Stale/uninformative entries in `repairs.issue_registry` (mixed priority)
+**Guillaume un-ignored both 2026-09-08** to see whether they reappear/misbehave now that the
+network renumber is done (they held pre-renumber addresses — see finding 1's neighbour
+discussion of why zeroconf-discovered entries self-heal). Watching; check next sync whether
+they've settled on current addresses harmlessly or gone back to being worth re-ignoring.
 
-Revisited 2026-09-08 after a confirmed restart (finding 2's fix) — **the original theory here
-was wrong.** All 23 issues, including HACS "restart required" entries going back to
-2025-02-09, are still present byte-for-byte identical after that restart. These aren't cleared
-by restarting; they look like orphaned bookkeeping HACS/hassio never actively purges once
-superseded by a newer entry. Breaking down what's actually in there:
+### 9. `mikrotik2`'s RouterBOARD firmware is genuinely behind, and HA likely can't fix it itself (low)
 
-- **13 HACS "restart required" entries (one per component version bump, oldest 2025-02-09):**
-  survived a real restart, so treat as permanent cosmetic noise, not a live "needs restart"
-  signal. Safe to dismiss in Settings → Repairs if the clutter bothers you; no known functional
-  impact either way.
-- **The two `mikrotik` reauth issues turned out to be moot, not current:** they reference
-  config entry IDs (`01KZRMCPZXVWTAXGX5C7YRTBTG`, `01KZRM9Y1G2SSZ1PQFAT1NYNJG`) that no longer
-  exist — the three current `mikrotik` entries were all freshly created 2026-09-08T11:18,
-  presumably when reconfigured with post-renumber hostnames. Safe to dismiss.
-- **The `octoprint` reauth issue is real**, not stale — its entry ID matches the current
-  OctoPrint config entry. Already tracked under finding 1, not a separate problem.
-- **5 `hassio`-domain issues still unexplained**: `unhealthy_system_setup` (since 2026-02-14),
-  `unhealthy_system_supervisor` (since 2026-03-13), and three with opaque hex IDs (2026-04-25,
-  2026-07-02, 2026-08-29, plus one from 2026-09-08 — today). Can't read their actual text from
-  static config — these are translated at runtime, not stored as readable strings. "Unhealthy"
-  Supervisor states are a different category from HACS noise (they cover real problems like
-  Docker/OS setup issues), so **worth checking Settings → System → Repairs directly** rather
-  than assuming these are equally safe to ignore.
+`update.under_the_stairs_mikrotik_2_routerboard` (in `.storage/core.restore_state`) shows
+`installed_version: '7.23.3'`, `latest_version: '7.24.2'`, state `on` (update available) — this
+is real, not stale integration cache as first assumed. The mix-up: **RouterBOARD firmware
+(the bootloader) is a separate thing from the RouterOS package** — mikrotik2's RouterOS is
+correctly on 7.24.2 (matches its own `update.*_routeros` entity, and `home/network`'s own
+dumps), it's specifically the RouterBOARD/RouterBOOT layer that's still on 7.23.3. All three
+routers' `_routeros` update entities correctly show `installed == latest`; only mikrotik2's
+`_routerboard` one doesn't — so this isn't a systemic caching problem, just one real update
+sitting unapplied.
+
+**On triggering the update from HA:** the entity's `supported_features: 1` does include
+`UpdateEntityFeature.INSTALL`, so HA believes it can. But `home/network`'s dumps show the
+`homeassistant` API user's group policy on mikrotik2 explicitly includes `!write,!reboot` —
+and a RouterBOARD firmware flash necessarily needs both. So even though the UI would show an
+"Install" button, invoking it will very likely fail against this account. Confirm by trying it
+(low risk — a failed API call, not a bad flash) before assuming it's blocked; if it does fail,
+the actual fix is either upgrading mikrotik2's RouterBOARD firmware directly via RouterOS
+(`/system/routerboard/upgrade`, out of band from HA), or widening the `homeassistant` group's
+policy — the latter trades a large, deliberate part of `home/network`'s security posture for a
+convenience feature and is probably not worth it for something this infrequent.
+
+### 10. An App has been removed from its repository (needs the exact name to act on)
+
+Live in Settings → System → Repairs (`hassio: issue_addon_detached_addon_remove`) — an
+installed App's source repository is gone, so Supervisor can no longer update or manage it.
+Guillaume's recollection: possibly Prometheus or InfluxDB, unconfirmed. **This is also the
+best current candidate for the original "app integration no longer available" issue this whole
+project started from** — worth checking the exact App name in that repair card's details
+before doing anything else with it.
+
+If it turns out to be InfluxDB: that App is still actively configured
+(`configuration.yaml`'s `influxdb:` section, `localhost:8086`) and finding 6's connection
+timeouts are unexplained so far — a detached/broken InfluxDB App would directly explain both at
+once. Worth checking together once the name's confirmed.
 
 ## Not yet reviewed
 
@@ -108,7 +123,21 @@ superseded by a newer entry. Breaking down what's actually in there:
 - `scenes.yaml`, `blueprints/`, dashboards (`.storage/lovelace*`) — not looked at yet.
 - Z-Wave JS: three Fibaro FGT-001 thermostatic valves (Parent's Bedroom, Bathroom Upstairs,
   Living Room) are reported `unavailable` by `better_thermostat`'s watcher, going back to
-  2025-12-22 for the first one. Same hardware/controller as four working ones (Kitchen, Hall
-  Downstairs, Office, Playroom), so not a model/firmware issue — likely a Z-Wave mesh/range or
-  battery problem needing a live check (Z-Wave JS's own network map, or physically checking
-  batteries), not something visible from static config.
+  2025-12-22 for the first one, and confirmed 2026-09-08 as 2 of the only 3 currently-live
+  entries in Settings → Repairs. Same hardware/controller as four working ones (Kitchen, Hall
+  Downstairs, Office, Playroom), so not a model/firmware issue.
+
+  **Tried to check battery levels from static config first — not possible.** Z-Wave JS entities
+  aren't `RestoreEntity`s, so `.storage/core.restore_state` has no battery data for any of
+  them, working or broken. This needs a live check: Developer Tools → States (search
+  `battery`) or each valve's device page, comparing the 3 broken ones against a working one
+  like Kitchen.
+
+  **One static-config observation, unconfirmed:** the 3 broken valves' battery-related entities
+  include oddly-suffixed duplicates (e.g. `sensor.thermostat_parent_s_bedroom_battery_level_2`
+  alongside a differently-named one) that the working Kitchen valve doesn't have. Could just be
+  Fibaro's proprietary Z-Wave command classes producing two legitimately-different battery
+  sensors (harmless), or could indicate these three were re-interviewed/re-included in the
+  Z-Wave network at some point, leaving orphaned old entities behind — worth a glance at each
+  device's page for duplicate/renamed entities while checking battery levels, not worth
+  chasing on its own.

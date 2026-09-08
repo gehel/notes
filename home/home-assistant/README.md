@@ -6,22 +6,23 @@ started 2026-09-08. Home Assistant runs at `192.168.20.60` on the `services` VLA
 
 ## Why
 
-An app integration Home Assistant depends on is no longer available (deprecated/removed, exact
-one not yet identified — **round 1 of the review below didn't turn up an obvious match**;
-several other real issues did, see [config-review.md](config-review.md)). First step: review
-the whole configuration and logs to understand current state before deciding on a fix or
-replacement.
+An app integration Home Assistant depends on is no longer available (deprecated/removed).
+**Best current candidate: [config-review.md](config-review.md) finding 10** — an App detached
+from its repository, showing live in Settings → System → Repairs, possibly Prometheus or
+InfluxDB — pending confirmation of the exact name.
 
 ## Status
 
-**Round 1 of the config review is done — see [config-review.md](config-review.md).** Four
+**Round 1 of the config review is done — see [config-review.md](config-review.md).** Five
 findings closed so far, see [changelog.md](changelog.md): Pi-hole's stale post-renumber
 address, `configuration.yaml`'s malformed `logger:`/`zha:` block (which was silently keeping
 ZHA's custom water-valve quirk from loading), the Irrigation automation's misdirected
-`numeric_state` trigger, and the unused `smart_thermostat` HACS component. IotaWatt's address
-fix is pending (device currently powered off); OctoPrint and four other findings remain open;
-`automations.yaml`, scenes, dashboards, and the Z-Wave mesh health question not yet gone
-through in depth.
+`numeric_state` trigger, the unused `smart_thermostat` HACS component, and a `repairs.issue_registry`
+investigation that turned out mostly stale except for one real find (finding 10, see above).
+IotaWatt's address fix is pending (device currently powered off); OctoPrint, the un-ignored
+`dlna_dmr` entries (watching), mikrotik2's outdated RouterBOARD firmware, and the detached App
+remain open; `automations.yaml`, scenes, dashboards, and the Z-Wave TRV battery question not
+yet gone through in depth.
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP

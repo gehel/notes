@@ -83,3 +83,30 @@ installed. The `custom_components/smart_thermostat` folder is still on disk as o
 expected, HACS can't delete a loaded integration's files from a running instance, so that
 finishes on the next restart. Not worth restarting just for this; it'll clear on its own next
 time HA restarts for another reason.
+
+## `repairs.issue_registry`'s stale entries sorted out (was finding 8, closed 2026-09-08)
+
+`config-review.md`'s finding 8 started as "HACS restart-required entries never clear, probably
+just needs a restart." That theory didn't survive a check against a restart that had actually
+happened (finding 2's fix): all 23 stored issues, unchanged, byte-for-byte. Broke the list down
+instead of guessing further:
+
+- **13 HACS "restart required" entries** (oldest 2025-02-09) — survived the restart, so
+  permanent cosmetic noise, not a live signal. HACS/hassio never seem to purge a
+  `repairs.issue_registry` entry once superseded by a newer one; they just stop being shown as
+  active. Left alone — no functional impact either way, safe to dismiss for tidiness only.
+- **Two `mikrotik` reauth issues** — referenced config entry IDs
+  (`01KZRMCPZXVWTAXGX5C7YRTBTG`, `01KZRM9Y1G2SSZ1PQFAT1NYNJG`) that no longer exist; the three
+  current `mikrotik` entries were all freshly created 2026-09-08T11:18. Stale, moot.
+- **`unhealthy_system_setup`/`unhealthy_system_supervisor` and three opaque-hex `hassio`
+  entries** — also stale. **Verified directly** against Settings → System → Repairs (the live
+  UI, not the storage file): only 3 issues actually show there — the 2 `better_thermostat`
+  missing-entity ones (tracked against the Z-Wave mesh health question in `config-review.md`),
+  and one detached-App issue, promoted to its own finding 10.
+- The `octoprint` reauth issue is the one real, current entry in the list — already tracked
+  under finding 1, not a separate problem.
+
+**General lesson recorded for future rounds:** `repairs.issue_registry`'s storage file is not a
+reliable signal for "is this currently active" — it accumulates historical entries that HA
+itself has stopped surfacing. The live Settings → System → Repairs page is authoritative;
+reading the storage file alone will overstate what's actually open.
