@@ -5,12 +5,10 @@ Written so that work can resume from these documents alone, with no session hist
 
 ## Start here
 
-**Active work: [vlan.md](vlan.md) — VLAN segmentation, in progress.** Phases 0-2 are done and
-closed to [changelog.md](changelog.md) — the LAN is renumbered onto `192.168.10.0/24` and every
-device runs `vlan-filtering=yes`. Resume with **Phase 3**: creating the `services`/`iot` VLANs
-and migrating devices onto them one at a time. Read `vlan.md`'s **Status** section first — it
-carries forward the most expensive lesson from Phases 1-2 (config that references a device by
-literal IP hides in more places than it looks, and several of those places broke silently).
+**Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-4 done.** Three VLANs
+(`users`/`services`/`iot`), full renumber, real firewall policy — all live. What's left:
+verify OctoPrint and IotaWatt device-side, then Phase 5 (read a week of log evidence and
+tighten). Read `vlan.md`'s **Status** section first.
 
 ## The network as it stands
 
@@ -21,9 +19,9 @@ literal IP hides in more places than it looks, and several of those places broke
 | mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
 | mikrotik4 | SXTsq Lite2 | `192.168.10.4` (reserved) | offline; to become the garden AP |
 
-All on RouterOS 7.24.2. One `192.168.10.0/24` segment for now (VLAN 10, `users`) — `services`
-and `iot` VLANs are Phase 3, not yet created. Upstream is a Swisscom Internet-Box at
-`10.1.1.1` doing a second layer of NAT.
+All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
+(`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
+Upstream is a Swisscom Internet-Box at `10.1.1.1` doing a second layer of NAT.
 
 Raw device output lives in [dumps/](dumps/), collected with
 [dump-configs.sh](scripts/dump-configs.sh). Regenerate it before any review — the files are a
@@ -33,7 +31,7 @@ snapshot, not a source of truth.
 
 | File | What it holds |
 |---|---|
-| [vlan.md](vlan.md) | **Active, Phase 3 next.** VLAN design, device inventory, address plan, six-phase migration (0-2 done) |
+| [vlan.md](vlan.md) | **Active, Phase 5 next.** VLAN design, device inventory, address plan, migration reference |
 | [wifi.md](wifi.md) | Wireless: the channel fix already applied, the 5 GHz plan, mikrotik4 build |
 | [config-review.md](config-review.md) | Open findings and the hardware/architecture decisions |
 | [changelog.md](changelog.md) | Every closed finding, with the output that verified it |
@@ -49,18 +47,9 @@ Diagrams: [network.svg](network.svg) is physical topology (Graphviz),
 
 ## Everything currently open
 
-**VLAN work** — [vlan.md](vlan.md). Phases 0-2 done (renumbered onto `192.168.10.0/24`,
-`vlan-filtering=yes` everywhere, wireless CAPsMAN tagging fixed). Phase 3 next: create
-`services`/`iot` VLANs, migrate Pi-hole/HA/printer/IoT devices one at a time. Two small open
-items, neither blocking: the printer hasn't had an actual test print since the renumber, and
-the "second laptop" from the device inventory is still unidentified. The kitchen light and the
-TV's identity — both previously unconfirmed — are resolved (kitchen light's dead, reservation
-deleted; the TV was actually misidentified, corrected in `vlan.md`).
-
-**Rogue IPv6 router advertisement** — [config-review.md](config-review.md). Identified 2026-09-07
-as Home Assistant's OpenThread Border Router (Thread/Matter mesh), working as designed — not a
-bug, nothing to fix. Held open rather than closed pending a few more days of confirmed
-stability, per that document's own note.
+**VLAN work** — [vlan.md](vlan.md). Phases 0-4 done. Open: verify OctoPrint (device was off)
+and IotaWatt (unreachable) device-side; then Phase 5 — read a week of log evidence and
+tighten. The "second laptop" from the device inventory is still unidentified.
 
 **Wireless** — [wifi.md](wifi.md).
 - The cAP XL ac is unused and is the only 5 GHz on the network. Blocked on one question:
@@ -71,9 +60,8 @@ stability, per that document's own note.
 - Both existing APs are 2.4 GHz only. TX power rose 16 -> 20 dBm as a side effect of the
   channel fix; deliberately not adjusted yet.
 
-**Main router** — [config-review.md](config-review.md).
-- Finding 8: DNS can bypass Pi-hole. Folded into the VLAN work.
-- mikrotik4 has never been reviewed. It needs the full S1-S16 pass when it returns.
+**Main router** — [config-review.md](config-review.md). mikrotik4 has never been reviewed. It
+needs the full S1-S16 pass when it returns.
 
 **Hardware, pending the replacement Swisscom box.**
 - RB5009UG+S+IN for the edge role. Check the new box's port speeds and whether it supports
@@ -199,32 +187,21 @@ outstanding test is a host plugged directly into the Internet-Box.
   traffic matches — it may be entirely leftover from the old criteria. `reset-counters` before
   a retry is the only way to get a clean signal.
 - **RouterOS's `I - INVALID` flag on a forward-chain rule (silently unenforced, no error) has
-  more than one trigger, still not fully characterized — treat it as "always print and check
-  after any rule with multiple matchers," not as a single fixable rule.** Confirmed triggers so
-  far, found across the printer/Pi-hole/HA/ceiling-fan work:
-  - An `accept` rule missing `connection-state=new`.
-  - An `accept` *or* `drop` rule combining `src-address=`/`dst-address=`/`dst-port=`/`port=`
-    with only *one* of `in-interface=`/`out-interface=` — needs both together, or neither.
-  - An `accept` *or* `drop` rule combining **both** `src-address=` and `dst-address=` together
-    with *no* interface matcher at all — also needs both interfaces added, even though a rule
-    with only one of the two addresses and no interface is fine.
-  - **Also important: RouterOS does not evaluate/show `I - INVALID` on a `disabled=yes` rule.**
-    The ceiling fan's DNS-drop rules were created disabled, looked clean, and only revealed the
-    flag once enabled for real — so a disabled rule's cleanliness proves nothing about whether
-    it'll be valid once turned on. Enable and re-check, don't just trust the print from while
-    it was off.
-  - **Checked on `chain=input`, 2026-09-08: no `I` flag** on an `input` rule combining
-    `in-interface=` with `dst-port=` and `connection-state=new` (`iot: NTP from gateway`) —
-    the interface-completeness half of this seems specific to `chain=forward`, consistent with
-    `chain=input` having no `out-interface=` concept to be incomplete about.
-  - **A completely different trigger, found applying Phase 4, 2026-09-08: reusing a cached
-    `find` result across multiple sequential `/add` operations in the same script.** A script
-    that did `:local catchall [/ip/.../find where comment=...]` once, then referenced
-    `place-before=$catchall` across nine separate `/add` calls, produced `I - INVALID` on the
-    *last* of those nine — a rule structurally identical (drop, both interfaces, no
-    address/port matcher, no `connection-state`) to an earlier one in the same batch that was
-    valid. Removing and re-adding the same rule with a freshly-evaluated
-    `place-before=[/ip/.../find where comment=...]` (not a cached variable) fixed it
-    immediately, with no other change. **Always re-evaluate `find` fresh at each `/add`, even
-    within a single script — don't cache and reuse a `place-before=`/`place-after=` target
-    across multiple inserts.**
+  several distinct triggers, not fully characterized — always print and check after any rule
+  with multiple matchers.** Confirmed triggers, found across the printer/Pi-hole/HA/ceiling-fan/
+  Phase 4 work:
+  - Missing `connection-state=new` on an `accept` rule.
+  - `src-address=`/`dst-address=`/`dst-port=`/`port=` combined with only *one* of
+    `in-interface=`/`out-interface=` — needs both together, or neither.
+  - **Both** `src-address=` and `dst-address=` together with no interface matcher — also needs
+    both interfaces (one address with no interface is fine).
+  - **Not evaluated at all on `disabled=yes` rules.** A rule created disabled looks clean and
+    only reveals the flag once enabled for real — enable and re-check, don't trust a print from
+    while it was off.
+  - **Does not apply to `chain=input`** — confirmed clean on an otherwise-equivalent input rule,
+    consistent with `input` having no `out-interface=` concept to be incomplete about.
+  - **Reusing a cached `find` result across multiple sequential `/add` calls in one script.**
+    Caching `:local catchall [find where comment=...]` and reusing it as `place-before=$catchall`
+    across nine `/add`s produced `I - INVALID` on the last one, despite it being structurally
+    identical to an earlier, valid rule. Fix: re-evaluate `find` fresh at every `/add` — never
+    cache and reuse a `place-before=`/`place-after=` target across multiple inserts.

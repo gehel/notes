@@ -1,4 +1,4 @@
-files# Changelog — closed findings
+# Changelog — closed findings
 
 Closed and verified findings for every MikroTik on the network, moved here 2026-09-05 so the
 review documents hold only what is still open.
@@ -371,11 +371,12 @@ Addressing across the estate now reads: mikrotik1 static on both bridges with `e
 dynamic by design (WAN lease from the Internet-Box), mikrotik2 static with its DHCP client
 shelved as `disabled=yes`, mikrotik3 the same. mikrotik4 to match when it returns.
 
-## VLAN segmentation — Phases 0-2 (2026-09-06 to 2026-09-07)
+## VLAN segmentation — Phases 0-4 (2026-09-06 to 2026-09-08)
 
-Full design, decisions, and the still-open remainder (Phase 3 onward) live in
-[vlan.md](vlan.md). This entry records what's actually done, closed the way every other entry
-in this file is: with the output that verified it, not just the change that was made.
+Full design and current state live in [vlan.md](vlan.md); Phase 5 is what's left. This entry
+records what's actually done, closed the way every other entry in this file is: with the
+output that verified it, not just the change that was made. Ordered chronologically, except
+where noted (the ceiling fan was deliberately moved out of its planned order).
 
 ### Phase 0 — preparation
 
@@ -405,10 +406,9 @@ over WiFi, not just association.
 **Side effects surfaced and fixed along the way, not part of the original Phase 1 scope:**
 IPv6 had never been migrated off `bridge-main` — fixed, full write-up in
 [ipv6.md](ipv6.md)'s "Migrated onto `vlan-users`" section. That same investigation identified
-the source of a previously "possible" rogue IPv6 router advertisement (Home Assistant's
-OpenThread Border Router, working as designed, not a bug) — recorded as its own entry in
-[config-review.md](config-review.md), held there rather than closed here until a few more days
-confirm it stays stable.
+the source of a previously "possible" rogue IPv6 router advertisement: Home Assistant's
+OpenThread Border Router, working as designed, not a bug — the actual defect was mikrotik1's
+own IPv6 config being left on `bridge-main`, fixed and verified here.
 
 ### Phase 2 — renumber to 192.168.10.0/24
 
@@ -522,12 +522,44 @@ router stops sending it; there is no explicit withdrawal message, only omission.
 Scripts: `scripts/fix-ipv6-rdnss-dns.rsc`, `scripts/fix-ipv6-rdnss-dns-cleanup.rsc`,
 `scripts/fix-ipv6-rdnss-dns-v2.rsc` (the one that actually closed it).
 
+### Phase 3, step 1 — printer migrated to services (2026-09-07/08)
+
+Moved via `scripts/phase3-03a-printer-mikrotik3-port.rsc` (mikrotik3: `ether2` from VLAN 10 to
+VLAN 20 — both the bridge-vlan table membership and `pvid`, the two-command move `vlan.md`
+flags) and `scripts/phase3-03b-printer-mikrotik1-dhcp.rsc` (mikrotik1: DHCP reservation to
+`192.168.20.110` on `dhcp-services`, matched by MAC).
+
+Also enabled `/ip/dns mdns-repeat-ifaces=vlan-users,vlan-services` early (a scoped-down piece
+of Phase 4, brought forward because the printer needed it immediately) via
+`scripts/phase3-04-mdns-repeat-early.rsc`.
+
+**Verified:** `/interface/bridge/vlan/print` and `/interface/bridge/port/print` on mikrotik3
+show the target state; the DHCP lease went `status=bound`, `active-address=192.168.20.110`,
+`active-server=dhcp-services` within its lease window, no power-cycle needed. Printing via a
+manually-configured static URI (`ipp://192.168.20.110/ipp/print` or
+`socket://192.168.20.110:9100`) succeeded from the desktop.
+
+**Real gap found and root-caused, not a blocker:** printing through a printer added via mDNS
+*discovery* (GNOME/CUPS's `dnssd://` URI) hung on "processing" / "Unable to locate printer".
+Root-caused with `/tool/sniffer/quick` run on both VLANs simultaneously while retrying the
+resolve: the router's `mdns-repeat-ifaces` proxies a client query onto the other VLAN under its
+own address (`192.168.20.1`, not the desktop's), the printer answers it, and the router drops
+that reply instead of repeating it back to the querying VLAN — confirmed by a clean capture
+showing the query and its answer on `vlan-services`, and nothing but the original query on
+`vlan-users`. Spontaneous, unprompted announcements repeat fine both ways (that's how discovery
+found the printer's name at all); only the reply to a router-proxied query goes missing. A
+specific RouterOS defect, not a firewall or avahi issue, and not fixable from the config side.
+Confirmed static-URI workaround (`ipp://192.168.20.110/ipp/print` or
+`socket://192.168.20.110:9100`) treated as the permanent approach for any cross-VLAN mDNS
+consumer going forward. Full writeup in `vlan.md`'s Phase 4 section and its "Known unverified
+assumptions" #2.
+
 ### Printer reverted from services back to users (2026-09-08)
 
-Migrated to `services` as Phase 3 step 1, then moved back the same week once the mDNS-repeater
-defect above was root-caused: `mdns-repeat-ifaces` doesn't reliably deliver working
+Migrated to `services` as Phase 3 step 1 above, then moved back the same week once the
+mDNS-repeater defect was root-caused: `mdns-repeat-ifaces` doesn't reliably deliver working
 autodiscovery across VLANs (queries get proxied and answered, but the router drops the reply
-on the way back — see the "IPv6 RDNSS..." entry's neighbour for detail, and `vlan.md`'s
+on the way back — see the printer migration entry above for the capture, and `vlan.md`'s
 Decisions section). Confirmed independently on the [MikroTik forum](https://forum.mikrotik.com/t/mdns-repeater-forwarding-queries-but-not-all-responses-across-vlans/269317)
 — RouterOS 7.20, identical symptom. Guillaume's household needs a non-technical user to be able
 to add this printer on her own phone and laptop without manual IP configuration, which
@@ -549,163 +581,38 @@ is no longer part of the Phase 3 device migration — `vlan.md`'s device invento
 design, policy matrix, trunk/port plan, and migration table were all updated to reflect it
 staying on `users` permanently.
 
-### Phase 4 — firewall policy applied (2026-09-08)
+### Phase 3, step 2 — Pi-hole migrated to services (2026-09-08)
 
-Applied ahead of finishing OctoPrint/IotaWatt device-side verification — Guillaume's explicit
-call, since he plans to test over the coming days rather than block on it now. Deliberately
-did **not** use a scheduled auto-revert here, unlike earlier risky changes: that pattern exists
-for changes that could cut off the management session itself, which this doesn't (it only
-restricts `users -> services/iot`, never access to the router), and an auto-revert would have
-undone everything before any real-world testing happened. The actual safety net is Phase 5's
-own plan — the logged drops added here are exactly what that evidence-gathering reads.
+Moved via `scripts/phase3-05a-pihole-mikrotik2-port.rsc` (mikrotik2: `ether23-slave-local` from
+VLAN 10 to VLAN 20). VLAN 10's untagged list is 25 ports on this device — built the target list
+programmatically from the live value rather than hand-retyping it, to avoid a transcription
+error at that size; confirmed by a before/after port count (25 -> 24) rather than eyeballing
+the list.
 
-Via `scripts/phase4-01-firewall-policy.rsc`: filled every gap in the Phase 4 draft that wasn't
-already pulled forward piecemeal during device migrations — `iot: deny everything else`
-(logged), `HA -> ESPHome (IotaWatt)` (tcp/6053, a port the policy matrix always listed but the
-draft never actually included), `services: no users` (logged), `mgmt hosts: full`, `users:
-DNS`, `users: HA web`, `users2services` (logged), `mgmt hosts: iot`, `users2iot` (logged — the
-draft had no logging or comment on this one at all, an oversight caught and fixed here).
-Confirmed `mdns-repeat-ifaces` empty, not re-enabled (Guillaume's explicit call, given the
-known cross-VLAN resolve limitations). The existing broad `Home can connect everywhere
-(vlan-users)` rule was left untouched — every new rule inserted ahead of it, so
-`users -> internet` keeps working exactly as before while `users -> services/iot` now hits the
-narrow allows and logged drops first.
+**Real gap found and fixed, not deferred to Phase 4:** the policy matrix always said `services
+-> internet: allow`, but no rule anywhere actually implemented it — only `vlan-users` had a
+broad "connect everywhere" accept, and VLAN sub-interfaces don't inherit `bridge-main`'s rules.
+Without this, Pi-hole would have had no upstream DNS resolution at all. Added via
+`scripts/phase3-05b-pihole-mikrotik1-dhcp-and-fw.rsc`, `place-before=` the catch-all drop (a
+plain `/add` appends to the end of the chain, which would have put it after the
+already-unconditional drop and made it dead). Also moved the DHCP reservation to
+`192.168.20.40` / `dhcp-services` in the same script.
 
-**A genuinely new `I - INVALID` trigger, distinct from every prior one:** the script cached a
-single `find` result (`:local catchall [...]`) and reused it via `place-before=$catchall`
-across nine separate `/add` calls. The *last* of those nine (`users2iot`) came up invalid
-despite being structurally identical (drop, both interfaces, no address/port matcher, no
-`connection-state`) to an earlier rule in the same batch that was valid. Removing and
-re-adding it with a freshly-evaluated `place-before=[find ...]` (not the cached variable) fixed
-it immediately, no other change — `scripts/phase4-02-fix-users2iot-invalid.rsc`. Lesson: always
-re-evaluate `find` fresh at each insertion, even within a single script; don't cache and reuse
-a `place-before=` target across multiple `/add`s. Full detail in `README.md`'s hard-won
-lessons.
+DNS repointed only after confirming Pi-hole was live and resolving at the new address
+(`dig @192.168.20.40 google.com` succeeded, proving both DNS and the new firewall rule worked):
+mikrotik1's own `/ip/dns servers=` and the *"Accept DNS requests from Pi-hole"* rule's
+`src-address=` (`scripts/phase3-05c-pihole-mikrotik1-dns.rsc`); mikrotik2 and mikrotik3's
+independent `/ip/dns servers=` (`-05d-`, `-05e-`); and, by hand rather than scripted (the
+confirmed `/ip/dhcp-server/network/set [find address=...]` bug), the `192.168.10.0/24`
+network's `dns-server=`, via its numeric index (`0`).
 
-**Verified: full forward chain printed clean, no `I` flags anywhere**, narrow rules correctly
-ordered ahead of the broad `vlan-users` allow. Not yet verified: real-world behavior over the
-coming days (Phase 5's job) and the two still-pending devices (OctoPrint, IotaWatt).
-
-### Phase 3, step 5 — IotaWatt router-side config applied, not yet verified (2026-09-08)
-
-Wireless ESPHome device, no port to move. Moved via
-`scripts/phase3-20-iotawatt-mikrotik1.rsc`: DHCP reservation to `192.168.30.50`/`dhcp-iot`, and
-the Phase 4 draft's `HA -> Tasmota/IotaWatt` rule (tcp/80, services -> iot) pulled forward —
-needed if HA polls IotaWatt's local HTTP API directly rather than only listening over MQTT
-(the general `iot: MQTT to HA` rule, already live since Kids light's migration, covers that
-side unconditionally). Printed clean, no `I - INVALID` flag.
-
-**Not verified — Guillaume couldn't reach the device after the move, but suspects it may have
-already been disconnected for some time, independent of this migration.** Router-side config
-is confirmed correctly applied; whether it actually works once the device is reachable again
-(MQTT, the new HTTP rule, DHCP option 42 vs. ESPHome, NTP) is still open. Investigating
-separately.
-
-### Phase 3, step 4 — OctoPrint router-side config prepared, not yet verified (2026-09-08)
-
-OctoPrint was powered off, so this is router-side prep only — deliberately not claimed as
-"done and verified" until it's actually running and tested.
-
-`scripts/phase3-18-octoprint-mikrotik1.rsc`: both DHCP reservations (wifi, in use; wired,
-known-dead cable but kept for when it's fixed) moved to `192.168.30.81`/`.80` on `dhcp-iot`;
-both addresses added to the `iot-internet` address-list with the actual allow rule (tcp
-80/443 to WAN) — the "named exception" design decided back on 2026-09-06 but never applied
-since nothing was on `vlan-iot` yet. Deliberately skipped a direct `iot-internet -> WAN udp/53`
-rule from the original design sketch — the general `iot: DNS to pi-hole` rule already covers
-this via Pi-hole's own recursion, so a second path would be redundant. Printed clean, no `I -
-INVALID` flag (had both interfaces + `connection-state=new` from the start).
-
-**A real gap caught before it could bite:** the original port/trunk plan never assigned
-OctoPrint's wired connection to any specific physical port, since it was wireless-only when
-that plan was drawn up and its cable was already known dead. Guillaume physically checked and
-found it plugged into mikrotik2's `ether24-slave-local`. Tagged for VLAN 30 via
-`scripts/phase3-19-octoprint-mikrotik2-port.rsc` (same read-modify-write approach as the
-Pi-hole/HA moves, to avoid retyping VLAN 10's long untagged list) — so whenever that cable is
-actually fixed, it comes up on the right VLAN without anyone having to remember this step.
-Port shows `Flags: I - INACTIVE` (no link detected) — normal, given the cable is still down;
-not the same `I` as the firewall's `I - INVALID`, and expected to clear once there's a live
-link.
-
-**Not verified, left for when OctoPrint is actually running:** whether HA's OctoPrint
-integration needs a port beyond what `HA -> Tasmota/IotaWatt` (tcp/80) already opens — if it
-uses OctoPrint's own default port 5000 instead, that'll need a new rule, discovered live the
-same way tuya-local's port 6668 was for the ceiling fan.
-
-### Phase 3, step 6 — Kids light migrated to iot (2026-09-08)
-
-Wireless Tasmota device, no port to move. Moved via
-`scripts/phase3-16-kidslight-mikrotik1.rsc`: DHCP reservation to `192.168.30.61`/`dhcp-iot`,
-and the permanent `iot -> services` MQTT rule (tcp/1883, dst-address=192.168.20.60) — pulled
-forward from Phase 4, first device to actually need it (the TEMP `users -> services` version
-added during HA's migration only covers devices still on `vlan-users`). Both interfaces +
-`connection-state=new` from the start, per the `I - INVALID` findings from the ceiling fan
-work — printed clean immediately, no follow-up fix needed this time.
-
-Guillaume rejoined the device to `LEDCOM-IoT` via Tasmota's own console/web config (not
-scripted). **Verified: connected to HA successfully.**
-
-**DHCP option 42 finding, corrected twice — full account in `vlan.md`'s "Known unverified
-assumptions" #3.** After migrating, the device was still pointed at `192.168.10.1` — the exact
-value this project's own `ntp-users` option-42 entry provides, acquired while it was still on
-`vlan-users` and persisted across the VLAN move rather than refreshed. Manually repointed via
-Tasmota's console (`NtpServer1 192.168.30.1`, confirmed applied) — but time still didn't sync.
-**Actual remaining root cause:** mikrotik1's `chain=input` had no rule permitting UDP/123 from
-`vlan-iot` at all — the Phase 4 draft's `iot: NTP from gateway` rule was never pulled forward
-like the others were. Fixed via `scripts/phase3-17-iot-ntp-input.rsc` — printed clean, no `I`
-flag, resolving the open question of whether the interface-completeness half of that finding
-also applies to `chain=input` (it doesn't appear to — see `README.md`). **Verified: Tasmota's
-`Status 7` shows correct local time**, no longer stuck at the 1970 epoch.
-
-### Phase 3, step 7 — ceiling fan migrated to iot, out of order (2026-09-08)
-
-Moved before OctoPrint/IotaWatt/Kids light, deliberately overriding `vlan.md`'s "do this one
-last" caution, to have it working that same evening. Wireless device, no port to move.
-
-`scripts/phase3-10-ceilingfan-mikrotik1.rsc`: DHCP reservation to `192.168.30.63`/`dhcp-iot`;
-**retired the standing `chain=forward action=drop src-address=192.168.10.63` rule** (a
-"deliberately distrusted device" restriction from an earlier config-review round) rather than
-carrying it to the new address — `vlan-iot` isolation now does that job by construction; added
-the general `iot -> Pi-hole DNS` accept rules (pulled forward from Phase 4, first real device
-on `vlan-iot`); added the fan's own DNS-drop rules, created `disabled=yes`; added a
-tcp/80,443 internet-access toggle for the fan specifically, created enabled, for that night's
-reconfiguration (the fan is known to phone home to a vendor cloud service, confirmed in its
-original config-review finding, so reconfiguration needed DNS+internet).
-
-**A second, broader temporary rule** (`scripts/phase3-12-iot-temp-internet.rsc`): whole-`vlan-
-iot` internet access, no port restriction, enabled for pairing Guillaume's phone to
-`LEDCOM-IoT` during the Tuya app's pairing flow — broader than the usual named-exception
-pattern, justified by being short-lived and by not wanting a guessed-wrong port to cost a
-retry mid-pairing.
-
-**A real, previously-unanticipated policy gap found live:** HA's `tuya-local` integration talks
-directly to the device over Tuya's local protocol (tcp/6668), bypassing Tuya's cloud — not in
-the original policy matrix, which only listed HA on 6053/80 for ESPHome/Tasmota. Added
-`services -> iot` tcp/6668 (`scripts/phase3-13-ha-tuya-local.rsc`), same shape as the existing
-`HA -> Tasmota/IotaWatt` rule; folded into `vlan.md`'s policy matrix and Phase 4 draft.
-
-Once HA confirmed the fan working: disabled both temporary internet rules and enabled the
-fan's DNS-drop rules (`scripts/phase3-14-ceilingfan-lockdown.rsc`). **Verified the fan still
-responds correctly in HA after lockdown** — dropping its DNS didn't affect local Tuya control,
-as expected.
-
-**Further work on the `I - INVALID` flag, refining what was already found for HA:** three new
-rules added during this step (`iot: DNS to pi-hole` ×2, `ceiling fan: TEMP internet for setup`)
-showed the flag despite already having `connection-state=new` — because each specified only
-*one* interface direction alongside an address/port matcher, not both. Fixed by adding the
-missing interface (`scripts/phase3-11-fix-invalid-rules.rsc`). Then, once the fan's DNS-drop
-rules were finally *enabled* (they were created `disabled=yes` and looked clean while off), the
-flag appeared on *them* too — a `drop` rule combining `src-address=` and `dst-address=` with
-no interface at all. Fixed by adding both interfaces there as well
-(`scripts/phase3-15-fix-dns-drop-invalid.rsc`). Net finding: RouterOS doesn't evaluate this flag
-on disabled rules at all, and the actual set of triggers is broader than "accept rules need
-`connection-state=new`" — see `README.md`'s hard-won lessons for the fuller list. Also applied
-the same interface-completeness fixes to `vlan.md`'s Phase 4 draft, which had five more rules
-with the identical one-interface-plus-address/port pattern, so Phase 4 doesn't hit this again
-when it's actually run.
-
-**Verified throughout via the forward chain's own `print` output** (not just individual rule
-checks) — printing the whole chain in order after each change caught the ordering and
-placement issues immediately, which checking one rule at a time would have missed.
+**Verified:** DHCP lease `status=bound`, `active-address=192.168.20.40`,
+`active-server=dhcp-services`; `dig @192.168.20.40 google.com` resolved successfully; all three
+devices' `/ip/dns/print` and the DHCP network table show `192.168.20.40` throughout; a plain
+`dig google.com` (no `@server`) from the desktop on `vlan-users` resolved correctly via its
+stub resolver, confirming the full DHCP -> `dns-server=` -> Pi-hole chain works end-to-end for
+a real client, not just the router itself. Guillaume also updated Pi-hole's own local DNS
+record for itself to its new address (a Pi-hole-side admin change, not a router one).
 
 ### Phase 3, step 3 — Home Assistant migrated to services (2026-09-08)
 
@@ -777,67 +684,167 @@ different subnet than that address — not just correct bridge/VLAN forwarding. 
 is silent and produces no log at all, which makes it easy to misdiagnose as a firewall or
 credentials problem.
 
-### Phase 3, step 2 — Pi-hole migrated to services (2026-09-08)
+### Phase 3, step 7 — ceiling fan migrated to iot, out of order (2026-09-08)
 
-Moved via `scripts/phase3-05a-pihole-mikrotik2-port.rsc` (mikrotik2: `ether23-slave-local` from
-VLAN 10 to VLAN 20). VLAN 10's untagged list is 25 ports on this device — built the target list
-programmatically from the live value rather than hand-retyping it, to avoid a transcription
-error at that size; confirmed by a before/after port count (25 -> 24) rather than eyeballing
-the list.
+Moved before OctoPrint/IotaWatt/Kids light, deliberately overriding `vlan.md`'s "do this one
+last" caution, to have it working that same evening. Wireless device, no port to move.
 
-**Real gap found and fixed, not deferred to Phase 4:** the policy matrix always said `services
--> internet: allow`, but no rule anywhere actually implemented it — only `vlan-users` had a
-broad "connect everywhere" accept, and VLAN sub-interfaces don't inherit `bridge-main`'s rules.
-Without this, Pi-hole would have had no upstream DNS resolution at all. Added via
-`scripts/phase3-05b-pihole-mikrotik1-dhcp-and-fw.rsc`, `place-before=` the catch-all drop (a
-plain `/add` appends to the end of the chain, which would have put it after the
-already-unconditional drop and made it dead). Also moved the DHCP reservation to
-`192.168.20.40` / `dhcp-services` in the same script.
+`scripts/phase3-10-ceilingfan-mikrotik1.rsc`: DHCP reservation to `192.168.30.63`/`dhcp-iot`;
+**retired the standing `chain=forward action=drop src-address=192.168.10.63` rule** (a
+"deliberately distrusted device" restriction from an earlier config-review round) rather than
+carrying it to the new address — `vlan-iot` isolation now does that job by construction; added
+the general `iot -> Pi-hole DNS` accept rules (pulled forward from Phase 4, first real device
+on `vlan-iot`); added the fan's own DNS-drop rules, created `disabled=yes`; added a
+tcp/80,443 internet-access toggle for the fan specifically, created enabled, for that night's
+reconfiguration (the fan is known to phone home to a vendor cloud service, confirmed in its
+original config-review finding, so reconfiguration needed DNS+internet).
 
-DNS repointed only after confirming Pi-hole was live and resolving at the new address
-(`dig @192.168.20.40 google.com` succeeded, proving both DNS and the new firewall rule worked):
-mikrotik1's own `/ip/dns servers=` and the *"Accept DNS requests from Pi-hole"* rule's
-`src-address=` (`scripts/phase3-05c-pihole-mikrotik1-dns.rsc`); mikrotik2 and mikrotik3's
-independent `/ip/dns servers=` (`-05d-`, `-05e-`); and, by hand rather than scripted (the
-confirmed `/ip/dhcp-server/network/set [find address=...]` bug), the `192.168.10.0/24`
-network's `dns-server=`, via its numeric index (`0`).
+**A second, broader temporary rule** (`scripts/phase3-12-iot-temp-internet.rsc`): whole-`vlan-
+iot` internet access, no port restriction, enabled for pairing Guillaume's phone to
+`LEDCOM-IoT` during the Tuya app's pairing flow — broader than the usual named-exception
+pattern, justified by being short-lived and by not wanting a guessed-wrong port to cost a
+retry mid-pairing.
 
-**Verified:** DHCP lease `status=bound`, `active-address=192.168.20.40`,
-`active-server=dhcp-services`; `dig @192.168.20.40 google.com` resolved successfully; all three
-devices' `/ip/dns/print` and the DHCP network table show `192.168.20.40` throughout; a plain
-`dig google.com` (no `@server`) from the desktop on `vlan-users` resolved correctly via its
-stub resolver, confirming the full DHCP -> `dns-server=` -> Pi-hole chain works end-to-end for
-a real client, not just the router itself. Guillaume also updated Pi-hole's own local DNS
-record for itself to its new address (a Pi-hole-side admin change, not a router one).
+**A real, previously-unanticipated policy gap found live:** HA's `tuya-local` integration talks
+directly to the device over Tuya's local protocol (tcp/6668), bypassing Tuya's cloud — not in
+the original policy matrix, which only listed HA on 6053/80 for ESPHome/Tasmota. Added
+`services -> iot` tcp/6668 (`scripts/phase3-13-ha-tuya-local.rsc`), same shape as the existing
+`HA -> Tasmota/IotaWatt` rule; folded into `vlan.md`'s policy matrix and Phase 4 draft.
 
-### Phase 3, step 1 — printer migrated to services (2026-09-07/08)
+Once HA confirmed the fan working: disabled both temporary internet rules and enabled the
+fan's DNS-drop rules (`scripts/phase3-14-ceilingfan-lockdown.rsc`). **Verified the fan still
+responds correctly in HA after lockdown** — dropping its DNS didn't affect local Tuya control,
+as expected.
 
-Moved via `scripts/phase3-03a-printer-mikrotik3-port.rsc` (mikrotik3: `ether2` from VLAN 10 to
-VLAN 20 — both the bridge-vlan table membership and `pvid`, the two-command move `vlan.md`
-flags) and `scripts/phase3-03b-printer-mikrotik1-dhcp.rsc` (mikrotik1: DHCP reservation to
-`192.168.20.110` on `dhcp-services`, matched by MAC).
+**Further work on the `I - INVALID` flag, refining what was already found for HA:** three new
+rules added during this step (`iot: DNS to pi-hole` ×2, `ceiling fan: TEMP internet for setup`)
+showed the flag despite already having `connection-state=new` — because each specified only
+*one* interface direction alongside an address/port matcher, not both. Fixed by adding the
+missing interface (`scripts/phase3-11-fix-invalid-rules.rsc`). Then, once the fan's DNS-drop
+rules were finally *enabled* (they were created `disabled=yes` and looked clean while off), the
+flag appeared on *them* too — a `drop` rule combining `src-address=` and `dst-address=` with
+no interface at all. Fixed by adding both interfaces there as well
+(`scripts/phase3-15-fix-dns-drop-invalid.rsc`). Net finding: RouterOS doesn't evaluate this flag
+on disabled rules at all, and the actual set of triggers is broader than "accept rules need
+`connection-state=new`" — see `README.md`'s hard-won lessons for the fuller list. Also applied
+the same interface-completeness fixes to `vlan.md`'s Phase 4 draft, which had five more rules
+with the identical one-interface-plus-address/port pattern, so Phase 4 doesn't hit this again
+when it's actually run.
 
-Also enabled `/ip/dns mdns-repeat-ifaces=vlan-users,vlan-services` early (a scoped-down piece
-of Phase 4, brought forward because the printer needed it immediately) via
-`scripts/phase3-04-mdns-repeat-early.rsc`.
+**Verified throughout via the forward chain's own `print` output** (not just individual rule
+checks) — printing the whole chain in order after each change caught the ordering and
+placement issues immediately, which checking one rule at a time would have missed.
 
-**Verified:** `/interface/bridge/vlan/print` and `/interface/bridge/port/print` on mikrotik3
-show the target state; the DHCP lease went `status=bound`, `active-address=192.168.20.110`,
-`active-server=dhcp-services` within its lease window, no power-cycle needed. Printing via a
-manually-configured static URI (`ipp://192.168.20.110/ipp/print` or
-`socket://192.168.20.110:9100`) succeeded from the desktop.
+### Phase 3, step 6 — Kids light migrated to iot (2026-09-08)
 
-**Real gap found and root-caused, not a blocker:** printing through a printer added via mDNS
-*discovery* (GNOME/CUPS's `dnssd://` URI) hung on "processing" / "Unable to locate printer".
-Root-caused with `/tool/sniffer/quick` run on both VLANs simultaneously while retrying the
-resolve: the router's `mdns-repeat-ifaces` proxies a client query onto the other VLAN under its
-own address (`192.168.20.1`, not the desktop's), the printer answers it, and the router drops
-that reply instead of repeating it back to the querying VLAN — confirmed by a clean capture
-showing the query and its answer on `vlan-services`, and nothing but the original query on
-`vlan-users`. Spontaneous, unprompted announcements repeat fine both ways (that's how discovery
-found the printer's name at all); only the reply to a router-proxied query goes missing. A
-specific RouterOS defect, not a firewall or avahi issue, and not fixable from the config side.
-Confirmed static-URI workaround (`ipp://192.168.20.110/ipp/print` or
-`socket://192.168.20.110:9100`) treated as the permanent approach for any cross-VLAN mDNS
-consumer going forward. Full writeup in `vlan.md`'s Phase 4 section and its "Known unverified
-assumptions" #2.
+Wireless Tasmota device, no port to move. Moved via
+`scripts/phase3-16-kidslight-mikrotik1.rsc`: DHCP reservation to `192.168.30.61`/`dhcp-iot`,
+and the permanent `iot -> services` MQTT rule (tcp/1883, dst-address=192.168.20.60) — pulled
+forward from Phase 4, first device to actually need it (the TEMP `users -> services` version
+added during HA's migration only covers devices still on `vlan-users`). Both interfaces +
+`connection-state=new` from the start, per the `I - INVALID` findings from the ceiling fan
+work — printed clean immediately, no follow-up fix needed this time.
+
+Guillaume rejoined the device to `LEDCOM-IoT` via Tasmota's own console/web config (not
+scripted). **Verified: connected to HA successfully.**
+
+**DHCP option 42 finding, corrected twice — full account in `vlan.md`'s "Known unverified
+assumptions" #3.** After migrating, the device was still pointed at `192.168.10.1` — the exact
+value this project's own `ntp-users` option-42 entry provides, acquired while it was still on
+`vlan-users` and persisted across the VLAN move rather than refreshed. Manually repointed via
+Tasmota's console (`NtpServer1 192.168.30.1`, confirmed applied) — but time still didn't sync.
+**Actual remaining root cause:** mikrotik1's `chain=input` had no rule permitting UDP/123 from
+`vlan-iot` at all — the Phase 4 draft's `iot: NTP from gateway` rule was never pulled forward
+like the others were. Fixed via `scripts/phase3-17-iot-ntp-input.rsc` — printed clean, no `I`
+flag, resolving the open question of whether the interface-completeness half of that finding
+also applies to `chain=input` (it doesn't appear to — see `README.md`). **Verified: Tasmota's
+`Status 7` shows correct local time**, no longer stuck at the 1970 epoch.
+
+### Phase 3, step 4 — OctoPrint router-side config prepared, not yet verified (2026-09-08)
+
+OctoPrint was powered off, so this is router-side prep only — deliberately not claimed as
+"done and verified" until it's actually running and tested.
+
+`scripts/phase3-18-octoprint-mikrotik1.rsc`: both DHCP reservations (wifi, in use; wired,
+known-dead cable but kept for when it's fixed) moved to `192.168.30.81`/`.80` on `dhcp-iot`;
+both addresses added to the `iot-internet` address-list with the actual allow rule (tcp
+80/443 to WAN) — the "named exception" design decided back on 2026-09-06 but never applied
+since nothing was on `vlan-iot` yet. Deliberately skipped a direct `iot-internet -> WAN udp/53`
+rule from the original design sketch — the general `iot: DNS to pi-hole` rule already covers
+this via Pi-hole's own recursion, so a second path would be redundant. Printed clean, no `I -
+INVALID` flag (had both interfaces + `connection-state=new` from the start).
+
+**A real gap caught before it could bite:** the original port/trunk plan never assigned
+OctoPrint's wired connection to any specific physical port, since it was wireless-only when
+that plan was drawn up and its cable was already known dead. Guillaume physically checked and
+found it plugged into mikrotik2's `ether24-slave-local`. Tagged for VLAN 30 via
+`scripts/phase3-19-octoprint-mikrotik2-port.rsc` (same read-modify-write approach as the
+Pi-hole/HA moves, to avoid retyping VLAN 10's long untagged list) — so whenever that cable is
+actually fixed, it comes up on the right VLAN without anyone having to remember this step.
+Port shows `Flags: I - INACTIVE` (no link detected) — normal, given the cable is still down;
+not the same `I` as the firewall's `I - INVALID`, and expected to clear once there's a live
+link.
+
+**Not verified, left for when OctoPrint is actually running:** whether HA's OctoPrint
+integration needs a port beyond what `HA -> Tasmota/IotaWatt` (tcp/80) already opens — if it
+uses OctoPrint's own default port 5000 instead, that'll need a new rule, discovered live the
+same way tuya-local's port 6668 was for the ceiling fan.
+
+### Phase 3, step 5 — IotaWatt router-side config applied, not yet verified (2026-09-08)
+
+Wireless ESPHome device, no port to move. Moved via
+`scripts/phase3-20-iotawatt-mikrotik1.rsc`: DHCP reservation to `192.168.30.50`/`dhcp-iot`, and
+the Phase 4 draft's `HA -> Tasmota/IotaWatt` rule (tcp/80, services -> iot) pulled forward —
+needed if HA polls IotaWatt's local HTTP API directly rather than only listening over MQTT
+(the general `iot: MQTT to HA` rule, already live since Kids light's migration, covers that
+side unconditionally). Printed clean, no `I - INVALID` flag.
+
+**Not verified — Guillaume couldn't reach the device after the move, but suspects it may have
+already been disconnected for some time, independent of this migration.** Router-side config
+is confirmed correctly applied; whether it actually works once the device is reachable again
+(MQTT, the new HTTP rule, DHCP option 42 vs. ESPHome, NTP) is still open. Investigating
+separately.
+
+### Phase 4 — firewall policy applied (2026-09-08)
+
+Applied ahead of finishing OctoPrint/IotaWatt device-side verification — Guillaume's explicit
+call, since he plans to test over the coming days rather than block on it now. Deliberately
+did **not** use a scheduled auto-revert here, unlike earlier risky changes: that pattern exists
+for changes that could cut off the management session itself, which this doesn't (it only
+restricts `users -> services/iot`, never access to the router), and an auto-revert would have
+undone everything before any real-world testing happened. The actual safety net is Phase 5's
+own plan — the logged drops added here are exactly what that evidence-gathering reads.
+
+Via `scripts/phase4-01-firewall-policy.rsc`: filled every gap in the Phase 4 draft that wasn't
+already pulled forward piecemeal during device migrations — `iot: deny everything else`
+(logged), `HA -> ESPHome (IotaWatt)` (tcp/6053, a port the policy matrix always listed but the
+draft never actually included), `services: no users` (logged), `mgmt hosts: full`, `users:
+DNS`, `users: HA web`, `users2services` (logged), `mgmt hosts: iot`, `users2iot` (logged — the
+draft had no logging or comment on this one at all, an oversight caught and fixed here).
+Confirmed `mdns-repeat-ifaces` empty, not re-enabled (Guillaume's explicit call, given the
+known cross-VLAN resolve limitations). The existing broad `Home can connect everywhere
+(vlan-users)` rule was left untouched — every new rule inserted ahead of it, so
+`users -> internet` keeps working exactly as before while `users -> services/iot` now hits the
+narrow allows and logged drops first.
+
+**A genuinely new `I - INVALID` trigger, distinct from every prior one:** the script cached a
+single `find` result (`:local catchall [...]`) and reused it via `place-before=$catchall`
+across nine separate `/add` calls. The *last* of those nine (`users2iot`) came up invalid
+despite being structurally identical (drop, both interfaces, no address/port matcher, no
+`connection-state`) to an earlier rule in the same batch that was valid. Removing and
+re-adding it with a freshly-evaluated `place-before=[find ...]` (not the cached variable) fixed
+it immediately, no other change — `scripts/phase4-02-fix-users2iot-invalid.rsc`. Lesson: always
+re-evaluate `find` fresh at each insertion, even within a single script; don't cache and reuse
+a `place-before=` target across multiple `/add`s. Full detail in `README.md`'s hard-won
+lessons.
+
+**Verified: full forward chain printed clean, no `I` flags anywhere**, narrow rules correctly
+ordered ahead of the broad `vlan-users` allow. Not yet verified: real-world behavior over the
+coming days (Phase 5's job) and the two still-pending devices (OctoPrint, IotaWatt).
+
+**[config-review.md](config-review.md)'s finding 8 (DNS can bypass Pi-hole) is now closed by
+this.** `vlan-iot` denies internet by default with only a narrow named-exception list (ports
+80/443 for OctoPrint, no DNS in it), so an IoT device can no longer reach any external resolver
+at all — strictly stronger than the redirect finding 8 originally proposed, as intended when it
+was deferred into this work. `vlan-users` keeps its existing broad internet access unchanged;
+that was already accepted as a tolerable risk for that segment, not part of what this closes.

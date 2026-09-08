@@ -162,80 +162,13 @@ Then: Swisscom support. A 10 Gbps subscription terminating on a gigabit box that
 181 Mbps down and 842 Mbps up is worth a support ticket regardless of what the direct test
 shows.
 
-## Hypotheses (original list, 2026-09-04)
-
-Kept for reference. The measurements above have since demoted 1 and 2 and promoted 4 and 5.
-The `speed.cloudflare.com` URLs quoted under hypothesis 1 do not work — use the Hetzner
-endpoint from the Measurements section instead.
-
-### 1. IPv6 path has no fasttrack
-
-Strongest candidate. `/ipv6/settings/print` reports `ipv6-fasttrack-active: no`, and there
-is no IPv6 fasttrack rule. Every IPv6 packet therefore traverses the full firewall chain
-**plus** the NAT66 masquerade added as the Internet-Box workaround (see [ipv6.md](ipv6.md)),
-entirely in the CPU path on a 600 MHz single-core MIPS.
-
-IPv4 by contrast has `action=fasttrack-connection` at the top of the forward chain and is
-largely offloaded.
-
-speedtest.net will prefer IPv6 when it is available, and the desktop holds a working global
-address. So the measured figures may be an IPv6 result while the IPv4 path is fine.
-
-**Tested and confirmed** — 25% slower at 1.5x the CPU. Real, but secondary. The fix is
-either an IPv6 fasttrack rule or, better, removing the NAT66 requirement entirely by moving
-the MikroTik to the edge.
-
-### 2. RB2011 CPU ceiling
-
-`cpu-load` was 23% at rest on a 600 MHz single core, which is already high. The board is
-realistically good for a few hundred Mbps routed with fasttrack, well under the line rate
-regardless.
-
-**Test:** watch the CPU during a transfer.
-
-```
-/system/resource/print          # repeatedly, during a speedtest
-/tool/profile duration=10s      # shows which process is burning CPU
-```
-
-If CPU pegs at 100% during download but not upload, that points back to hypothesis 1 —
-asymmetric CPU cost implies asymmetric processing, which the missing IPv6 fasttrack would
-explain.
-
-### 3. Link negotiation somewhere in the path
-
-The path is desktop → (mikrotik2 or mikrotik3) → main router `ether1` → Internet-Box.
-
-```
-/interface/ethernet/print detail    # on each device: check rate and full-duplex
-/interface/print stats              # look for rx-error, tx-error, rx-drop
-```
-
-181 Mbps does not match any standard link speed, so this is unlikely to be the whole story
-— but errors or a renegotiating link could produce odd numbers.
-
-### 4. The Internet-Box is the bottleneck
-
-Everything currently routes through it, and it is also doing NAT. Its own hardware may not
-sustain 10 Gbps, and the double-NAT adds a second translation step.
-
-**Test:** plug a laptop directly into the Internet-Box and run the same speedtest. If it is
-also slow, the MikroTik is exonerated and the problem is upstream of it.
-
-### 5. Swisscom provisioning
-
-If a direct test against the Internet-Box is also far below 10 Gbps, the subscription may
-not be provisioned as expected, or the handoff may not be the 10 Gbps port.
-
 ## What the answer changes
 
-If it is hypothesis 1 or 2, this feeds directly into the hardware decision recorded in
-[config-review.md](config-review.md#hardware-for-the-edge-role): a 10 Gbps subscription that
-the RB2011 cannot approach is an argument for moving the edge role sooner, and for choosing
-a device sized to the line rather than to current traffic.
-
-If it is hypothesis 4 or 5, new router hardware fixes nothing and the conversation is with
-Swisscom instead.
+If the direct-to-Internet-Box test still shows ~180 Mbps down, the fault is upstream of the
+MikroTik entirely — new router hardware fixes nothing, and the conversation is with Swisscom.
+If it instead returns close to line rate, that reopens the router as a suspect despite the
+evidence above, and feeds into the hardware decision recorded in
+[config-review.md](config-review.md#hardware-for-the-edge-role).
 
 Worth measuring before spending anything.
 

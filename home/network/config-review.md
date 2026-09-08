@@ -26,26 +26,6 @@ findings `S<n>`, so the two sets never collide.
 
 ## Open findings
 
-### 8. DNS can bypass Pi-hole — deferred into the VLAN work
-
-`Home can connect everywhere` lets any `bridge-main` host reach any external resolver on
-port 53, so a device with hardcoded DNS escapes Pi-hole at `192.168.1.40`.
-
-**Accepted for now** (2026-09-04): acceptable for most hosts, and a blanket dst-nat redirect
-is the wrong shape for the problem. The real answer is segmentation.
-
-Stated intent for the IoT VLAN: **no internet access of any kind**. Local traffic only —
-DNS, and reaching internal services such as an MQTT broker. That is strictly stronger than
-redirecting port 53, and makes the redirect unnecessary for the devices that motivated it.
-
-Carried into [the VLAN work](#the-architectural-item-vlan-segmentation). Do not implement
-the dst-nat redirect separately.
-
-A second, IPv6-specific instance of this same class of bypass (RDNSS advertising the ISP's own
-DNS server instead of Pi-hole) was found and fixed 2026-09-07 — see
-[changelog.md](changelog.md#ipv6-rdnss-was-leaking-the-isps-own-dns-server-bypassing-pi-hole-2026-09-07)
-and [ipv6.md](ipv6.md#resolved-rdnss-was-leaking-the-isps-own-dns-server-bypassing-pi-hole).
-
 ### Planned: full config review once the VLAN migration is complete
 
 Noted 2026-09-08, not started. After [vlan.md](vlan.md)'s migration finishes (all devices moved,
@@ -87,86 +67,9 @@ Nothing else is open. mikrotik1, mikrotik2 and mikrotik3 are clear.
 
 ## The architectural item: VLAN segmentation
 
-**Designed 2026-09-06 — see [vlan.md](vlan.md)** for the decisions, the policy matrix and the
-phased migration plan. What follows is the context that led there.
-
-Every IoT device — Tasmota, ESPHome, OctoPrint, the Hombli fan — shares one flat L2 segment
-with the desktop and the routers' management planes. `bridge-fon` is correctly isolated but
-is wired-only and serves a different purpose.
-
-Finding 8 is a symptom of that flat segment, and the `mgmt` restriction that closed finding 2
-does not reach IPv6 at all: the IPv6 input chain accepts `in-interface=bridge-main`
-wholesale, and narrowing it by source address is impractical because SLAAC privacy addresses
-rotate. Only segmentation closes that.
-
-### Stated intent (2026-09-04)
-
-- Roughly **three VLANs**, exact split not yet decided.
-- **Media segment, wired.** The TV should move off the Internet-Box WiFi to wired, reached
-  through the MikroTik, with an additional MikroTik switch near the TV serving the TV, the
-  amplifier, and the games console.
-- **IoT VLAN gets no internet access at all.** Local traffic only: DNS, and internal
-  services such as an MQTT broker. This supersedes the Pi-hole DNS-redirect idea (finding
-  8) — a segment with no route out cannot bypass anything.
-- The **Fonera** (`192.168.1.101`) stays on the main LAN for now, to be revisited here.
-- `192.168.1.4` is a MikroTik being returned to service; already added to `mgmt`.
-
-### The Swisscom TV constraint — obsolete as of 2026-09-06
-
-**Resolved by fact, not by work.** Guillaume no longer uses the Swisscom TV box. The TV is a
-wireless client on the `LEDCOM` SSID and always was, on this network rather than the
-Internet-Box; the earlier note recorded a setup that had already been retired.
-
-There is therefore no IPTV multicast to carry, and the IGMP proxy requirement is withdrawn.
-This was previously recorded as "the single hardest part of the plan", to be proven before any
-cabling or VLAN work depended on it, and as a problem that got *harder* under the RB5009 edge
-migration because the MikroTik would have had to handle the Swisscom multicast join on the WAN
-side. All of that is now moot.
-
-Two consequences worth carrying forward: moving the TV to a wired port is now an ordinary
-cabling job with no protocol risk, and the edge migration loses its most awkward unknown.
-
-### What the switches bring to the design
-
-**mikrotik2 (CRS125)** has a proper switch chip with hardware VLAN support — the right
-device to carry tagged VLANs at line rate, and a better candidate for the media segment than
-the RB2011. Note that `ether1-gateway` and `sfp1-gateway` are bridge ports with `hw=no`, so
-they are already outside hardware switching; worth revisiting when VLANs are designed.
-
-**mikrotik3 (RB750Gr3)** supports bridge VLAN filtering with hardware offload on its switch
-chip. Only `ether1` (uplink) and `ether3` currently have link.
-
-Neither switch needs IPv6 — both have `disable-ipv6=yes`, correct for an L2 bridge, and it
-should stay that way.
-
-Both are now clear of defconf DHCP debris (S7 in the changelog), which removes a trap this
-work would otherwise have sprung: mikrotik2 carried a dormant DHCP server on
-`192.168.1.0/24` held back only by its interface being a bridge slave — exactly what a VLAN
-restructure changes.
-
-**Rogue RA source — root cause found and fixed 2026-09-07.** The RA source itself is Home
-Assistant (`192.168.1.60`, MAC `D8:3A:DD:31:E0:59`) — found by forcing NDP resolution on the
-desktop (`ping6` to the RA's link-local source, then `ip -6 neigh show`, which flagged it
-`router`) — but it is not a bug on Home Assistant's side. `wpan0`'s own address on that host
-matches one of the two advertised prefixes exactly, identifying it as an **OpenThread Border
-Router** doing its normal job: Thread's Border Routing feature is *designed* to advertise the
-Thread mesh's prefix (plus a companion on-link ULA) onto the regular LAN via RA, so Matter/
-Thread devices are reachable. Nothing to disable here.
-
-The real defect was on mikrotik1: its IPv6 configuration (address, RA, firewall) had never
-been moved off `bridge-main` onto `vlan-users` when the VLAN 10 migration moved IPv4 — IPv6
-was simply out of scope for that work and got left behind, undetected because a
-VLAN-tagging bug elsewhere let wireless clients keep reaching `bridge-main`'s RA anyway. Once
-that other bug was fixed, wireless could reach `vlan-users` but no longer `bridge-main`,
-leaving Home Assistant's Thread RA as the *only* one visible to wireless clients — which is
-what made this rogue-RA issue (already present, and already noted here, on *wired* clients
-days earlier) fully visible for the first time. Full diagnosis and fix are in
-[ipv6.md](ipv6.md)'s "Migrated onto `vlan-users`" section — mikrotik1's IPv6 address, ND
-config and firewall rules now all live on `vlan-users`, verified by the desktop picking up the
-real `2a02:1210:680f:c40c::/64` prefix over WiFi and a successful `ping6` to a real host.
-
-Moved to [changelog.md](changelog.md) once verified stable for a few days — kept here for now
-since it's recent enough that a recurrence would be useful to catch quickly.
+See [vlan.md](vlan.md) for the design, decisions and migration plan, and
+[changelog.md](changelog.md) for the full history. What follows is future hardware work the
+VLAN migration didn't need and hasn't touched.
 
 ### Hardware for the edge role
 
@@ -270,8 +173,7 @@ A replacement Swisscom box was ordered 2026-09-04. Check three things when it ar
 
 - **Port speeds it actually offers.** Determines whether 2.5G is a real constraint.
 - **Whether it supports bridge or modem mode.** If it can bridge, the edge migration is much
-  simpler, and the Swisscom TV multicast problem (above) may resolve differently than
-  assumed — potentially removing the IGMP proxy requirement entirely.
+  simpler.
 - **Whether it can forward port 80 inward.** That is what RouterOS's built-in ACME needs for
   HTTP-01, and it is the only thing standing between the current state and Let's Encrypt
   certificates without an external host. See the TLS note below.
@@ -292,17 +194,6 @@ re-raise either as a finding.
 If the edge role moves to an RB5009 and the Internet-Box goes to bridge mode, HTTP-01
 becomes available on the router itself and this unblocks without an external host — worth
 revisiting then, not before.
-
-### Risk
-
-All three bridges currently have `vlan-filtering=no`. Enabling bridge VLAN filtering is the
-most reliable way to lock yourself out of a MikroTik: a port that ends up without the right
-PVID stops carrying management traffic instantly. Plan this with the DB9 serial console
-attached, not over SSH, and stage it with `Ctrl+X` safe mode.
-
-MAC-Telnet is the proven fallback and now works to every reachable device — but it is a
-fallback, not a plan. It failed to reach mikrotik3 until S16 was fixed, and nobody noticed
-until it was checked deliberately.
 
 ## Closed findings
 

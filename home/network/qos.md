@@ -219,6 +219,6 @@ blocked, at which point ports tell you nothing.
 - Has the edge role moved to new hardware? If not, expect to trade throughput for
   prioritisation.
 - Did bufferbloat measurement show a problem? If not, CAKE alone may be unnecessary.
-- Should the IoT VLAN (see the VLAN plan in [config-review.md](config-review.md)) be
-  deprioritised wholesale? Easier and more robust than per-flow classification, and it
-  composes well with the "IoT gets no internet" policy already recorded.
+- Should the IoT VLAN (see [vlan.md](vlan.md)) be deprioritised wholesale? Easier and more
+  robust than per-flow classification, and it composes well with the "IoT gets no internet by
+  default" policy already live.

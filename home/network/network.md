@@ -96,24 +96,22 @@ as a horizontal bus with hosts hanging off it, which makes address-plan question
 who is static, who is in `mgmt`, which devices are destined for the IoT VLAN — and makes
 physical questions impossible, since it has no notion of a cable. Graphviz is the reverse.
 
-It will be the right tool for the VLAN diagram now that the split is decided (see
-[vlan.md](vlan.md)) — same shape of picture as `network-addressing`, with the groups becoming
-`vlan-users`, `vlan-services` and `vlan-iot`. Worth drawing once the port map is collected,
-since that is what turns the design into specific ports.
+It is now the right tool for a VLAN diagram: the port map is fully collected (see
+[vlan.md](vlan.md)'s trunk/port plan), so the groups can become `vlan-users`, `vlan-services`
+and `vlan-iot` directly. Not yet drawn — the two diagrams below predate the VLAN migration and
+have not been regenerated since.
 
 ## What the diagram records
 
-Facts that are easy to lose and are now visible in one place:
+**Predates the VLAN migration — not yet regenerated.** Facts as of when it was drawn:
 
 - The **Internet-Box has gigabit ports**, capping a 10 Gbps subscription at ~940 Mbps, and
   separately delivers only ~170 Mbps down against ~565 Mbps up (see
   [performance.md](performance.md)).
 - **mikrotik3 has no PoE-out**, so both planned access points need injectors until the office
   switch is replaced.
-- **The TV sits on Internet-Box WiFi**, which is why Swisscom TV multicast works today without
-  any IGMP configuration — and why moving it behind the MikroTik is the hardest part of the
-  VLAN plan.
-- **IoT shares one flat L2 segment** with the desktop and the management plane.
+- **IoT shared one flat L2 segment** with the desktop and the management plane — since fixed
+  by the VLAN work (see [vlan.md](vlan.md)).
 - **cap6 and cap7 are 2.4 GHz only.** The cAP XL ac is the only planned 5 GHz radio.
 
 ## Corrected while drawing this
