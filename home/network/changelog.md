@@ -549,6 +549,21 @@ is no longer part of the Phase 3 device migration — `vlan.md`'s device invento
 design, policy matrix, trunk/port plan, and migration table were all updated to reflect it
 staying on `users` permanently.
 
+### Phase 3, step 5 — IotaWatt router-side config applied, not yet verified (2026-09-08)
+
+Wireless ESPHome device, no port to move. Moved via
+`scripts/phase3-20-iotawatt-mikrotik1.rsc`: DHCP reservation to `192.168.30.50`/`dhcp-iot`, and
+the Phase 4 draft's `HA -> Tasmota/IotaWatt` rule (tcp/80, services -> iot) pulled forward —
+needed if HA polls IotaWatt's local HTTP API directly rather than only listening over MQTT
+(the general `iot: MQTT to HA` rule, already live since Kids light's migration, covers that
+side unconditionally). Printed clean, no `I - INVALID` flag.
+
+**Not verified — Guillaume couldn't reach the device after the move, but suspects it may have
+already been disconnected for some time, independent of this migration.** Router-side config
+is confirmed correctly applied; whether it actually works once the device is reachable again
+(MQTT, the new HTTP rule, DHCP option 42 vs. ESPHome, NTP) is still open. Investigating
+separately.
+
 ### Phase 3, step 4 — OctoPrint router-side config prepared, not yet verified (2026-09-08)
 
 OctoPrint was powered off, so this is router-side prep only — deliberately not claimed as

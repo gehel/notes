@@ -57,7 +57,16 @@ whenever that known-dead cable is fixed. Still to do once it's actually running:
 `LEDCOM-IoT`, update HA's integration, confirm the plugin update path actually works, and check
 whether HA needs a port beyond the 80/443 already open. See `changelog.md`.
 
-**Step 5 (IotaWatt) is what's left.**
+**Step 5 (IotaWatt): router-side config applied 2026-09-08, not yet verified** — DHCP
+reservation moved and the `HA -> Tasmota/IotaWatt` rule pulled forward, both confirmed
+correctly applied. Guillaume couldn't reach the device afterward, but suspects a pre-existing
+disconnection unrelated to this move — investigating separately. See `changelog.md`.
+
+**All five remaining devices from the original migration table have now had their router-side
+work done** (printer reverted; Pi-hole, Home Assistant, ceiling fan, Kids light fully verified;
+OctoPrint and IotaWatt applied but pending device-side verification). What's left: finish
+verifying OctoPrint and IotaWatt once they're actually reachable, then Phase 4 (the real
+firewall policy) and Phase 5 (tightening).
 
 **One open item, not a blocker:** the "second laptop" from the device inventory below is still
 unidentified. Also corrected in this document,
