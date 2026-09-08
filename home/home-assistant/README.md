@@ -14,13 +14,15 @@ replacement.
 
 ## Status
 
-**Round 1 of the config review is done — see [config-review.md](config-review.md).** Highest
-priority was three integrations broken by the `home/network` VLAN renumber: **Pi-hole fixed and
-verified** (see [changelog.md](changelog.md)); IotaWatt pending (device currently powered off);
-OctoPrint still open. Seven other findings open, `automations.yaml`/scenes/dashboards/the
+**Round 1 of the config review is done — see [config-review.md](config-review.md).** Three
+findings closed so far, see [changelog.md](changelog.md): Pi-hole's stale post-renumber
+address, `configuration.yaml`'s malformed `logger:`/`zha:` block (which was silently keeping
+ZHA's custom water-valve quirk from loading), and the Irrigation automation's misdirected
+`numeric_state` trigger. IotaWatt's address fix is pending (device currently powered off);
+OctoPrint and five other findings remain open; `automations.yaml`, scenes, dashboards, and the
 Z-Wave mesh health question not yet gone through in depth.
 
-Convention for these fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
+Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP
 wouldn't.
 
@@ -40,6 +42,6 @@ review — it is expected to contain `secrets.yaml`-embedded keys, long-lived ac
 git, ever, mirroring `home/network/dumps/` and `backups/`.
 
 Findings, decisions, and anything worth keeping long-term go into tracked documents in this
-directory instead — [config-review.md](config-review.md) for what's open, `changelog.md` (not
-created yet — nothing's been fixed here so far) for what's been closed and verified, mirroring
-`home/network`'s split.
+directory instead — [config-review.md](config-review.md) for what's open,
+[changelog.md](changelog.md) for what's been closed and verified, mirroring `home/network`'s
+split.

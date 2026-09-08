@@ -5,7 +5,8 @@ Round 1: 2026-09-08, against `config/` synced with
 First full pass since starting this project — see [README.md](README.md) for why.
 
 **Open findings only.** A finding leaves this document once fixed and verified, moving to
-[changelog.md](changelog.md) with the evidence.
+[changelog.md](changelog.md) with the evidence. Numbering is stable and never reused — gaps
+(like 2 and 3 below) mean a finding closed, not a mistake.
 
 ## Open findings
 
@@ -34,69 +35,6 @@ Services — apparently not implemented by these integrations. Fixed instead via
 re-add (**+ Add Integration**, same host field, new value). Confirmed safe beforehand: both
 integrations key their entities off the device's own identity (Pi-hole: a generated ID;
 IotaWatt: the device MAC), not the host, so entity IDs survive a delete + re-add unchanged.
-
-### 2. `configuration.yaml`'s `logger:` block is malformed — debug logging and ZHA's custom quirks path are silently not applied (medium)
-
-```yaml
-logger:
-default: warning
-logs:
-  homeassistant.components.zha: debug
-  zigpy: debug
-
-  zha:
-  database_path: /config/zigbee.db
-  enable_quirks: true
-  custom_quirks_path: /config/zha_quirks/
-```
-
-`default:` and `zha:`/`database_path:`/`enable_quirks:`/`custom_quirks_path:` are indented at
-the same level as their intended parent (`logger:` and `logs:` respectively), so YAML parses
-them as unrelated top-level/sibling keys, not as children. Concretely:
-
-- `logger:` ends up empty — `default: warning` and the two `debug` overrides never reach the
-  `logger` integration at all.
-- `zha:`'s legacy YAML block (`database_path`, `enable_quirks`, `custom_quirks_path`) ends up
-  nested inside `logs:` instead of being its own top-level key — so it never reaches the `zha`
-  integration either.
-
-**Verified, not just inferred from reading the YAML:** today's log has zero `DEBUG`-level
-`zigpy`/`zha` lines despite the file explicitly asking for them (the November 2025 log,
-`home-assistant.log.old`, *does* have them — this broke sometime between then and this file's
-last edit, 2026-08-21). Neither log mentions `custom_quirks_path` or `zha_quirks` at all.
-
-**Likely real-world effect:** `zha_quirks/Hydro DUO ZHA script.py` (a custom quirk for a SONOFF
-SWV dual-channel Zigbee water valve — almost certainly the garden irrigation valves referenced
-in finding 4) is sitting in the configured quirks folder, but ZHA was never told that folder
-exists, so the quirk is likely never loaded and the device falls back to generic Zigbee
-exposure.
-
-Fix: re-indent so `logger:` has `default:`/`logs:` as children, and `zha:` is its own top-level
-key with `database_path:`/`enable_quirks:`/`custom_quirks_path:` as its children — not nested
-under `logs:`. Verify by restarting and checking for `DEBUG` zigpy/zha lines and any zigpy
-startup message referencing the custom quirks path.
-
-### 3. Irrigation automation's `numeric_state` trigger is applied to on/off switches (medium)
-
-```
-WARNING [homeassistant.components.homeassistant.triggers.numeric_state] Error initializing
-'Irrigation' trigger: In 'numeric_state' condition: entity switch.garden_water_east_switch
-state 'off' cannot be processed as a number
-```
-
-Repeats for `switch.garden_water_east_switch` and `switch.garden_water_east_switch_2` — both
-plain on/off switches, not numeric entities. The trigger silently fails to initialize each time
-this fires (visible only as a warning, not a hard error), so whatever this automation is
-supposed to do based on that condition never runs.
-
-**Possibly connected to finding 2:** if these switches are the SONOFF SWV valve from the
-unloaded quirk, the quirk may have been meant to expose a numeric entity (flow, duration) that
-the automation was written against — worth re-checking once finding 2 is fixed, since the fix
-might make this resolve itself, or reveal a different intended entity.
-
-Per this project's best-practices guidance: a `numeric_state` trigger against a switch is the
-wrong tool regardless — if the intent is "did this switch turn on/off", that's a plain `state`
-trigger.
 
 ### 4. Two `mikrotik` config entries silently lose an entity to a duplicate ID (low)
 
