@@ -45,8 +45,10 @@ HA's connection but never reply. Full account, including why the failure produce
 entries at all, in `changelog.md`. **Step 7 (Ceiling fan) also done and verified 2026-09-08**,
 moved out of order (see Decisions above) and confirmed working in HA via `tuya-local` after a
 live-discovered policy gap (`services -> iot` tcp/6668) was closed. Also where the `I -
-INVALID` finding grew a lot more nuanced — see `README.md`'s hard-won lessons. **Step 4
-(OctoPrint) is next.**
+INVALID` finding grew a lot more nuanced — see `README.md`'s hard-won lessons. **Step 6 (Kids
+light) also done and verified 2026-09-08** — connected to HA over the (newly-applied,
+permanent) `iot: MQTT to HA` rule, and confirmed the DHCP-option-42 assumption below. **Steps 4
+and 5 (OctoPrint, IotaWatt) are what's left.**
 
 **One open item, not a blocker:** the "second laptop" from the device inventory below is still
 unidentified. Also corrected in this document,
@@ -245,7 +247,7 @@ confirmed. Worth adding a proper reservation for the TV's real MAC next time thi
 | Device | New address | Attachment | Last seen |
 |---|---|---|---|
 | IotaWatt | `.30.50` | wireless | live |
-| Kids light (Tasmota) | `.30.61` | wireless | live |
+| Kids light (Tasmota) | `.30.61` | wireless | live, migrated 2026-09-08 |
 | Kitchen light (Tasmota) | — | wireless | **confirmed dead, reservation deleted in Phase 2** |
 | Hombli ceiling fan | `.30.63` | wireless | live |
 | OctoPrint | `.30.81` | wireless for now, wired later | intermittent |
@@ -443,11 +445,12 @@ not expected to be an issue since these are plain routed queries with no NAT inv
 why, and `changelog.md` for the router-side application. Reconfiguring it in Home Assistant
 (rejoining `LEDCOM-IoT`, re-pairing) is Guillaume's own next action, not scripted here.
 
+**Step 6 (Kids light) done and verified 2026-09-08** — see `changelog.md`.
+
 | # | Device | To | Also change | Verify |
 |---|---|---|---|---|
 | 4 | OctoPrint | iot (wireless) | join `LEDCOM-IoT`, add to `iot-internet` list, update HA's integration | plugin update succeeds; HA sees it |
-| 5 | IotaWatt | iot | new SSID, broker hostname, `NtpServer1 192.168.30.1` | appears in HA |
-| 6 | Kids light | iot | same | responds in HA; schedule still fires |
+| 5 | IotaWatt | iot | new SSID, broker hostname, `NtpServer1 192.168.30.1` (confirmed needed — DHCP option 42 doesn't work, see below) | appears in HA |
 
 **Reference checklist for steps 2-3, from a full `dump-configs.sh` grep of all three devices
 (2026-09-07) for `192.168.10.40` and `192.168.10.60` — do this grep again before actually
@@ -751,8 +754,13 @@ Listed so they are not mistaken for established fact.
    go missing. A specific RouterOS defect, not fixable from the config side. See the printer's
    mDNS finding under Phase 4 above for the full packet-capture evidence. Static IP addressing
    is the confirmed, permanent workaround for any cross-VLAN mDNS consumer.
-3. **DHCP option 42 uptake.** Tasmota and ESPHome are believed to ignore it and use their own
-   configured NTP server. Test on the first device migrated rather than assuming.
+3. ~~DHCP option 42 uptake.~~ **Confirmed 2026-09-08 on the Kids light (Tasmota), the first
+   Tasmota device migrated: it ignores option 42 entirely** and kept its own previously
+   configured NTP server — which, with no internet access on `vlan-iot` by design, is
+   unreachable, so it was silently running on stale time rather than failing loudly. Fixed via
+   Tasmota's own console: `NtpServer1 192.168.30.1` (mikrotik1's `vlan-iot` address — exactly
+   what this network already provides as the local NTP server). Still unverified for ESPHome
+   specifically (IotaWatt, not yet migrated) — check the same way when that device moves.
 4. **RB2011 hardware offload for VLAN filtering.** If bridge VLAN filtering is not offloaded
    to the switch chips, forwarding moves to a 600 MHz single core. Watch CPU during Phase 3;
    the throughput measurements in [performance.md](performance.md) are the baseline. Not

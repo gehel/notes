@@ -549,6 +549,26 @@ is no longer part of the Phase 3 device migration — `vlan.md`'s device invento
 design, policy matrix, trunk/port plan, and migration table were all updated to reflect it
 staying on `users` permanently.
 
+### Phase 3, step 6 — Kids light migrated to iot (2026-09-08)
+
+Wireless Tasmota device, no port to move. Moved via
+`scripts/phase3-16-kidslight-mikrotik1.rsc`: DHCP reservation to `192.168.30.61`/`dhcp-iot`,
+and the permanent `iot -> services` MQTT rule (tcp/1883, dst-address=192.168.20.60) — pulled
+forward from Phase 4, first device to actually need it (the TEMP `users -> services` version
+added during HA's migration only covers devices still on `vlan-users`). Both interfaces +
+`connection-state=new` from the start, per the `I - INVALID` findings from the ceiling fan
+work — printed clean immediately, no follow-up fix needed this time.
+
+Guillaume rejoined the device to `LEDCOM-IoT` via Tasmota's own console/web config (not
+scripted). **Verified: connected to HA successfully.**
+
+**Confirmed one of `vlan.md`'s "known unverified assumptions": Tasmota ignores DHCP option 42
+entirely.** It kept its previously-configured NTP server, which — with no internet access on
+`vlan-iot` by design — is unreachable, so it was silently running on stale time rather than
+failing loudly (a real concern for a kids' light, if it has any bedtime/schedule automation).
+Fixed via Tasmota's own console: `NtpServer1 192.168.30.1` (mikrotik1's `vlan-iot` address).
+Still unverified for ESPHome (IotaWatt) — check the same way when that device migrates.
+
 ### Phase 3, step 7 — ceiling fan migrated to iot, out of order (2026-09-08)
 
 Moved before OctoPrint/IotaWatt/Kids light, deliberately overriding `vlan.md`'s "do this one
