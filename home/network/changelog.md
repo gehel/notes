@@ -549,6 +549,43 @@ is no longer part of the Phase 3 device migration — `vlan.md`'s device invento
 design, policy matrix, trunk/port plan, and migration table were all updated to reflect it
 staying on `users` permanently.
 
+### Phase 4 — firewall policy applied (2026-09-08)
+
+Applied ahead of finishing OctoPrint/IotaWatt device-side verification — Guillaume's explicit
+call, since he plans to test over the coming days rather than block on it now. Deliberately
+did **not** use a scheduled auto-revert here, unlike earlier risky changes: that pattern exists
+for changes that could cut off the management session itself, which this doesn't (it only
+restricts `users -> services/iot`, never access to the router), and an auto-revert would have
+undone everything before any real-world testing happened. The actual safety net is Phase 5's
+own plan — the logged drops added here are exactly what that evidence-gathering reads.
+
+Via `scripts/phase4-01-firewall-policy.rsc`: filled every gap in the Phase 4 draft that wasn't
+already pulled forward piecemeal during device migrations — `iot: deny everything else`
+(logged), `HA -> ESPHome (IotaWatt)` (tcp/6053, a port the policy matrix always listed but the
+draft never actually included), `services: no users` (logged), `mgmt hosts: full`, `users:
+DNS`, `users: HA web`, `users2services` (logged), `mgmt hosts: iot`, `users2iot` (logged — the
+draft had no logging or comment on this one at all, an oversight caught and fixed here).
+Confirmed `mdns-repeat-ifaces` empty, not re-enabled (Guillaume's explicit call, given the
+known cross-VLAN resolve limitations). The existing broad `Home can connect everywhere
+(vlan-users)` rule was left untouched — every new rule inserted ahead of it, so
+`users -> internet` keeps working exactly as before while `users -> services/iot` now hits the
+narrow allows and logged drops first.
+
+**A genuinely new `I - INVALID` trigger, distinct from every prior one:** the script cached a
+single `find` result (`:local catchall [...]`) and reused it via `place-before=$catchall`
+across nine separate `/add` calls. The *last* of those nine (`users2iot`) came up invalid
+despite being structurally identical (drop, both interfaces, no address/port matcher, no
+`connection-state`) to an earlier rule in the same batch that was valid. Removing and
+re-adding it with a freshly-evaluated `place-before=[find ...]` (not the cached variable) fixed
+it immediately, no other change — `scripts/phase4-02-fix-users2iot-invalid.rsc`. Lesson: always
+re-evaluate `find` fresh at each insertion, even within a single script; don't cache and reuse
+a `place-before=` target across multiple `/add`s. Full detail in `README.md`'s hard-won
+lessons.
+
+**Verified: full forward chain printed clean, no `I` flags anywhere**, narrow rules correctly
+ordered ahead of the broad `vlan-users` allow. Not yet verified: real-world behavior over the
+coming days (Phase 5's job) and the two still-pending devices (OctoPrint, IotaWatt).
+
 ### Phase 3, step 5 — IotaWatt router-side config applied, not yet verified (2026-09-08)
 
 Wireless ESPHome device, no port to move. Moved via

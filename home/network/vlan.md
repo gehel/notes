@@ -64,9 +64,18 @@ disconnection unrelated to this move — investigating separately. See `changelo
 
 **All five remaining devices from the original migration table have now had their router-side
 work done** (printer reverted; Pi-hole, Home Assistant, ceiling fan, Kids light fully verified;
-OctoPrint and IotaWatt applied but pending device-side verification). What's left: finish
-verifying OctoPrint and IotaWatt once they're actually reachable, then Phase 4 (the real
-firewall policy) and Phase 5 (tightening).
+OctoPrint and IotaWatt applied but pending device-side verification).
+
+**Phase 4 (the real firewall policy) also applied 2026-09-08**, deliberately ahead of finishing
+OctoPrint/IotaWatt verification — Guillaume's call, testing over the coming days rather than
+now. Every `users -> services`/`users -> iot` restriction from the design is live; the
+previously-broad `vlan-users` access to `services`/`iot` is now narrowed to `mgmt` hosts plus
+the specific named exceptions (DNS, HA's web UI). See `changelog.md` for the full application,
+including a genuinely new `I - INVALID` trigger found along the way (documented in `README.md`).
+
+**What's left:** finish verifying OctoPrint and IotaWatt once they're actually reachable, then
+Phase 5 — read a week of the newly-live `infra2users`/`users2services`/`users2iot`/`iot-drop`
+log evidence and tighten from there.
 
 **One open item, not a blocker:** the "second laptop" from the device inventory below is still
 unidentified. Also corrected in this document,
@@ -543,6 +552,14 @@ offline until you reach its fallback AP or reflash it. One device, verify fully,
 
 ### Phase 4 — firewall policy and tightening
 
+**Applied 2026-09-08** — see `changelog.md` for the full account, including two draft gaps
+fixed while applying (port 6053, `users2iot` logging, both folded into the draft below) and a
+new `I - INVALID` trigger found along the way (reusing a cached `find` result across multiple
+`/add` calls in one script — see `README.md`'s hard-won lessons). Applied with OctoPrint and
+IotaWatt not yet fully verified device-side (per Guillaume's call — testing over the coming
+days rather than blocking on it now). The section below is kept as the design record; what
+follows describes what was actually done, not a plan still waiting on device readiness.
+
 Only now, with every device in place, apply the real policy. Adding it earlier means debugging
 tagging and filtering at the same time.
 
@@ -620,6 +637,14 @@ problem once switched on. See `README.md`'s hard-won lessons for the fuller, sti
 characterized list of triggers — treat `I - INVALID` as something to check after any multi-
 matcher rule, not as one fixed rule to remember.
 
+**Two gaps in this draft itself, caught and fixed while actually applying Phase 4, 2026-09-08:**
+`services -> iot` was missing port 6053 (ESPHome's native API) despite the policy matrix always
+listing it alongside 80/6668 — added as `HA -> ESPHome (IotaWatt)`. And the `users -> iot`
+catch-all drop had no logging or comment at all, unlike every sibling drop in this section —
+Phase 5 below already checked for `infra2users`/`users2services`/`iot-drop` but had nothing for
+this direction. Added `log=yes log-prefix="users2iot"`; Phase 5's evidence-reading list below
+now includes it too.
+
 ```
 # address lists
 /ip/firewall/address-list/add list=iot-internet address=192.168.30.81 comment=octoprint
@@ -652,6 +677,9 @@ matcher rule, not as one fixed rule to remember.
 /ip/firewall/filter/add chain=forward action=accept connection-state=new \
     in-interface=vlan-services out-interface=vlan-iot dst-port=6668 protocol=tcp \
     comment="HA -> Tuya local (fan)"
+/ip/firewall/filter/add chain=forward action=accept connection-state=new \
+    in-interface=vlan-services out-interface=vlan-iot dst-port=6053 protocol=tcp \
+    comment="HA -> ESPHome (IotaWatt)"
 /ip/firewall/filter/add chain=forward action=drop in-interface=vlan-services \
     out-interface=vlan-users log=yes log-prefix="infra2users" comment="services: no users"
 
@@ -672,7 +700,8 @@ matcher rule, not as one fixed rule to remember.
 /ip/firewall/filter/add chain=forward action=accept connection-state=new \
     in-interface=vlan-users out-interface=vlan-iot src-address-list=mgmt \
     comment="mgmt hosts: iot"
-/ip/firewall/filter/add chain=forward action=drop in-interface=vlan-users out-interface=vlan-iot
+/ip/firewall/filter/add chain=forward action=drop in-interface=vlan-users \
+    out-interface=vlan-iot log=yes log-prefix="users2iot" comment="users2iot"
 
 # --- input chain: NTP for iot ---
 /ip/firewall/filter/add chain=input action=accept connection-state=new in-interface=vlan-iot \
@@ -733,6 +762,7 @@ After a week of normal use:
 ```
 /log/print where message~"infra2users"
 /log/print where message~"users2services"
+/log/print where message~"users2iot"
 /log/print where message~"iot-drop"
 ```
 

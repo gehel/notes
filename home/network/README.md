@@ -217,3 +217,14 @@ outstanding test is a host plugged directly into the Internet-Box.
     `in-interface=` with `dst-port=` and `connection-state=new` (`iot: NTP from gateway`) —
     the interface-completeness half of this seems specific to `chain=forward`, consistent with
     `chain=input` having no `out-interface=` concept to be incomplete about.
+  - **A completely different trigger, found applying Phase 4, 2026-09-08: reusing a cached
+    `find` result across multiple sequential `/add` operations in the same script.** A script
+    that did `:local catchall [/ip/.../find where comment=...]` once, then referenced
+    `place-before=$catchall` across nine separate `/add` calls, produced `I - INVALID` on the
+    *last* of those nine — a rule structurally identical (drop, both interfaces, no
+    address/port matcher, no `connection-state`) to an earlier one in the same batch that was
+    valid. Removing and re-adding the same rule with a freshly-evaluated
+    `place-before=[/ip/.../find where comment=...]` (not a cached variable) fixed it
+    immediately, with no other change. **Always re-evaluate `find` fresh at each `/add`, even
+    within a single script — don't cache and reuse a `place-before=`/`place-after=` target
+    across multiple inserts.**
