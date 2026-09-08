@@ -790,6 +790,21 @@ integration needs a port beyond what `HA -> Tasmota/IotaWatt` (tcp/80) already o
 uses OctoPrint's own default port 5000 instead, that'll need a new rule, discovered live the
 same way tuya-local's port 6668 was for the ceiling fan.
 
+### OctoPrint verified, after a reimage (2026-09-08)
+
+Guillaume lost OctoPrint's system password before it was ever fully tested on `vlan-iot`;
+backed up its config via OctoPrint's own Backup & Restore and reimaged the SD card fresh
+rather than recover the old install. Reconnected to `LEDCOM-IoT` on the new image — no router
+config changes needed, the DHCP reservation and firewall rules from the step above already
+covered it.
+
+**Verified:** mikrotik1's CAPsMAN registration table shows a freshly-connected client on
+`ap-MikroTik-1-1` / `LEDCOM-IoT` (uptime ~53 minutes at dump time, matching the reimage
+timeline). Home Assistant's OctoPrint integration reconfigured with a new API key against
+`octoprint-wifi.home.ledcom.fr` and has logged zero errors since (see
+`home/home-assistant/changelog.md`). The port-80-only question above turned out moot: nothing
+in HA's logs asked for port 5000.
+
 ### Phase 3, step 5 — IotaWatt router-side config applied, not yet verified (2026-09-08)
 
 Wireless ESPHome device, no port to move. Moved via

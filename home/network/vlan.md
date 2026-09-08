@@ -9,9 +9,9 @@ document holds the design reference and current state, not the story of how it w
 - **Phases 0-4: done.** VLAN plumbing, full renumber to `192.168.10/20/30.0/24`, all seven
   original devices have router-side work done, and the real firewall policy is live.
 - **Printer**: reverted to `users` (autodiscovery over segmentation — see Decisions).
-- **Pi-hole, Home Assistant, Kids light, ceiling fan**: migrated and verified.
-- **OctoPrint, IotaWatt**: router-side config applied, device-side verification still pending
-  (OctoPrint was off; IotaWatt was unreachable, possibly pre-existing).
+- **Pi-hole, Home Assistant, Kids light, ceiling fan, OctoPrint**: migrated and verified.
+- **IotaWatt**: router-side config applied, device-side verification still pending (was
+  unreachable, possibly pre-existing — device currently powered off).
 - **Phase 5, next**: read a week of `infra2users`/`users2services`/`users2iot`/`iot-drop` log
   evidence and tighten from there (see Phase 5 below).
 - **Open, not blocking**: the "second laptop" in the device inventory is still unidentified.
@@ -65,8 +65,8 @@ commands.
 
 ```
 vlan 10  vlan-users     192.168.10.0/24   desktop, laptops, phones, TV, amp, console, printer
-vlan 20  vlan-services  192.168.20.0/24   Home Assistant, Pi-hole, OctoPrint
-vlan 30  vlan-iot       192.168.30.0/24   Tasmota x2, ESPHome, Hombli fan, ...
+vlan 20  vlan-services  192.168.20.0/24   Home Assistant, Pi-hole
+vlan 30  vlan-iot       192.168.30.0/24   Tasmota x2, ESPHome, Hombli fan, OctoPrint, ...
 ```
 
 Gateway is `.1` on each. All three VLAN interfaces live on `bridge-main` on mikrotik1;
@@ -136,7 +136,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | IotaWatt | `.30.50` | wireless | applied, unreachable — investigating |
 | Kids light (Tasmota) | `.30.61` | wireless | migrated, verified |
 | Hombli ceiling fan | `.30.63` | wireless | migrated, verified |
-| OctoPrint | `.30.81` (wifi), `.30.80` (wired) | wireless now; mikrotik2 `ether24` tagged for when the wired cable is fixed | applied, device off |
+| OctoPrint | `.30.81` (wifi), `.30.80` (wired) | wireless now; mikrotik2 `ether24` tagged for when the wired cable is fixed | migrated, verified (reimaged after a lost system password, reconfigured onto `LEDCOM-IoT`) |
 
 Kitchen light (Tasmota) is confirmed dead — its reservation was deleted in Phase 2, not
 migrated.
@@ -373,9 +373,8 @@ After a week of normal use:
 - Convert genuine hits into narrow rules, or confirm none and set `log=no`.
 - Remove the temporary `users -> services tcp/1883` rule (added during Home Assistant's
   migration, superseded by the permanent `iot: MQTT to HA` rule).
-- Full config review once OctoPrint/IotaWatt are verified — see
-  [config-review.md](config-review.md#planned-full-config-review-once-the-vlan-migration-is-complete),
-  in particular auditing every port-opening rule for `connection-state=new`.
+- Once IotaWatt is verified: re-run `iot-internet`'s address-list check below and consider it
+  the last device migration to close out.
 - Confirm `iot-internet` still has exactly the OctoPrint entries — growth is the signal to
   give those devices their own VLAN instead.
 - Narrow `services -> internet` from blanket allow to specific ports (DNS upstream for
