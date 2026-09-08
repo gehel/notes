@@ -110,3 +110,18 @@ instead of guessing further:
 reliable signal for "is this currently active" — it accumulates historical entries that HA
 itself has stopped surfacing. The live Settings → System → Repairs page is authoritative;
 reading the storage file alone will overstate what's actually open.
+
+## `mikrotik2`'s RouterBOARD firmware upgraded (was finding 9, low, closed 2026-09-08)
+
+`config-review.md`'s finding 9: `update.under_the_stairs_mikrotik_2_routerboard` showed
+`installed_version: '7.23.3'` against `latest_version: '7.24.2'` — genuinely behind, not stale
+integration cache (mikrotik2's RouterOS package itself was already correctly 7.24.2; RouterBOARD
+firmware is a separate layer). Guillaume upgraded it directly via RouterOS, out of band from
+HA — consistent with the finding's prediction that the `homeassistant` API user's `!write,!reboot`
+policy would likely block triggering it from HA's own "Install" button.
+
+**Verified against `home/network`'s own fresh dump** (`dumps/mikrotik2-switch.txt`,
+2026-09-08 21:57:25), not yet re-checked from HA's side: `/system/routerboard/print` shows
+`current-firmware: 7.24.2` matching `upgrade-firmware: 7.24.2`. HA's own `update.*_routerboard`
+entity should reflect this on its next poll — worth a glance next HA sync, but the router-side
+fact is confirmed either way.

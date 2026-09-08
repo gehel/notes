@@ -83,29 +83,6 @@ network renumber is done (they held pre-renumber addresses — see finding 1's n
 discussion of why zeroconf-discovered entries self-heal). Watching; check next sync whether
 they've settled on current addresses harmlessly or gone back to being worth re-ignoring.
 
-### 9. `mikrotik2`'s RouterBOARD firmware is genuinely behind, and HA likely can't fix it itself (low)
-
-`update.under_the_stairs_mikrotik_2_routerboard` (in `.storage/core.restore_state`) shows
-`installed_version: '7.23.3'`, `latest_version: '7.24.2'`, state `on` (update available) — this
-is real, not stale integration cache as first assumed. The mix-up: **RouterBOARD firmware
-(the bootloader) is a separate thing from the RouterOS package** — mikrotik2's RouterOS is
-correctly on 7.24.2 (matches its own `update.*_routeros` entity, and `home/network`'s own
-dumps), it's specifically the RouterBOARD/RouterBOOT layer that's still on 7.23.3. All three
-routers' `_routeros` update entities correctly show `installed == latest`; only mikrotik2's
-`_routerboard` one doesn't — so this isn't a systemic caching problem, just one real update
-sitting unapplied.
-
-**On triggering the update from HA:** the entity's `supported_features: 1` does include
-`UpdateEntityFeature.INSTALL`, so HA believes it can. But `home/network`'s dumps show the
-`homeassistant` API user's group policy on mikrotik2 explicitly includes `!write,!reboot` —
-and a RouterBOARD firmware flash necessarily needs both. So even though the UI would show an
-"Install" button, invoking it will very likely fail against this account. Confirm by trying it
-(low risk — a failed API call, not a bad flash) before assuming it's blocked; if it does fail,
-the actual fix is either upgrading mikrotik2's RouterBOARD firmware directly via RouterOS
-(`/system/routerboard/upgrade`, out of band from HA), or widening the `homeassistant` group's
-policy — the latter trades a large, deliberate part of `home/network`'s security posture for a
-convenience feature and is probably not worth it for something this infrequent.
-
 ### 10. An App has been removed from its repository (needs the exact name to act on)
 
 Live in Settings → System → Repairs (`hassio: issue_addon_detached_addon_remove`) — an
