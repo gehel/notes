@@ -169,6 +169,13 @@ this whole project — this was the leading candidate and it evaporated before b
 If it recurs, or if Guillaume identifies which App it was after the fact, worth a fresh look
 then; not worth chasing further right now with no reproducible evidence.
 
+**Update 2026-09-09: it recurred and was identified.** The repair came back with its actual
+text this time: *"App InfluxDB has been removed from the repository it was installed from."*
+Confirms Guillaume's original guess. Rolled into `config-review.md` finding 6 (InfluxDB) rather
+than reopening this finding number — see there for what "detached" means in practice and the
+decision Guillaume still needs to make about it. This entry stays as the historical record of
+the first (unconfirmed) sighting.
+
 ## Heating dashboard's Living Room low-battery badge fixed (was finding 13, medium, closed 2026-09-09)
 
 `config-review.md`'s finding 13: the Living Room low-battery badge's visibility condition
