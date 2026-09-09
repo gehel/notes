@@ -11,6 +11,12 @@ An app integration Home Assistant depends on is no longer available (deprecated/
 [changelog.md](changelog.md)'s finding 10) disappeared on its own before it could be confirmed.
 Pick this up again if it recurs or if Guillaume identifies it after the fact.
 
+## Standing operational context (not bugs — don't misdiagnose these)
+
+- **OctoPrint runs on-demand only**, shut down most of the time. A `octoprint.coordinator`
+  connection error in the logs is the expected state whenever it's off, not a regression —
+  only worth investigating if it's still failing while OctoPrint is actually powered on.
+
 ## Status
 
 **Round 1 of the config review is done, including `automations.yaml`/scenes/dashboards — see
