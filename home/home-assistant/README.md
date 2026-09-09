@@ -14,13 +14,14 @@ Pick this up again if it recurs or if Guillaume identifies it after the fact.
 ## Status
 
 **Round 1 of the config review is done, including `automations.yaml`/scenes/dashboards — see
-[config-review.md](config-review.md).** Eight items closed so far, see
-[changelog.md](changelog.md). Open: IotaWatt's address (device currently powered off), the
-un-ignored `dlna_dmr` entries (watching), fragile ZHA `device_id` usage in three automations
-(finding 11), a broken "All cold" scene wired to a physical remote button (finding 12), and a
-typo'd dashboard visibility condition that silently disables the low-battery warning for the
-one Z-Wave valve that needs it most (finding 13). The Z-Wave TRV battery levels themselves
-still need a live check — not available from static config.
+[config-review.md](config-review.md).** Nine items closed so far, see
+[changelog.md](changelog.md) — most recently the Heating dashboard's Living Room low-battery
+badge, which can now actually fire. Open: IotaWatt's address (device currently powered off),
+the un-ignored `dlna_dmr` entries (watching), fragile ZHA `device_id` usage in three
+automations (finding 11), and a broken "All cold" scene wired to a physical remote button
+(finding 12). The Z-Wave TRV battery levels themselves still need a live check — not available
+from static config, and now that finding 13 is fixed, worth checking whether Living Room's
+badge actually lights up.
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP

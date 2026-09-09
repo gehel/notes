@@ -132,32 +132,6 @@ Simplest fix: recreate "All cold" via **Settings → Automations & Scenes → Sc
 capture current states**, choosing the same 7 zones and the same entity type (`bt_*` vs
 `thermostat_*`) as "All warm"/"Sleep" for consistency.
 
-### 13. Heating dashboard's Living Room low-battery badge can never fire (medium)
-
-`.storage/lovelace.dashboard_heating` review, 2026-09-09. The "Heating" dashboard already has
-exactly the early-warning system worth having here: one badge per zone, entity
-`binary_sensor.<zone>_charge_battery_soon`, visible only when that binary sensor is `on`. Six
-of the seven are self-consistent. The Living Room one isn't:
-
-```json
-{
-  "entity": "binary_sensor.thermostat_living_room_charge_battery_soon",
-  "visibility": [{"condition": "state",
-                  "entity": "binary_sensor.thermostat_living_room_2_charge_battery_soon",
-                  "state": "on"}]
-}
-```
-
-The displayed entity is correct (exists), but the **visibility condition** checks
-`binary_sensor.thermostat_living_room_2_charge_battery_soon` — confirmed not to exist in
-`core.entity_registry` (the "_2" is misplaced; compare the Office badge, which correctly uses
-`..._charge_battery_soon_2` in both places). A condition referencing a nonexistent entity never
-evaluates true, so **this badge can never show, for one of the three thermostats currently
-having problems** — precisely where a low-battery warning would be most useful right now.
-
-Fix: change the visibility condition's entity to `binary_sensor.thermostat_living_room_charge_battery_soon`
-(matching the displayed entity, same as all six other badges).
-
 ## Not yet reviewed
 
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is

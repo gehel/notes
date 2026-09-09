@@ -168,3 +168,18 @@ same issue.
 this whole project — this was the leading candidate and it evaporated before being identified.
 If it recurs, or if Guillaume identifies which App it was after the fact, worth a fresh look
 then; not worth chasing further right now with no reproducible evidence.
+
+## Heating dashboard's Living Room low-battery badge fixed (was finding 13, medium, closed 2026-09-09)
+
+`config-review.md`'s finding 13: the Living Room low-battery badge's visibility condition
+checked `binary_sensor.thermostat_living_room_2_charge_battery_soon` (misplaced "_2", entity
+doesn't exist) instead of `binary_sensor.thermostat_living_room_charge_battery_soon` — could
+never fire, for one of the three thermostats currently having problems.
+
+Fixed by Guillaume via the dashboard's own "Edit in YAML" badge editor (not a direct
+`.storage` edit, per this project's convention of never hand-editing HA's internal state).
+
+**Verified:** `.storage/lovelace.dashboard_heating`'s Living Room badge now has matching
+entities in both the displayed `entity` field and the `visibility` condition
+(`binary_sensor.thermostat_living_room_charge_battery_soon` in both), consistent with the
+other six badges.
