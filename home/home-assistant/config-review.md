@@ -132,6 +132,37 @@ Simplest fix: recreate "All cold" via **Settings → Automations & Scenes → Sc
 capture current states**, choosing the same 7 zones and the same entity type (`bt_*` vs
 `thermostat_*`) as "All warm"/"Sleep" for consistency.
 
+### 14. Six of seven Z-Wave thermostats have duplicate "Battery level" entities (informational, safe cleanup)
+
+Follow-up to the retracted observation in an earlier round — Guillaume noticed the duplicates
+directly in the UI (e.g. "Battery level" and "Battery level (2)" on Thermostat Bathroom
+Upstairs) and asked where it comes from. Now fully explained by the entities' own unique IDs
+(`<home_id>.<node_id>-128-<endpoint>-level` — 128 is the Z-Wave Battery command class): the
+Fibaro FGT-001 exposes battery status on **more than one endpoint of the same physical
+device**, so Z-Wave JS creates one entity per endpoint for what's the same physical battery.
+Confirmed structural to the device model, not a re-pairing artifact and not specific to the
+three problem valves — 5 of 7 zones have it (Bathroom Upstairs, Hall Downstairs, Office, Living
+Room, Parent's Bedroom), Playroom has *three* copies (endpoints 0, 1, and 2), and only Kitchen
+is clean with one.
+
+**Safe to clean up.** `better_thermostat`'s own internal tracking (visible in `scenes.yaml`'s
+embedded battery data) already consistently prefers the same endpoint across every zone —
+disabling the other one via **Settings → Devices & Services → Entities → (entity) → Disable**
+loses nothing:
+
+| Zone | Keep | Disable |
+|---|---|---|
+| Bathroom Upstairs | `sensor.thermostat_bathroom_upstairs_battery_level_2` | `sensor.thermostat_bathroom_upstairs_battery_level` |
+| Hall Downstairs | `sensor.thermostat_hall_downstairs_battery_level_2` | `sensor.thermostat_hall_downstairs_battery_level` |
+| Office | `sensor.thermostat_office_battery_level_3` | `sensor.thermostat_office_battery_level` |
+| Living Room | `sensor.thermostat_living_room_battery_level_2` | `sensor.thermostat_living_room_battery_level_2_2` |
+| Parent's Bedroom | `sensor.thermostat_parent_s_bedroom_battery_level_2` | `sensor.thermostat_parent_s_bedroom_battery_level_2_2` |
+| Playroom | `sensor.thermostat_playroom_battery_level_2` | both `..._battery_level` and `..._battery_level_2_2` |
+
+The matching `binary_sensor.*_low_battery_level` duplicates follow the identical endpoint
+pattern, same fix if wanted. Purely cosmetic — not chasing this further as its own task unless
+asked.
+
 ## Not yet reviewed
 
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is
@@ -143,18 +174,17 @@ capture current states**, choosing the same 7 zones and the same entity type (`b
   entries in Settings → Repairs. Same hardware/controller as four working ones (Kitchen, Hall
   Downstairs, Office, Playroom), so not a model/firmware issue.
 
-  **Current battery levels still need a live check — not possible from static config.** Z-Wave
-  JS entities aren't `RestoreEntity`s, so `.storage/core.restore_state` has no battery data for
-  any of them. Compounding this, finding 13 means the dashboard's own automatic warning for
-  Living Room can't have fired even if its battery is genuinely low. Check Developer Tools →
-  States (search `battery_level`) for the 3 broken zones vs. a working one like Kitchen.
+  **2026-09-09: Guillaume charged the downstairs units (Living Room, Kitchen, Hall)** — Living
+  Room is one of the three reported unavailable; Kitchen/Hall weren't showing a problem but got
+  done anyway. A Z-Wave device going fully `unavailable` (not just flagging low battery) is
+  consistent with a battery too low to answer radio polls at all, so this is a plausible direct
+  fix for Living Room specifically. Not yet verified — check once it's had time to reconnect
+  whether `climate.thermostat_living_room` comes back, and whether finding 13's now-fixed
+  low-battery badge lit up beforehand or stayed off throughout (tells us whether low battery
+  was really the cause here or something else). Parent's Bedroom and Bathroom Upstairs
+  (presumably upstairs units) weren't part of this round of charging.
 
-  **One historical data point, from `scenes.yaml`'s "All cold" scene** (captured 2025-12-03,
-  over 9 months old, not current): Bathroom Upstairs 54%, Parent's Bedroom 83%, Playroom 62% —
-  none critically low *at the time*, though a Fibaro valve's motor draws down noticeably faster
-  than a passive sensor, so this doesn't rule out low-battery today. The earlier theory that
-  these three had suspicious duplicate/renumbered battery entities (`_2`-suffixed) turned out
-  to be a false lead — the same scene shows Hall Downstairs and Living Room (one broken, one
-  fine) both also using `_2`-suffixed battery entity IDs, and Office uses `_3` while working
-  fine — this is just ordinary HA entity-ID collision numbering from setup order, not a signal
-  of anything. Retracting that observation.
+  **Current battery levels for the still-unaddressed units still need a live check** — not
+  possible from static config, Z-Wave JS entities aren't `RestoreEntity`s. Check Developer
+  Tools → States (search `battery_level`) — see finding 14 above for which of the two/three
+  duplicate entities per zone is the one `better_thermostat` actually trusts.
