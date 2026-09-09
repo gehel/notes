@@ -168,23 +168,33 @@ asked.
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is
   the only one in use, and follows the recommended `!input`-selector pattern correctly) — the
   directory itself not otherwise inventoried.
-- Z-Wave JS: three Fibaro FGT-001 thermostatic valves (Parent's Bedroom, Bathroom Upstairs,
-  Living Room) are reported `unavailable` by `better_thermostat`'s watcher, going back to
-  2025-12-22 for the first one, and confirmed 2026-09-08 as 2 of the only 3 currently-live
-  entries in Settings → Repairs. Same hardware/controller as four working ones (Kitchen, Hall
-  Downstairs, Office, Playroom), so not a model/firmware issue.
+- Z-Wave JS: two remaining Fibaro FGT-001 thermostatic valves (Parent's Bedroom, Bathroom
+  Upstairs) are reported `unavailable` by `better_thermostat`'s watcher. **Living Room is
+  fixed — see `changelog.md`.** Same hardware/controller as the working ones, so not a
+  model/firmware issue — dead/empty batteries confirmed as at least Living Room's actual cause.
 
-  **2026-09-09: Guillaume charged the downstairs units (Living Room, Kitchen, Hall)** — Living
-  Room is one of the three reported unavailable; Kitchen/Hall weren't showing a problem but got
-  done anyway. A Z-Wave device going fully `unavailable` (not just flagging low battery) is
-  consistent with a battery too low to answer radio polls at all, so this is a plausible direct
-  fix for Living Room specifically. Not yet verified — check once it's had time to reconnect
-  whether `climate.thermostat_living_room` comes back, and whether finding 13's now-fixed
-  low-battery badge lit up beforehand or stayed off throughout (tells us whether low battery
-  was really the cause here or something else). Parent's Bedroom and Bathroom Upstairs
-  (presumably upstairs units) weren't part of this round of charging.
+  **Bathroom Upstairs is mid-recovery as of 2026-09-09** — battery was empty for an extended
+  period, currently charging, all its entities still `unavailable`. This should self-resolve:
+  Z-Wave network membership (keys, node ID) lives in the device's own non-volatile memory, not
+  something the battery has to sustain, so a full re-pair/re-inclusion shouldn't be necessary
+  just from running the battery flat. What's actually needed is for the device to complete a
+  **wake-up cycle** and check back in with the controller — battery-powered Z-Wave devices
+  sleep between wake-ups (interval is device-configured, commonly on the order of an hour) to
+  save power, and a fully-drained device likely missed enough cycles to be marked non-responsive
+  in the meantime.
 
-  **Current battery levels for the still-unaddressed units still need a live check** — not
-  possible from static config, Z-Wave JS entities aren't `RestoreEntity`s. Check Developer
-  Tools → States (search `battery_level`) — see finding 14 above for which of the two/three
-  duplicate entities per zone is the one `better_thermostat` actually trusts.
+  To speed this up rather than just waiting: check the Fibaro FGT-001's manual for a physical
+  wake-up trigger (many battery Z-Wave devices have a button for exactly this); in HA, the
+  Z-Wave JS integration's device page (Settings → Devices & Services → Z-Wave JS → the device)
+  shows live node status and often a manual **ping**/**re-interview** action, which is a
+  reasonable thing to try once it's had a little charging time — but a queued ping to a
+  sleeping node still waits for its next wake-up, so it won't force an immediate response.
+  Give it a few hours of charging first; if it's still fully unavailable well after that, worth
+  a fresh look then (a genuine node failure, not just a flat battery, would be the next thing
+  to consider — but not yet, this is very plausibly just "still asleep, hasn't woken up since
+  being recharged").
+
+  **Current battery level still needs a live check** — not possible from static config, Z-Wave
+  JS entities aren't `RestoreEntity`s. Check Developer Tools → States,
+  `sensor.thermostat_bathroom_upstairs_battery_level_2` (see finding 14 for why that one, not
+  the unsuffixed duplicate) once it reports again.

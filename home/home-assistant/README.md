@@ -14,15 +14,14 @@ Pick this up again if it recurs or if Guillaume identifies it after the fact.
 ## Status
 
 **Round 1 of the config review is done, including `automations.yaml`/scenes/dashboards — see
-[config-review.md](config-review.md).** Nine items closed so far, see
-[changelog.md](changelog.md) — most recently the Heating dashboard's Living Room low-battery
-badge, which can now actually fire. Open: IotaWatt's address (device currently powered off),
-the un-ignored `dlna_dmr` entries (watching), fragile ZHA `device_id` usage in three
-automations (finding 11), a broken "All cold" scene wired to a physical remote button
-(finding 12), and a fully-explained, safe-to-clean-up battery-entity duplication affecting
-6 of 7 Z-Wave thermostats (finding 14). Guillaume charged the downstairs thermostatic valves
-2026-09-09 (Living Room is one of the three reported unavailable) — not yet verified whether
-that resolved it.
+[config-review.md](config-review.md).** Ten items closed so far, see
+[changelog.md](changelog.md) — most recently the Living Room Z-Wave thermostat, which
+recovered fully once charged (dead battery confirmed as the actual cause, no re-pairing
+needed). Bathroom Upstairs is mid-recovery, currently charging. Open: IotaWatt's address
+(device currently powered off), the un-ignored `dlna_dmr` entries (watching), fragile ZHA
+`device_id` usage in three automations (finding 11), a broken "All cold" scene wired to a
+physical remote button (finding 12), and a fully-explained, safe-to-clean-up battery-entity
+duplication affecting 6 of 7 Z-Wave thermostats (finding 14).
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP

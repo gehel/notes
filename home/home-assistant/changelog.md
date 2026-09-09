@@ -183,3 +183,17 @@ Fixed by Guillaume via the dashboard's own "Edit in YAML" badge editor (not a di
 entities in both the displayed `entity` field and the `visibility` condition
 (`binary_sensor.thermostat_living_room_charge_battery_soon` in both), consistent with the
 other six badges.
+
+## Living Room Z-Wave thermostat recovered after charging (closed 2026-09-09)
+
+One of the three Fibaro FGT-001 valves `better_thermostat` had been reporting `unavailable`
+(no dedicated finding number — tracked under config-review.md's "Not yet reviewed" Z-Wave
+note). Guillaume charged it (along with Kitchen and Hall, which weren't showing a problem).
+
+**Verified, both live and from the next sync:** `climate.thermostat_living_room` reports
+`state=heat` again; `sensor.thermostat_living_room_battery_level_2` reads 99%;
+`.storage/repairs.issue_registry` no longer has a `missing_entity_climate.thermostat_living_room`
+entry (only Parent's Bedroom and Bathroom Upstairs remain); the Heating dashboard's low-battery
+badge for Living Room (finding 13, fixed above) shows no alert. Confirms the root cause was
+simply a dead/empty battery, not a Z-Wave mesh or hardware fault — the device reconnected on
+its own once powered, no re-pairing needed.
