@@ -863,3 +863,22 @@ this.** `vlan-iot` denies internet by default with only a narrow named-exception
 at all — strictly stronger than the redirect finding 8 originally proposed, as intended when it
 was deferred into this work. `vlan-users` keeps its existing broad internet access unchanged;
 that was already accepted as a tolerable risk for that segment, not part of what this closes.
+
+### Phase 5 firewall cleanup — findings 19 and 20 closed (2026-09-09)
+
+`config-review.md`'s findings 19 (a Phase-3 TEMP rule, dead code positioned after the
+unconditional catch-all drop) and 20 (assorted debris: two more dead `bridge-main`-scoped IPv4
+rules, two disabled TEMP setup/pairing rules, and a disabled rule referencing the long-gone
+`home` address-list) — all confirmed unreachable or already-inert, nothing here was live
+policy. Removed via `scripts/phase5-01-firewall-cleanup.rsc`, one `remove [find where
+comment=...]` per rule, matched by comment alone (each confirmed unique beforehand).
+
+Also removed the IPv6 twins of finding 20's dead `bridge-main` pair (`ipv6.md`'s "Migrated onto
+`vlan-users`" work had already flagged these as harmless-but-dead and left them for later) —
+bundled into the same cleanup since finding 21 (IPv6 for `vlan-services`/`vlan-iot`) was about
+to touch this same area anyway.
+
+**Verified:** `/ip/firewall/filter/print` — all 6 IPv4 target rules gone (by comment), all
+surviving rules' `vlan-users`-suffixed counterparts intact, no `I` flags, 54 rules remaining
+(was ~60). `/ipv6/firewall/filter/print` — both IPv6 target rules gone, only the
+`vlan-users`-suffixed pair remains, 14 rules remaining (was 16).

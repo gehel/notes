@@ -32,59 +32,14 @@ findings `S<n>`, so the two sets never collide.
 
 ## Open findings
 
-### 19. Dead Phase-3 TEMP rule, and it's been unreachable dead code the whole time (low)
-
-Found 2026-09-08, reviewing the post-Phase-4 dump. `chain=forward` position 59 on mikrotik1,
-comment *"TEMP: iot mqtt via users, remove at Phase 4"*, is still enabled:
-
-```
-chain=forward action=accept connection-state=new protocol=tcp \
-    dst-address=192.168.20.60 in-interface=vlan-users out-interface=vlan-services dst-port=1883
-```
-
-It was added during Home Assistant's migration so IoT devices still on `vlan-users` at the time
-could keep reaching HA's MQTT broker. Every device that needed it (Kids light, ceiling fan,
-IotaWatt, OctoPrint) has since moved to `vlan-iot`, where the permanent `iot: MQTT to HA` rule
-already covers them — so it's obsolete either way. But it's also **not currently a live hole**:
-RouterOS's `/ip/firewall/filter/print` numbers rules by real evaluation position across every
-chain, and this one sits at position 59 — *after* position 51, `chain=forward action=drop` with
-no conditions at all ("Drop all other forward traffic"). An unconditional drop is terminating,
-so no `chain=forward` rule after it, including this one, is ever reached. It was almost
-certainly added with a plain `/add` rather than `place-before=` during Home Assistant's
-migration — the exact append-after-the-catch-all bug already documented for the Pi-hole
-`services: internet` rule in [changelog.md](changelog.md) — meaning it likely never actually
-granted the access its comment describes, even during the migration window it was meant for.
-
-Remove it regardless — it's inert debris either way, and leaving dead rules with misleading
-comments around is its own hazard for whoever edits this ruleset next.
-
-### 20. Firewall debris safe to delete outright (low)
-
-Found 2026-09-08. None of these are reachable or risky as configured — they're housekeeping,
-the kind of thing a fresh-eyes pass after the migration pressure is exactly for:
-
-- **Two bridge-main-scoped IPv4 rules are dead**, `chain=input` "DHCP server" (rule 8) and
-  `chain=forward` "Home can connect everywhere" (rule 22): both match `in-interface=bridge-main`,
-  but all real traffic now arrives tagged as `vlan-users`/`vlan-services`/`vlan-iot`, each with
-  its own working rule already in place (rules 14 and 29). This is the same leftover pattern
-  [ipv6.md](ipv6.md) already flagged and left in place for its own `bridge-main` pair — worth
-  clearing both protocols' debris together rather than leaving two more "harmless but dead"
-  rules to explain to a future reader.
-- **Two disabled TEMP rules are pure debris**: "ceiling fan: TEMP internet for setup" and
-  "iot: TEMP internet for phone/device pairing, DISABLE AFTER" (rules 36-37). Correctly
-  disabled and inert, but nothing re-enables them safely without re-deriving why they existed —
-  delete rather than leave disabled indefinitely.
-- **The disabled `chain=input` rule referencing `address-list=home`** (rule 11, from finding 2's
-  original fix) now references a list that does not exist at all — confirmed empty in
-  `/ip/firewall/address-list/print`. Already inert twice over; delete it.
-
 ### 21. IPv6 firewall was never extended to `vlan-services`/`vlan-iot` (low)
 
 Found 2026-09-08. [ipv6.md](ipv6.md)'s "Migrated onto `vlan-users`" work moved the router's own
 IPv6 address, RA and firewall rules from `bridge-main` onto `vlan-users` — but only `vlan-users`.
-`/ipv6/firewall/filter/print` has an input and a forward accept for `bridge-main` (dead, see
-finding 20's IPv4 twin) and for `vlan-users`, and nothing at all for `vlan-services` or
-`vlan-iot`. Both fall through to the chain's terminating drops.
+`/ipv6/firewall/filter/print` has an input and a forward accept for `vlan-users` and nothing at
+all for `vlan-services` or `vlan-iot`, which both fall through to the chain's terminating drops
+(the dead `bridge-main` twins of the `vlan-users` pair were cleaned up as part of finding 20's
+debris removal, 2026-09-09).
 
 **Not a security problem — it fails closed** — but it's an undocumented gap, not a decision: the
 IPv4 policy explicitly grants `services -> internet: allow` (added deliberately during Pi-hole's
@@ -92,9 +47,11 @@ migration, [changelog.md](changelog.md)), while IPv6 silently gives `vlan-servic
 access at all. For `vlan-iot` the accidental result actually matches the intended "no internet of
 any kind" policy — but for the wrong reason, and it would silently break the day someone adds a
 real IPv6 rule to `vlan-iot` without realizing there was never a matching input accept either.
-Add `chain=input`/`chain=forward` accepts for `vlan-services` and `vlan-iot` mirroring the
-`vlan-users` pair, or explicitly decide IPv6 stays users-only and drop the dead `bridge-main`
-rules so the ruleset stops looking incomplete.
+
+**2026-09-09: being addressed properly**, not just patched — Guillaume wants full IPv6 for
+`vlan-services`/`vlan-iot` (addressing + RA + the IPv6 equivalent of the existing IPv4 policy
+matrix), not the minimal "add two accept rules" fix originally sketched above. Design in
+progress.
 
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)
 
