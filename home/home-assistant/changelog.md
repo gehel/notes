@@ -204,3 +204,30 @@ entry (only Parent's Bedroom and Bathroom Upstairs remain); the Heating dashboar
 badge for Living Room (finding 13, fixed above) shows no alert. Confirms the root cause was
 simply a dead/empty battery, not a Z-Wave mesh or hardware fault — the device reconnected on
 its own once powered, no re-pairing needed.
+
+## InfluxDB App removed, config cleaned up (was finding 6, medium, closed 2026-09-09)
+
+`config-review.md`'s finding 6: InfluxDB's App was detached from its repository (the original
+"app integration no longer available" motivation for this whole project, per finding 10) and
+separately throwing connection timeouts. Guillaume wasn't actively using it — decided to drop
+it rather than migrate or replace, since `home/home-assistant`'s Energy dashboard already runs
+entirely on HA's native Long-term Statistics (grid + 8 device-level consumption sensors fed by
+IotaWatt, confirmed still intact and requiring no InfluxDB dependency) — nothing of practical
+value was lost by removing it.
+
+Removed via Settings → Add-ons → the App itself, **not just the App** — `configuration.yaml`'s
+`influxdb:` block and `secrets.yaml`'s `influxdb_username`/`influxdb_password` needed a
+separate manual removal (uninstalling the App doesn't touch HA Core's YAML config), which
+Guillaume did in a follow-up step after the first sync showed a `ConnectionResetError` where
+the previous `timeout` had been — expected transitional symptom of removing the App before
+its config, not a new problem.
+
+**Verified:** `configuration.yaml` and `secrets.yaml` both confirmed clean of any InfluxDB
+reference. Required a full restart (a YAML reload alone won't un-set-up a still-declared
+component) — confirmed via `.ha_run.lock`'s `start_ts` changing. Post-restart log (100 lines,
+~2 minutes of fresh activity) has zero errors of any kind and zero mentions of InfluxDB.
+
+**This also closes out finding 10's open thread** (`changelog.md`, above) — the project's
+original "app no longer available" motivation is resolved by removal, not by identifying a
+replacement or fix. Whether Grafana (also mentioned as possibly unused) gets removed too is
+Guillaume's call, not tracked here unless it surfaces its own finding.

@@ -54,39 +54,6 @@ limitation — it should be including the router's own identity in the unique ID
 interface MAC); worth a note in `home/network` as a known HA-integration quirk of the two-router
 CAPsMAN setup, and possibly a bug report upstream.
 
-### 6. InfluxDB App detached from its repository — the original "app no longer available" issue, now identified (medium, decision needed)
-
-```
-ERROR (influxdb) [homeassistant.components.influxdb] Cannot connect to InfluxDB due to
-'{"error":"timeout"}'. ... Resumed, lost 30 events.
-```
-
-`configuration.yaml` points it at `localhost:8086` — same host as HA itself (it's an App, not a
-separate device), so this isn't a VLAN/routing issue like finding 1.
-
-**2026-09-09: identified.** The detached-App repair from finding 10 (`changelog.md`, closed
-"unresolved" 2026-09-08 after it vanished before being confirmed) came back: *"App InfluxDB has
-been removed from the repository it was installed from."* Matches Guillaume's original guess,
-and this is very likely **the actual "app integration no longer available" issue this whole
-project started from** — InfluxDB (and Grafana) were dropped from Home Assistant's official
-add-on repository some time ago; if this instance was installed from there, Supervisor has lost
-track of its source entirely.
-
-**What "detached" actually means in practice:** the App keeps running as-is — this doesn't stop
-it or explain the timeouts directly — but Supervisor can no longer update it, and if it's ever
-uninstalled, reinstalling it the same way (from the App store) isn't possible anymore. Worth
-checking whether it's still running at all right now (Settings → Add-ons... **Apps** → InfluxDB
-→ is it started, and what does its own log show) — that's still the direct lead on the
-timeouts, detached-ness doesn't cause a timeout by itself, but an unmaintained version sitting
-on old code is a reasonable contributor if it hasn't been touched in a while.
-
-**Decision for Guillaume, not something to act on unilaterally:** now that it's identified,
-worth deciding whether to (a) leave it running as-is, accepting no further updates, (b)
-migrate it to a self-managed container outside Supervisor to regain updateability, or (c)
-replace it with something else entirely if what it's used for (Grafana dashboards? long-term
-stats?) could now be served by HA's own improved long-term statistics instead. Not chasing this
-further until Guillaume says which direction to go.
-
 ### 7. Two `dlna_dmr` entries are dead weight, superseded by native integrations (low) — in progress
 
 Both the Onkyo receiver and the Samsung TV have a `dlna_dmr` config entry with

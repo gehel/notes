@@ -6,10 +6,11 @@ started 2026-09-08. Home Assistant runs at `192.168.20.60` on the `services` VLA
 
 ## Why
 
-An app integration Home Assistant depends on is no longer available (deprecated/removed) —
-**identified 2026-09-09: InfluxDB**, removed from the repository it was installed from. See
-[config-review.md](config-review.md) finding 6 for what that means in practice and the
-decision still needed on how to handle it.
+The project's original motivation — an app integration no longer available — is **resolved**:
+it was InfluxDB (detached from its repository), and Guillaume removed it entirely rather than
+migrate or replace, since HA's native Long-term Statistics already covers what mattered (the
+Energy dashboard). See [changelog.md](changelog.md)'s finding 6 for the full story. Now
+tracking whatever findings turn up on their own merits rather than one overarching mystery.
 
 ## Standing operational context (not bugs — don't misdiagnose these)
 
@@ -20,16 +21,14 @@ decision still needed on how to handle it.
 ## Status
 
 **Round 1 of the config review is done, including `automations.yaml`/scenes/dashboards — see
-[config-review.md](config-review.md).** Ten items closed so far, see
-[changelog.md](changelog.md) — most recently the Living Room Z-Wave thermostat, which
-recovered fully once charged (dead battery confirmed as the actual cause, no re-pairing
-needed). Bathroom Upstairs is mid-recovery, currently charging. Open: **finding 6, InfluxDB
-detached from its repository — this project's original motivation, now identified, decision
-needed on what to do about it** — plus IotaWatt's address (device currently powered off), the
-un-ignored `dlna_dmr` entries (watching), fragile ZHA `device_id` usage in three automations
-(finding 11), a broken "All cold" scene wired to a physical remote button (finding 12), and a
-fully-explained, safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave
-thermostats (finding 14).
+[config-review.md](config-review.md).** Eleven items closed so far, see
+[changelog.md](changelog.md) — most recently InfluxDB's removal (finding 6, resolving the
+project's original motivation) and the Living Room Z-Wave thermostat's recovery once charged
+(dead battery, no re-pairing needed). Bathroom Upstairs is mid-recovery, currently charging.
+Open: IotaWatt's address (device currently powered off), the un-ignored `dlna_dmr` entries
+(watching), fragile ZHA `device_id` usage in three automations (finding 11), a broken "All
+cold" scene wired to a physical remote button (finding 12), and a fully-explained,
+safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave thermostats (finding 14).
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP
