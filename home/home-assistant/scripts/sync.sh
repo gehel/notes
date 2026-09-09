@@ -8,8 +8,8 @@
 # Defaults to ../config (i.e. home/home-assistant/config, regardless of this
 # script's own location). Gitignored — see home/home-assistant/README.md.
 #
-# Override host/user/port with:
-#   HA_HOST=home.ledcom.fr HA_USER=hassio HA_SSH_PORT=22 ./sync.sh
+# Override host/user/port/Z-Wave JS App slug with:
+#   HA_HOST=home.ledcom.fr HA_USER=hassio HA_SSH_PORT=22 ZWAVE_JS_APP=core_zwave_js ./sync.sh
 #
 # Excludes:
 #   - Recorder/zigbee/watchman databases and their -shm/-wal/-journal
@@ -36,8 +36,10 @@
 # The current core log isn't a file on disk (HA OS logs to journald) — `ha
 # core logs` reads it via the Supervisor API, which needs a login shell to
 # pick up the token (a plain `ssh host command` runs a non-login shell that
-# doesn't source the profile setting it up, and fails 401). `ha supervisor
-# logs` / `ha host logs` are the equivalents for App/OS-level issues, not
+# doesn't source the profile setting it up, and fails 401). Also pulls the
+# Z-Wave JS App's own log the same way (`ha apps logs core_zwave_js`) —
+# App-level events like "device interview failed" show up there, not in
+# HA Core's log. `ha host logs` is the equivalent for OS-level issues, not
 # fetched here — run by hand the same way if a problem points that way.
 
 set -uo pipefail
@@ -47,6 +49,7 @@ OUTDIR="${1:-$SCRIPT_DIR/../config}"
 HA_HOST="${HA_HOST:-home.ledcom.fr}"
 HA_USER="${HA_USER:-hassio}"
 HA_SSH_PORT="${HA_SSH_PORT:-22}"
+ZWAVE_JS_APP="${ZWAVE_JS_APP:-core_zwave_js}"
 
 mkdir -p "$OUTDIR"
 
@@ -74,3 +77,7 @@ rsync -av -e "ssh -p $HA_SSH_PORT" \
 
 ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha core logs"' \
   > "$OUTDIR/home-assistant-current.log"
+
+ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" \
+  "bash -l -c \"ha apps logs $ZWAVE_JS_APP\"" \
+  > "$OUTDIR/zwave-js-current.log"
