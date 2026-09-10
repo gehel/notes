@@ -25,6 +25,17 @@ All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
 Upstream is a Swisscom Internet-Box at `10.1.1.1` doing a second layer of NAT.
 
+**DNS and NTP are both fully self-contained as of 2026-09-10** — no LAN device should ever
+need to reach the public internet for either. Pi-hole (`192.168.20.40`) is every device's
+resolver; for anything it doesn't already know, it conditionally forwards to mikrotik1
+(`192.168.0.0/16` → `192.168.10.1`), which in turn maintains a live DNS entry
+(`<hostname>.home.ledcom.fr`, both directions — forward and reverse) for every currently-bound
+DHCP lease via a `lease-script` on all three DHCP servers. NTP works the same way: mikrotik1
+runs its own NTP server, `chain=input` accepts it from all three VLANs, and every device should
+be pointed at its own VLAN's gateway address for time (DHCP option 42 provides this but isn't
+reliably honored by every OS — see `README.md`'s hard-won lessons and `changelog.md`'s finding
+23 closure for why explicit configuration beat relying on it, at least for Pi-hole).
+
 Raw device output lives in [dumps/](dumps/), collected with
 [dump-configs.sh](scripts/dump-configs.sh). Regenerate it before any review — the files are a
 snapshot, not a source of truth.
@@ -69,10 +80,10 @@ unidentified.
 - Both existing APs are 2.4 GHz only. TX power rose 16 -> 20 dBm as a side effect of the
   channel fix; deliberately not adjusted yet.
 
-**Main router** — [config-review.md](config-review.md). Findings 19-22 from the post-Phase-4
-review round (2026-09-08): a dead TEMP rule and other firewall debris safe to delete, IPv6 never
-extended to `vlan-services`/`vlan-iot`, and a minor `connection-state=new` inconsistency on
-`chain=input`. mikrotik4 has never been reviewed; needs the full S1-S16 pass when it returns.
+**Main router** — [config-review.md](config-review.md). Two open findings: IPv6 never extended
+to `vlan-services`/`vlan-iot` (21, next up), and a minor `connection-state=new` inconsistency
+on `chain=input` (22, informational, no known impact). mikrotik4 has never been reviewed; needs
+the full S1-S16 pass when it returns.
 
 **Hardware, pending the replacement Swisscom box.**
 - RB5009UG+S+IN for the edge role. Check the new box's port speeds and whether it supports
@@ -216,3 +227,28 @@ outstanding test is a host plugged directly into the Internet-Box.
     across nine `/add`s produced `I - INVALID` on the last one, despite it being structurally
     identical to an earlier, valid rule. Fix: re-evaluate `find` fresh at every `/add` — never
     cache and reuse a `place-before=`/`place-after=` target across multiple inserts.
+- **Clearing a property back to default/empty is trickier than it looks — three distinct
+  failure modes found in one session.** `property=""` on an interface-typed field
+  (`in-interface=`/`out-interface=`) is treated as an ambiguous wildcard match against every
+  interface, not "no value" — RouterOS refuses with "ambiguous value of interface."
+  `!property` (the documented way to unset) works, but only when paired with at least one
+  other real assignment in the same `/set` command — used completely alone (`!property` and
+  nothing else) it's a syntax error. And some string properties enforce their own minimum
+  length regardless of technique — `add-dns-entries-suffix=""` was rejected outright ("should
+  not be shorter than 1"), no way found to make it empty; the working fix there was pointing it
+  at a real value instead of fighting the clear. Try `!property` paired with something harmless
+  first, and don't assume every property can be made empty.
+- **`/ip/dhcp-server`'s `lease-script` only fires on a genuine new bind or a deassign, not an
+  in-place lease renewal.** A script set on all three DHCP servers looked completely inert for
+  ~25 minutes despite multiple 5-minute lease cycles elapsing — zero invocations in
+  `/log/print`. Forcing one lease to actually rebind (`/ip/dhcp-server/lease/remove`) fired it
+  immediately. Don't conclude a lease-script is broken just because it's quiet — force a fresh
+  bind before troubleshooting further.
+- **RouterOS's DNS server does not translate DHCP leases into DNS records at all, in either
+  direction, natively.** Confirmed empirically (`dig` against the router returned `NXDOMAIN`
+  for both a named static reservation and a plain dynamic lease) and via MikroTik's own docs:
+  `/ip/dns/static` has no `PTR` record type. What does work: "for each static A and AAAA
+  record, in cache automatically is added a PTR record" — so a `lease-script` maintaining
+  static A records gives real reverse resolution as a side effect. `add-dns-entries-suffix` on
+  `/ip/dhcp-server` looks like it should provide this automatically; confirmed inert regardless
+  of its configured value — don't rely on it.

@@ -84,7 +84,19 @@ address, SSH hardened, and a proven MAC-Telnet recovery path. It is already in t
 address list on every device and holds a `.4` reservation on mikrotik1, so it will come up
 reachable.
 
-Nothing else is open. mikrotik2 and mikrotik3 are clear; mikrotik1 has findings 19-22 above.
+Nothing else is open. mikrotik2 and mikrotik3 are clear; mikrotik1 has findings 21-22 above
+(19, 20, 23, 24 all closed — see [changelog.md](changelog.md)).
+
+**Two minor things noticed 2026-09-10 while regenerating `firewall.md` against a fresh
+dump, not investigated further — neither looked urgent enough to chase down mid-pass:**
+`cpu-load: 100%` in that snapshot (vs. the ~30-50% this document has previously measured under
+real load) — most likely just the dump script's own burst of SSH commands rather than a
+sustained condition, but worth a second look if it recurs on a quieter dump. And `route_BFD`
+reappearing in `/ip/service/print` as a dynamic listener, which the original finding 11 closure
+(round 1) recorded as gone once OSPF/BGP/BFD config was removed — `dump-configs.sh` doesn't
+currently collect `/routing/bfd/configuration/print`, so this couldn't be re-verified from the
+dump alone; worth a live check next time (`/routing/bfd/configuration/print` should still be
+empty) rather than assuming either way.
 
 ## The architectural item: VLAN segmentation
 

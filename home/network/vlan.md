@@ -1,6 +1,6 @@
 # VLAN segmentation — design and migration plan
 
-Designed 2026-09-06. **Phases 0-4 are done; Phase 5 is what's left.** Full history,
+Designed 2026-09-06. **Phases 0-5 are done.** Full history,
 evidence, and every bug found along the way are in [changelog.md](changelog.md) — this
 document holds the design reference and current state, not the story of how it was built.
 
@@ -377,10 +377,14 @@ what the original checklist below turned into:
   `internet2services`), each with its own `log=yes` deny-everything-else at the end. Verified
   clean, then log-reviewed before cleanup as this checklist intended — found and fixed
   Pi-hole's DNS-over-TLS, Home Assistant's printer/Samsung-TV access, and missing
-  `src-address` scoping on every HA-sourced rule. Still open from that review: an unexplained
-  burst of DoT attempts from HA itself (not Pi-hole) to Cloudflare, and Pi-hole's NTP
-  apparently not honoring the DHCP-supplied `ntp-services` option (config-review.md finding
-  23).
+  `src-address` scoping on every HA-sourced rule. Two more things the review surfaced, both now
+  resolved: the DoT burst from HA itself (not Pi-hole) turned out to be its internal DNS plugin
+  leaking private reverse-lookups to Cloudflare — root-caused and closed on the HA side (see
+  `home/home-assistant/changelog.md`), accepted as legitimate discovery behavior once the leak
+  itself was fixed; and Pi-hole's NTP not honoring the DHCP-supplied option (was finding 23) —
+  closed, `chain=input` was missing an NTP accept for `vlan-services`/`vlan-users` entirely
+  (only `vlan-iot` ever had one), and Pi-hole itself needed pinning directly at mikrotik1 since
+  its OS wasn't propagating the DHCP option to its own NTP client.
 - **Remove the temporary `users -> services tcp/1883` rule** — done, folded into
   `scripts/phase5-06-firewall-reorg-cleanup.rsc` along with every other old rule the reorg
   made dead (plus a straggler it missed, `"Accept DNS requests from Pi-hole"`, caught and
