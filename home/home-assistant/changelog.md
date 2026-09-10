@@ -251,6 +251,7 @@ reports 100%.
 timeout streak stopped. Guillaume confirmed battery level at 100% live in HA.
 
 Only Parent's Bedroom left of the original three — same fix expected to apply, not yet
+started.
 
 ## HA's internal DNS was leaking private reverse-lookups to Cloudflare over DoT (closed 2026-09-10)
 
@@ -284,8 +285,17 @@ blocking direct internet access anyway, so the fallback doesn't work"):**
    (`allow-remote-requests: yes` in its dump, and `chain=input`'s DNS accept rules aren't
    scoped to any particular VLAN).
 
-**Verified:** `dig -x 192.168.20.60 @192.168.20.40` (Pi-hole) now returns a clean, fast
-(`NOERROR`, 2ms) answer — `home.ledcom.fr` — instead of no data. See `home/network/changelog.md`
-for the network-side half of this (the firewall log finding and the DoT-restricted-to-Pi-hole
-rule that first surfaced this).
-started.
+**Verified (fallback half only):** `ha dns info` confirms `fallback: false` — the leak itself is
+fully closed regardless of anything below, since HA no longer attempts external DNS at all.
+
+**Correction, same day: the Conditional Forwarding half wasn't actually verified.** The
+`dig -x 192.168.20.60 @192.168.20.40` test above returned `home.ledcom.fr`, but that's a
+manually-curated Pi-hole local record for `.60` (this project's own established convention for
+named devices) — it would have answered identically with or without the new forwarding rule,
+and proved nothing about whether Pi-hole could actually reach mikrotik1 for data it doesn't
+already have. Guillaume caught this. A clean test (`dig -x 192.168.10.194 @192.168.10.1`, a
+plain dynamic lease with no Pi-hole record) showed mikrotik1 itself returning `NXDOMAIN` —
+RouterOS doesn't expose DHCP leases via DNS at all natively. Full root-cause and the
+lease-script fix that makes it actually work are in `home/network/changelog.md` (mikrotik1 now
+gives real answers; whether Pi-hole's forward relays them correctly, versus a suspected cached
+negative answer from all the earlier failed attempts, is still being confirmed there).

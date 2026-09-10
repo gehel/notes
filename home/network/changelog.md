@@ -1053,3 +1053,67 @@ fix (disabling HA's DNS fallback, adding Pi-hole Conditional Forwarding to mikro
 in `home/home-assistant/changelog.md`, since the fix lives entirely on that side. Verified
 end-to-end with `dig -x 192.168.20.60 @192.168.20.40` returning a clean answer instead of
 nothing.
+
+**Correction, same day:** that "verified end-to-end" claim was wrong — Guillaume caught it.
+`192.168.20.60` already had a manually-curated Pi-hole local record (`home.ledcom.fr`, this
+project's own established convention for named devices), so the successful answer proved
+nothing about whether Pi-hole's new Conditional Forwarding rule actually worked. See the entry
+below for the real test and what it found.
+
+### mikrotik1 didn't expose DHCP leases via DNS at all — fixed with a lease-script (2026-09-10)
+
+Follow-up to the correction above. Clean test: `dig -x 192.168.10.194 @192.168.10.1` (a plain
+dynamic lease, no Pi-hole record to fall back on) returned `NXDOMAIN` **directly from
+mikrotik1** — not a Pi-hole/forwarding problem, mikrotik1 itself had nothing to answer with.
+Confirmed via MikroTik's own docs: `/ip/dns/static` has no `PTR` type, and RouterOS does not
+auto-generate DNS entries from DHCP leases in either direction — `add-dns-entries-suffix="lan"`
+(present on all three DHCP servers, presumably original defconf) turned out to be fully inert,
+confirmed by `dig am335x-opt.lan @192.168.10.1` also returning `NXDOMAIN`.
+
+What MikroTik's docs do confirm: "for each static A and AAAA record, in cache automatically is
+added a PTR record" — so a lease-script that maintains static A records for active leases gives
+real reverse resolution as a side effect, no other mechanism needed. Added identically to all
+three DHCP servers (`dhcp-home`/`dhcp-services`/`dhcp-iot`) via `scripts/dhcp-to-dns-setup.rsc`:
+on each bind, add `<lease-hostname>.home.ledcom.fr -> lease IP` (`type=A`, `ttl=5m` matching the
+lease time); on each deassign, remove it. Written out three times inline rather than shared via
+a stored `/system/script` or a `:local` variable holding a script body — neither pattern's
+RouterOS semantics had been verified reliable for this project, and duplication was the cheaper
+risk. The add is wrapped in `:do{}on-error={}` so one malformed hostname can't break lease
+processing for anyone else.
+
+**A real gotcha, caught live:** the lease-script did not fire at all for ~25 minutes after being
+set, despite multiple 5-minute lease cycles elapsing — `/log/print where message~"dhcp-to-dns"`
+showed only the config-change events, no invocations. Root cause: **a renewal of an
+already-bound lease does not re-trigger the script**, only a genuine new bind or a deassign
+does. Confirmed by forcing one: `/ip/dhcp-server/lease/remove [find where address=192.168.10.194]`
+— the device's next DHCP request produced a fresh bind, the script fired immediately, and
+`/log/print` showed RouterOS's own confirmation: `static dns entry added by dhcp-lease`.
+
+**Verified conclusively — real reverse (and bonus forward) resolution, straight from
+mikrotik1:**
+
+```
+$ dig -x 192.168.10.194 @192.168.10.1
+;; ANSWER SECTION:
+194.10.168.192.in-addr.arpa. 300 IN PTR am335x-opt.home.ledcom.fr.
+;; ADDITIONAL SECTION:
+am335x-opt.home.ledcom.fr. 300  IN A   192.168.10.194
+```
+
+**Not yet confirmed:** the same query through Pi-hole's Conditional Forwarding
+(`dig -x 192.168.10.194 @192.168.20.40`) still returned `SERVFAIL` immediately after this fix.
+Guillaume's hypothesis, plausible given how many times that exact query was repeated against
+Pi-hole while mikrotik1 had nothing to answer: a cached negative response. Testing with a
+`pihole restartdns` cache clear — result pending.
+
+### DHCP pool renamed for consistency (2026-09-10)
+
+The original `dhcp-home` pool was still named `dhcp` (defconf leftover, predating the VLAN
+work) while its siblings were `pool-services`/`pool-iot` — renamed to `pool-users` via
+`scripts/rename-dhcp-pool.rsc` for consistency. Pool references are by name, so the DHCP
+server's `address-pool=` had to be updated in the same script, pool renamed first (the
+reference would otherwise briefly point at a nonexistent name).
+
+**Verified:** `/ip/pool/print` shows `pool-users 192.168.10.100-192.168.10.200 101 4 97`
+(members/usage unchanged, only the name and — as a result — `dhcp-home`'s `address-pool=`
+changed); `/ip/dhcp-server/print detail` confirms `dhcp-home` now references `pool-users`.
