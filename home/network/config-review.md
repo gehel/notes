@@ -10,7 +10,8 @@ everything else in this document is a historical record from the original review
 intentionally still shows the addresses as they were *at the time each finding was made*.
 
 The live firewall ruleset itself — every chain, in order, on all three devices — is documented
-separately in [firewall.md](firewall.md), generated from this same round of dumps.
+separately in [firewall.md](firewall.md), regenerated 2026-09-10 after Phase 5's jump-chain
+reorg (see [changelog.md](changelog.md)) — a dump refresh, not a new full review round.
 
 | Device | Model | Address | Role |
 |---|---|---|---|
