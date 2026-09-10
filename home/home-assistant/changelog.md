@@ -231,3 +231,24 @@ component) — confirmed via `.ha_run.lock`'s `start_ts` changing. Post-restart 
 original "app no longer available" motivation is resolved by removal, not by identifying a
 replacement or fix. Whether Grafana (also mentioned as possibly unused) gets removed too is
 Guillaume's call, not tracked here unless it surfaces its own finding.
+
+## Bathroom Upstairs Z-Wave thermostat recovered after charging (closed 2026-09-10)
+
+The second of the three Fibaro FGT-001 valves `better_thermostat` had been reporting
+`unavailable` (tracked under `config-review.md`'s "Not yet reviewed" Z-Wave note, alongside
+Living Room and Parent's Bedroom). Battery had been empty for an extended period.
+
+Bumpier recovery than Living Room's, worth recording: an interview attempt on 2026-09-09
+failed outright (`ZW0201`/`ZW0204` errors, node presumed dead) after a few hours of charging;
+several more hours of charging were needed before it started responding at all, and even after
+the `missing_entity` repair cleared, the Z-Wave JS log still showed ~9 timeouts across a
+90-minute window the next morning before a query finally succeeded cleanly. Battery now
+reports 100%.
+
+**Verified:** `.storage/repairs.issue_registry` no longer has
+`missing_entity_climate.thermostat_bathroom_upstairs` (only Parent's Bedroom remains).
+`zwave-js-current.log` shows a clean successful `Air temperature sensor reading` after the
+timeout streak stopped. Guillaume confirmed battery level at 100% live in HA.
+
+Only Parent's Bedroom left of the original three — same fix expected to apply, not yet
+started.

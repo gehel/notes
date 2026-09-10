@@ -156,31 +156,11 @@ asked.
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is
   the only one in use, and follows the recommended `!input`-selector pattern correctly) — the
   directory itself not otherwise inventoried.
-- Z-Wave JS: two remaining Fibaro FGT-001 thermostatic valves (Parent's Bedroom, Bathroom
-  Upstairs) are reported `unavailable` by `better_thermostat`'s watcher. **Living Room is
+- Z-Wave JS: one remaining Fibaro FGT-001 thermostatic valve (Parent's Bedroom) is reported
+  `unavailable` by `better_thermostat`'s watcher. **Living Room and Bathroom Upstairs are both
   fixed — see `changelog.md`.** Same hardware/controller as the working ones, so not a
-  model/firmware issue — dead/empty batteries confirmed as at least Living Room's actual cause.
-
-  **Bathroom Upstairs is mid-recovery as of 2026-09-09** — battery was empty for an extended
-  period, currently charging, all its entities still `unavailable`. This should self-resolve:
-  Z-Wave network membership (keys, node ID) lives in the device's own non-volatile memory, not
-  something the battery has to sustain, so a full re-pair/re-inclusion shouldn't be necessary
-  just from running the battery flat. What's actually needed is for the device to complete a
-  **wake-up cycle** and check back in with the controller — battery-powered Z-Wave devices
-  sleep between wake-ups (interval is device-configured, commonly on the order of an hour) to
-  save power, and a fully-drained device likely missed enough cycles to be marked non-responsive
-  in the meantime.
-
-  To speed this up rather than just waiting: check the Fibaro FGT-001's manual for a physical
-  wake-up trigger (many battery Z-Wave devices have a button for exactly this); in HA, the
-  Z-Wave JS integration's device page (Settings → Devices & Services → Z-Wave JS → the device)
-  shows live node status and often a manual **ping**/**re-interview** action, which is a
-  reasonable thing to try once it's had a little charging time — but a queued ping to a
-  sleeping node still waits for its next wake-up, so it won't force an immediate response.
-  Give it a few hours of charging first; if it's still fully unavailable well after that, worth
-  a fresh look then (a genuine node failure, not just a flat battery, would be the next thing
-  to consider — but not yet, this is very plausibly just "still asleep, hasn't woken up since
-  being recharged").
+  model/firmware issue — dead/empty batteries confirmed as the actual cause for both.
+  Presumably the same fix applies here (charge it) — not yet started as of this writing.
 
   **Current battery level still needs a live check** — not possible from static config, Z-Wave
   JS entities aren't `RestoreEntity`s. Check Developer Tools → States,

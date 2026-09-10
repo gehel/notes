@@ -21,13 +21,13 @@ tracking whatever findings turn up on their own merits rather than one overarchi
 ## Status
 
 **Round 1 of the config review is done, including `automations.yaml`/scenes/dashboards — see
-[config-review.md](config-review.md).** Eleven items closed so far, see
-[changelog.md](changelog.md) — most recently InfluxDB's removal (finding 6, resolving the
-project's original motivation) and the Living Room Z-Wave thermostat's recovery once charged
-(dead battery, no re-pairing needed). Bathroom Upstairs is mid-recovery, currently charging.
-Open: IotaWatt's address (device currently powered off), the un-ignored `dlna_dmr` entries
-(watching), fragile ZHA `device_id` usage in three automations (finding 11), a broken "All
-cold" scene wired to a physical remote button (finding 12), and a fully-explained,
+[config-review.md](config-review.md).** Twelve items closed so far, see
+[changelog.md](changelog.md) — most recently Bathroom Upstairs's Z-Wave thermostat recovering
+after charging (bumpier than Living Room's, but same root cause and same fix). Two of the
+three original problem valves are now fixed; only Parent's Bedroom remains. Open: IotaWatt's
+address (device currently powered off), the un-ignored `dlna_dmr` entries (watching), fragile
+ZHA `device_id` usage in three automations (finding 11), a broken "All cold" scene wired to a
+physical remote button (finding 12), and a fully-explained,
 safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave thermostats (finding 14).
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
