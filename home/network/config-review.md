@@ -56,6 +56,12 @@ decided the IPv4 forward chain needed cleaning up and reorganizing first. That r
 jump-chain work, see [changelog.md](changelog.md)) is now fully done and documented, so this is
 next up.
 
+**In progress.** Phase 1 (`vlan-users`'s own IPv6 firewall restructured to the same
+per-VLAN-pair dispatch shape as IPv4, closing an incidental gap where router management was
+reachable from `vlan-users` over IPv6 with none of IPv4's `mgmt`-list scoping) done and
+verified 2026-09-10 — see [changelog.md](changelog.md). Phase 2 (`vlan-services` addressing +
+firewall) next, then phase 3 (`vlan-iot`).
+
 
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)
 

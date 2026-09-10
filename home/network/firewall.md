@@ -33,9 +33,9 @@ on 2026-09-10, see below). Rate-limited ping now works between every VLAN pair a
 internet, including combinations the table would otherwise suggest are fully denied (e.g.
 `iot <-> services`/`users`) — a deliberate widening, not an oversight.
 
-IPv6 has no equivalent rows for `services`/`iot` at all — see **[21]**, next up. `vlan-iot`
-ends up with no IPv6 anywhere by accident, which happens to match intent; `vlan-services` ends
-up with no IPv6 internet access, which doesn't.
+IPv6 has no equivalent rows for `services`/`iot` at all — see **[21]**, in progress (phase 1,
+`vlan-users`, done 2026-09-10). `vlan-iot` ends up with no IPv6 anywhere by accident, which
+happens to match intent; `vlan-services` ends up with no IPv6 internet access, which doesn't.
 
 ## mikrotik1 (RB2011UiAS, edge router) — `chain=input`
 
@@ -254,6 +254,13 @@ matches the lease time (5m), so the list churns constantly; not reproduced here.
 
 ## mikrotik1 — IPv6 firewall
 
+**Phase 1 of finding 21, done 2026-09-10:** `vlan-users` restructured to mirror the IPv4
+per-VLAN-pair dispatch shape instead of two flat accepts. Router management (ssh/winbox/api/www)
+is no longer reachable from `vlan-users` over IPv6 at all — IPv6 clients here are SLAAC-addressed
+with no stable per-host address to scope an IPv4-style `mgmt` list against, so "not exposed" is
+the safe equivalent rather than a leaky approximation. `vlan-services`/`vlan-iot` are next
+(phases 2-3).
+
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
 | 0 | input | accept | `connection-state=established,related,untracked` | defconf |
@@ -266,14 +273,20 @@ matches the lease time (5m), so the list churns constantly; not reproduced here.
 | 7 | forward | drop | `dst-address-list=bad_ipv6` | defconf |
 | 8 | forward | drop | `protocol=icmpv6 hop-limit=equal:1` | defconf: rfc4890 |
 | 9 | forward | accept | `protocol=icmpv6` | defconf |
-| 10 | input | accept | `in-interface=vlan-users` | LAN to router (vlan-users) |
-| 11 | input | drop | *(none — catch-all)* | drop everything else to router |
-| 12 | forward | accept | `in-interface=vlan-users` | LAN outbound (vlan-users) |
-| 13 | forward | drop | *(none — catch-all)* | drop inbound from WAN |
+| — | input | drop | *(none — catch-all)* | drop everything else to router |
+| — | forward | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
+| — | forward | drop | *(none — catch-all)* | drop inbound from WAN |
+| — | `users2internet` | accept | `connection-state=new` | users2internet: internet |
+
+Rule numbers aren't shown — RouterOS's `print` index is positional, not a stable ID (this table
+follows the project's own convention of finding by comment, not number). The dispatch and
+`users2internet` rules both show `I - INVALID` on `print`, unlike their identically-shaped IPv4
+counterparts — **functionally verified as enforced anyway** (IPv6 internet works from a
+`vlan-users` client; `nc -6` to the router's management port now times out) — see
+`README.md`'s hard-won lessons for the caveat this adds to the existing `I - INVALID` catalog.
 
 **No equivalent rules exist for `vlan-services` or `vlan-iot` on either chain — see [21].**
-Both VLANs fall straight through to rules 11/13. This table is the full IPv6 filter ruleset,
-14 rules total.
+Both VLANs fall straight through to the input/forward catch-alls above.
 
 ## mikrotik2 (CRS125) and mikrotik3 (RB750Gr3) — `chain=input`
 

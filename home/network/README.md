@@ -8,8 +8,9 @@ Written so that work can resume from these documents alone, with no session hist
 **Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-5 done.** Three VLANs
 (`users`/`services`/`iot`), full renumber, real firewall policy — all live. The forward chain
 is reorganized into one jump-chain per VLAN pair, log-reviewed and tightened, with the old
-rules fully cleaned up. Next up: finding 21 (IPv6 for `vlan-services`/`vlan-iot`), deliberately
-deferred until the IPv4 reorg was done. IotaWatt still needs device-side verification. Read
+rules fully cleaned up. In progress: finding 21, bringing IPv6 up to the same shape — phase 1
+(`vlan-users` firewall) done 2026-09-10, `vlan-services`/`vlan-iot` next. IotaWatt still needs
+device-side verification. Read
 `vlan.md`'s **Status** section first.
 
 ## The network as it stands
@@ -68,9 +69,9 @@ address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`
 ## Everything currently open
 
 **VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint verified. Open: IotaWatt
-(unreachable) device-side; finding 21 (IPv6 for `vlan-services`/`vlan-iot`) is next, no longer
-blocked on the IPv4 reorg. The "second laptop" from the device inventory is still
-unidentified.
+(unreachable) device-side; finding 21 (IPv6 for `vlan-services`/`vlan-iot`) — `vlan-users`'s
+own IPv6 firewall done 2026-09-10, `vlan-services` next. The "second laptop" from the device
+inventory is still unidentified.
 
 **Wireless** — [wifi.md](wifi.md).
 - The cAP XL ac is unused and is the only 5 GHz on the network. Blocked on one question:
@@ -234,6 +235,15 @@ outstanding test is a host plugged directly into the Internet-Box.
     across nine `/add`s produced `I - INVALID` on the last one, despite it being structurally
     identical to an earlier, valid rule. Fix: re-evaluate `find` fresh at every `/add` — never
     cache and reuse a `place-before=`/`place-after=` target across multiple inserts.
+  - **This whole catalog is IPv4-derived (`/ip/firewall/filter`) and doesn't transfer cleanly to
+    `/ipv6/firewall/filter`.** A `jump` dispatch rule and its target chain's `accept
+    connection-state=new` rule, identically shaped to a long-working IPv4 `users2internet`
+    pair, both showed `I - INVALID` the first time this was tried on IPv6 (`vlan-users`
+    hardening, finding 21 phase 1) — yet were functionally confirmed enforced (internet access
+    worked, the blocked management port actually timed out). Looks like a false positive
+    specific to how `/ipv6/firewall/filter` evaluates jump-target chains on this RouterOS
+    version, not a real gap — but unconfirmed, so don't assume either way going in: verify
+    functionally against a real client for anything on the IPv6 side, same as this rule was.
 - **Clearing a property back to default/empty is trickier than it looks — three distinct
   failure modes found in one session.** `property=""` on an interface-typed field
   (`in-interface=`/`out-interface=`) is treated as an ambiguous wildcard match against every

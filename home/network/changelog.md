@@ -1190,3 +1190,59 @@ reference would otherwise briefly point at a nonexistent name).
 **Verified:** `/ip/pool/print` shows `pool-users 192.168.10.100-192.168.10.200 101 4 97`
 (members/usage unchanged, only the name and — as a result — `dhcp-home`'s `address-pool=`
 changed); `/ip/dhcp-server/print detail` confirms `dhcp-home` now references `pool-users`.
+
+## IPv6 dual-stack rollout — finding 21
+
+Bringing IPv6 up to the same per-VLAN-pair firewall shape as IPv4, one VLAN at a time:
+`vlan-users` first (already had IPv6, needed its firewall restructured), then addressing and
+firewall for `vlan-services`, then `vlan-iot` last. Full design in [ipv6.md](ipv6.md).
+
+**Collaboration model for this project, going forward:** every MikroTik change is delivered as
+a `.rsc` script under `scripts/`, run by Guillaume (not executed by the assistant directly), with
+the `print` output pasted back before anything here is marked done.
+
+### Phase 1 — `vlan-users` IPv6 firewall hardened to match IPv4's shape (2026-09-10)
+
+Before: two flat, unscoped accepts (`chain=input accept in-interface=vlan-users`, `chain=forward
+accept in-interface=vlan-users`) — meaning every `vlan-users` host had unrestricted IPv6 access
+to the router's own management services (ssh, Winbox, API, www), and the forward accept had no
+destination scoping at all, which would have silently also covered `users -> vlan-services`/
+`vlan-iot` once those VLANs got IPv6 addressing in phases 2-3.
+
+Applied via `scripts/ipv6-01-users-hardening.rsc` (idempotent, comment-`find`-guarded):
+
+1. Removed the input-chain accept entirely — router management is no longer reachable from
+   `vlan-users` over IPv6 at all. IPv4's equivalent uses `src-address-list=mgmt`, but IPv6
+   clients here are SLAAC-addressed with no stable per-host address to build an address-list
+   against, so "not exposed" is the honest equivalent rather than a leaky approximation.
+   Nothing depends on reaching the router over IPv6 today (HA's MikroTik integration is
+   IPv4-only). ICMPv6/NDP/PMTUD are unaffected (already covered by the defconf accepts above
+   it).
+2. Replaced the forward-chain accept with a `users2internet` dispatch — `action=jump` scoped to
+   `in-interface=vlan-users out-interface-list=WAN`, target chain `accept
+   connection-state=new` — deliberately matching the IPv4 `users2internet` chain's name and
+   shape (separate table, `/ipv6/firewall/filter` vs `/ip/firewall/filter`, so no collision).
+
+**A new `I - INVALID` data point.** Both new rules show `I - INVALID` on `print`, unlike their
+identically-shaped IPv4 counterparts (IPv4's `users2internet` dispatch has never been flagged).
+Rather than assume "unenforced" from the IPv4-derived catalog in `README.md`, this was verified
+functionally instead — see below. The flag appears to be a false positive specific to
+`/ipv6/firewall/filter`'s handling of jump-target chains on this RouterOS version, not a real
+enforcement gap. Noted in `README.md`'s hard-won lessons as an exception to the existing
+`I - INVALID` catalog rather than folded into it, since the mechanism is unconfirmed.
+
+**Verified, from a real `vlan-users` client (not the router — the forward chain only applies to
+transit traffic, so this can't be checked from the router's own CLI):**
+
+```
+ping -6 -c 3 2606:4700:4700::1111        # 0% loss
+curl -6 https://ifconfig.co               # returned the client's own global address
+ping -6 -c 3 2a02:1210:680f:c40c::1       # router's vlan-users address — 0% loss (ICMPv6 still accepted)
+nc -6 -w 3 -zv 2a02:1210:680f:c40c::1 22  # timed out (was previously open)
+```
+
+Both changes confirmed: internet access intact, router management over IPv6 now actually
+blocked (not just configured). `scripts/ipv6-01-users-hardening.rsc` deleted per this project's
+one-shot-script convention — this entry is the durable record.
+
+Next: phase 2, IPv6 addressing and the equivalent firewall dispatch for `vlan-services`.
