@@ -87,18 +87,6 @@ already on 7.24.2. Stale integration-side cached state, not a real gap; still wo
 why HA hasn't refreshed it, and whether the integration's upgrade-trigger feature actually works
 (test on a device/moment where an unexpected reboot is low-risk).
 
-### 24. `add-dns-entries-suffix="lan"` is dead config on all three DHCP servers (low, cosmetic)
-
-Found 2026-09-10 while investigating whether mikrotik1 exposes DHCP leases via DNS (see
-[changelog.md](changelog.md)). All three DHCP servers (`dhcp-home`/`dhcp-services`/`dhcp-iot`)
-carry `add-dns-entries-suffix="lan"` — not documented anywhere in current RouterOS docs, almost
-certainly a leftover from the router's original defconf, predating this project entirely.
-Confirmed inert: `dig am335x-opt.lan @192.168.10.1` (a real, currently-bound lease) returned
-`NXDOMAIN` — it isn't creating anything resolvable. The actual working mechanism now is the
-lease-script added the same day (`scripts/dhcp-to-dns-setup.rsc`, see changelog), which is
-unrelated to this property. Safe to remove for cleanliness whenever convenient; not causing any
-harm left in place.
-
 ### mikrotik4 has never been reviewed
 
 `192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no

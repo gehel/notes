@@ -1111,6 +1111,32 @@ query returned `NOERROR`, `am335x-opt.home.ledcom.fr`, matching TTL 300 — iden
 mikrotik1's own direct answer. **The full chain (Pi-hole → Conditional Forwarding → mikrotik1
 → lease-script) is verified working end-to-end.**
 
+### `add-dns-entries-suffix="lan"` repointed at the real domain (was finding 24, low, closed 2026-09-10)
+
+All three DHCP servers carried `add-dns-entries-suffix="lan"` — undocumented in current
+RouterOS docs, almost certainly a defconf leftover predating this project. Confirmed inert
+before touching it: `dig am335x-opt.lan @192.168.10.1` (a real, currently-bound lease) returned
+`NXDOMAIN`.
+
+Two attempts to clear it outright were rejected by RouterOS: `!add-dns-entries-suffix` alone is
+a syntax error (every prior working use of `!property` in this project paired it with another
+real assignment in the same `/set` command — turns out that's load-bearing, not style);
+`add-dns-entries-suffix=""` is rejected too, RouterOS enforces a minimum length of 1 on this
+property. Guillaume's call: rather than keep fighting the clear, repoint it at the project's
+actual domain (`home.ledcom.fr`, matching `/ip/dhcp-server/network`'s own `domain=` and the
+lease-script's own naming) via `scripts/remove-dead-dns-suffix.rsc` — coherent either way,
+whether the property turns out to do something under conditions not yet triggered or stays
+fully inert.
+
+**Verified no conflict with the lease-script's own entries:** forced a fresh lease event
+(`/ip/dhcp-server/lease/remove [find where address=192.168.10.194]`) immediately after —
+`/ip/dns/static/print` showed exactly one clean, correctly-tagged entry per device, no
+duplicates or differently-sourced entries. A second device (the Samsung TV, `.195`) also
+produced a fresh entry during this window from its own natural bind/renewal, unprompted —
+incidental but good confirmation the lease-script (finding 24's real predecessor,
+`scripts/dhcp-to-dns-setup.rsc`) keeps working correctly for organic traffic, not just forced
+tests.
+
 ### DHCP pool renamed for consistency (2026-09-10)
 
 The original `dhcp-home` pool was still named `dhcp` (defconf leftover, predating the VLAN
