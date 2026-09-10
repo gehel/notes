@@ -1137,6 +1137,43 @@ incidental but good confirmation the lease-script (finding 24's real predecessor
 `scripts/dhcp-to-dns-setup.rsc`) keeps working correctly for organic traffic, not just forced
 tests.
 
+### Pi-hole's NTP pointed at mikrotik1 instead of the public internet (was finding 23, closed 2026-09-10)
+
+Pi-hole (`192.168.20.40`) was sourcing time straight from `debian.pool.ntp.org`, denied by
+`services2internet`'s default-deny (see Phase 5's entry above) and, before that, silently
+allowed out only by the old blanket accept the reorg replaced. mikrotik1's DHCP option 42
+(`ntp-services` = `192.168.20.1`) was already correctly configured and assigned (verified by
+decoding the hex value), so the gap was entirely on Pi-hole's own OS.
+
+**Root cause, found via `timedatectl`/`journalctl` on Pi-hole itself:** `systemd-timesyncd`
+was never receiving the DHCP-supplied NTP server at all — `timedatectl timesync-status` showed
+it going straight to `debian.pool.ntp.org` (the compiled-in `FallbackNTP=` list), and
+`/etc/systemd/timesyncd.conf`'s `NTP=` was empty. DHCP-to-timesyncd propagation for option 42
+depends on the DHCP client being specifically wired to forward it (typically a
+`systemd-networkd` `UseNTP=` integration) — evidently not the case on this system. Matches this
+project's own established caution about DHCP option 42 (`vlan.md`'s decision table: "unreliable
+across devices/moves, verify by hand") — explicit configuration, not reliance on propagation,
+was already the intended pattern here.
+
+**Fixed in two parts:**
+1. Pinned `NTP=192.168.20.1` directly in `/etc/systemd/timesyncd.conf`, bypassing the
+   DHCP-propagation question entirely (Pi-hole-side, not scripted — applied directly).
+2. **A second, independent gap found once that alone didn't work**: mikrotik1's own
+   `chain=input` only ever had an NTP accept for `vlan-iot` ("iot: NTP from gateway", added
+   during Kids Light's NTP fix, Phase 3) — `vlan-services` and `vlan-users` never got the
+   equivalent rule, so Pi-hole's query to the router's own address was being silently dropped
+   by the input chain's final catch-all before ever reaching mikrotik1's (correctly enabled,
+   confirmed via `/system/ntp/server` and a live `/ip/service/print` entry) NTP server. Fixed
+   universally, not just for Pi-hole, via `scripts/add-ntp-input-rules.rsc` — added
+   `"services: NTP from gateway"` and `"users: NTP from gateway"`, grouped next to the existing
+   `iot` rule.
+
+**Verified conclusively, both sides:** mikrotik1's new rule shows real traffic
+(`13 packets, 988 bytes` within minutes of applying); Pi-hole's `timedatectl timesync-status`
+went from `Packet count: 0` (stuck retrying `debian.pool.ntp.org`) to a clean live sync against
+`192.168.20.1` — `Packet count: 1`, `Stratum: 2`, `Offset: -1.276ms`, `Delay: 909us`, real
+reference ID. No further public NTP traffic expected from Pi-hole.
+
 ### DHCP pool renamed for consistency (2026-09-10)
 
 The original `dhcp-home` pool was still named `dhcp` (defconf leftover, predating the VLAN

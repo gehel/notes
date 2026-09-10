@@ -56,20 +56,6 @@ decided the IPv4 forward chain needed cleaning up and reorganizing first. That r
 jump-chain work, see [changelog.md](changelog.md)) is now fully done and documented, so this is
 next up.
 
-### 23. Pi-hole (and other services/IoT clients) may be sourcing NTP from the internet directly
-
-Found 2026-09-10 while reviewing firewall logs before the Phase 5 cleanup: Pi-hole
-(`192.168.20.40`) was making repeated outbound NTP requests (udp/123) straight to public pool
-servers, denied by the new `services2internet` default-deny (see
-[changelog.md](changelog.md)'s Phase 5 entry). This project already configured DHCP option 42
-(`ntp-services`/`ntp-iot`, mikrotik1's own address on each VLAN) back in Phase 3 specifically
-so services/IoT clients wouldn't need internet access for time sync — but Pi-hole is still
-reaching out externally, meaning either its NTP client isn't honoring the DHCP-supplied
-option, or it was configured with explicit upstream servers that override it.
-
-Guillaume's intended fix: point Pi-hole (and confirm every other services/IoT client) at
-mikrotik1 for NTP via the DHCP-advertised option, not a new firewall accept. Not yet
-investigated on the Pi-hole side or re-verified against the DHCP network config.
 
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)
 
