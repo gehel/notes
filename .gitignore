@@ -61,6 +61,7 @@ fabric.properties
 # See home/network/README.md.
 /home/network/dumps/
 /home/network/backups/
+/home/network/logs/
 
 # Raw Home Assistant config export: may contain secrets.yaml-embedded keys,
 # long-lived tokens, device/person registries, location history. Never commit

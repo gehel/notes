@@ -29,6 +29,11 @@ Raw device output lives in [dumps/](dumps/), collected with
 [dump-configs.sh](scripts/dump-configs.sh). Regenerate it before any review — the files are a
 snapshot, not a source of truth.
 
+Firewall log evidence — the `log=yes` deny-all rules at the end of every Phase 5 jump chain,
+see [firewall.md](firewall.md) — lives in `logs/` (also gitignored), collected with
+[dump-logs.sh](scripts/dump-logs.sh). RouterOS's own log buffer is small and rotates, so run
+this regularly rather than only once something's already suspected.
+
 ## Documents
 
 | File | What it holds |
