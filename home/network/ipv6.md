@@ -19,7 +19,7 @@ native routing. This is a deliberate workaround, not an oversight — see
 | LAN prefix | one `/64` from that pool on `vlan-users`, router at `::1` |
 | Client addressing | SLAAC from RAs sent by the MikroTik |
 | `bridge-fon` | removed entirely, along with the FON network — see `changelog.md`'s VLAN segmentation entry |
-| DNS | clients should use `192.168.10.40` (Pi-hole) over IPv4 — **was leaking the ISP's own resolver via RDNSS until 2026-09-07, see below** |
+| DNS | clients use `192.168.10.40` (Pi-hole) over IPv4 — was leaking the ISP's own resolver via RDNSS until 2026-09-07, fixed; see `changelog.md` |
 
 Prefix values are **not stable**. Swisscom's delegation to the Internet-Box can change, and
 the box's delegation to us changes with it. Every address below is derived from the pool at
@@ -85,7 +85,10 @@ add interface=ether1 request=prefix pool-name=swisscom-pd pool-prefix-length=64 
 # Send RAs on the LAN only. The * default ND entry covers interface=all,
 # which would also advertise toward the Internet-Box; point it at the LAN
 # instead of adding a second entry (the default entry cannot be deleted).
-/ipv6/nd/set [find default=yes] interface=vlan-users advertise-dns=yes \
+# advertise-dns=no: the router's own DNS list (including a dynamic entry
+# learned from the Internet-Box's RA) must not reach clients via RDNSS,
+# or it bypasses Pi-hole entirely — see changelog.md, fixed 2026-09-07.
+/ipv6/nd/set [find default=yes] interface=vlan-users advertise-dns=no \
     managed-address-configuration=no other-configuration=no ra-lifetime=30m
 
 # The workaround. Remove this line if the upstream is ever fixed.
@@ -165,54 +168,7 @@ the real `2a02:1210:680f:c40c::/64` prefix as primary, the old ULA aged out on i
 `deprecated`/`preferred_lft 0` (the same graceful-expiry behavior already documented under
 "Stale prefix on clients after renumbering" below), and `ping6` to a real host succeeded.
 
-## Resolved: RDNSS was leaking the ISP's own DNS server, bypassing Pi-hole
-
-**Was documented below as a cosmetic non-issue; it wasn't.** Found live 2026-09-07 while
-scoping the Home Assistant VLAN migration (see `vlan.md`'s Status section and
-`config-review.md` finding 8): a dual-stack desktop's `dig` for a name with both a public and
-a Pi-hole-local answer got the public one, because its IPv6 resolver was the ISP's own
-recursive DNS server, not Pi-hole.
-
-**First diagnosis (wrong, corrected below).** Initially attributed to `/ipv6/dhcp-client`'s
-`use-peer-dns=yes` on `ether1` populating `/ip/dns`'s `dynamic-servers` from the DHCPv6-PD
-lease. Fixed that (`use-peer-dns=no`, `scripts/fix-ipv6-rdnss-dns.rsc`), then forced a release
-and rebind to clear the stale entry immediately rather than waiting out the lease
-(`scripts/fix-ipv6-rdnss-dns-cleanup.rsc`, which also caught and fixed the same pattern on the
-**IPv4** DHCP client — it was independently pulling the Internet-Box's IPv4 address, `10.1.1.1`,
-into the same list). The IPv4 fix worked. **The IPv6 entry survived a full DHCPv6-PD
-release/rebind with `use-peer-dns=no` already in effect** — proof the DHCPv6 client was never
-the actual source for the IPv6 side.
-
-**Actual cause.** `/ipv6/settings` has `accept-router-advertisements=yes` on `ether1`, needed
-so this router can learn its own WAN default route from the Internet-Box (a forwarding router
-ignores RAs by default, so this was already deliberately turned on — see "Working
-configuration" above). As a side effect, RouterOS also accepts the RDNSS option carried in the
-Internet-Box's own RA on that link, straight into `/ip/dns`'s `dynamic-servers` — with no
-DHCPv6 or `use-peer-dns` involved at all. Turning off RA acceptance would break the WAN default
-route, so that path can't be closed at the source.
-
-`/ipv6/nd` has `advertise-dns=yes` with no explicit `dns=` override, so it re-advertises the
-router's *own* DNS list (including that dynamic entry) via RDNSS on `vlan-users` — and since
-the static entry (`192.168.10.40`, Pi-hole) is IPv4-only and cannot go in an IPv6 RDNSS option,
-**the ISP's dynamic entry was the only thing that ever got advertised.** Any dual-stack client
-preferring the RA-provided IPv6 resolver bypassed Pi-hole for every query, not just the one
-hostname that surfaced it.
-
-**The `automatic dns option advertising is not started, re-apply dns config` message on the ND
-entry was itself misleading** — read as "RDNSS isn't being sent" when it moved to `vlan-users`
-on 2026-09-07, but the mechanism above was live regardless of that cosmetic warning.
-
-**Fixed** via `scripts/fix-ipv6-rdnss-dns-v2.rsc`: `advertise-dns=no` on the `/ipv6/nd` entry,
-stopping `vlan-users` from advertising *any* DNS server via RA — the right scope for the fix,
-since it controls what reaches LAN clients directly rather than trying to prevent the router
-from learning the ISP's resolver upstream (which it needs to do anyway, for the default
-route). `use-peer-dns=no` on both `ether1` DHCP clients stays in place too — harmless, and it
-stops the router from needlessly trusting the ISP's resolver for its own outbound lookups
-either. Clients keep resolving via Pi-hole over the IPv4 DHCP-assigned server, which is what
-this document already claimed was happening. This only matters again if IPv6-only clients ever
-appear, since they would have no DNS server at all once this leak is closed — at which point
-give Pi-hole an IPv6 address on `vlan-users` and set `/ipv6/nd`'s `dns=` explicitly to it,
-rather than re-enabling `advertise-dns` against the router's own resolver list.
+## Operational notes
 
 **Stale prefix on clients after renumbering.** An earlier attempt had hardcoded
 `2a02:1205:34dc:d053::1/64` on `bridge-main` with `advertise=yes`. When Swisscom's prefix
@@ -274,18 +230,6 @@ Everything above carries over. The migration is:
 4. Optionally add `bridge-fon` with a second `/64` from the pool.
 
 The thing to plan around is Swisscom TV, which depends on the box and on ISP multicast.
-
-## Resolved: the open resolver question
-
-`/ip/dns allow-remote-requests=yes` predates this work, so during configuration it was
-unclear whether the router was an open resolver. It is not. Confirmed 2026-09-03 from the
-full config export: `drop all from WAN in-interface=ether1` is rule 1 of the IPv4 input
-chain, ahead of the port 53 accepts at rules 11-12. The IPv6 side is covered by its own
-input drop.
-
-See [config-review.md](config-review.md) for the full configuration review. It does find a
-related issue: every host on `192.168.1.0/24` has full access to the router's management
-plane, IoT devices included.
 
 ## References
 

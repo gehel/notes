@@ -1,0 +1,73 @@
+// Address plan - which device sits on which VLAN.
+// Physical cabling is a different picture: see network.dot / network.svg.
+//
+//   ./render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg
+//
+// mikrotik1 is the gateway on all three VLANs (it holds an address on each);
+// mikrotik2/mikrotik3 are pure L2 bridges and appear once, on vlan-users only.
+//
+// ASCII only: the bundled font drops typographic dashes and middle dots.
+
+nwdiag {
+  default_fontsize = 10;
+  node_width = 150;
+  node_height = 72;
+
+  network vlan-users {
+    address = "192.168.10.0/24";
+    label = "vlan 10 - vlan-users\nhome.ledcom.fr\ngw .1  DNS .40 (Pi-hole)\nunrestricted internet";
+
+    group infra {
+      label = "MikroTik: static, in mgmt";
+      color = "#dbeafe";
+
+      mikrotik1 [address = ".1", label = "mikrotik1\nRB2011\nedge + CAPsMAN mgr"];
+      mikrotik2 [address = ".2", label = "mikrotik2\nCRS125\nL2 + CAPsMAN CAP ch11"];
+      mikrotik3 [address = ".3", label = "mikrotik3\nRB750Gr3\nL2 office"];
+      mikrotik4 [address = ".4", label = "mikrotik4\nSXTsq Lite2\nPLANNED ch6, offline"];
+    }
+
+    group clients {
+      label = "Clients";
+      color = "#dcfce7";
+
+      desktop [address = ".90", label = "desktop \"during\"\nwired, in mgmt"];
+      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless"];
+      printer [address = ".110", label = "Printer\nwired, reverted\nfrom services"];
+      unknown [address = "pool", label = "second laptop\nSTILL UNIDENTIFIED"];
+      other   [address = "pool", label = "phone, TV, Switch,\nOnkyo amp\nwireless"];
+    }
+  }
+
+  network vlan-services {
+    address = "192.168.20.0/24";
+    label = "vlan 20 - vlan-services\ngw .1\nHTTP/HTTPS + Pi-hole's own DNS/DoT only";
+
+    mikrotik1 [address = ".1"];
+
+    group services {
+      label = "Services";
+      color = "#ede9fe";
+
+      pihole [address = ".40", label = "Pi-hole\nDNS for the LAN"];
+      hass   [address = ".60", label = "Home Assistant\nuser homeassistant"];
+    }
+  }
+
+  network vlan-iot {
+    address = "192.168.30.0/24";
+    label = "vlan 30 - vlan-iot\ngw .1\nNO internet by default -\nnamed exception: octoprint only";
+
+    mikrotik1 [address = ".1"];
+
+    group iotdev {
+      label = "IoT devices";
+      color = "#fed7aa";
+
+      iotawatt  [address = ".50", label = "IotaWatt\nESPHome\nunreachable - investigating"];
+      kidslight [address = ".61", label = "Kids light\nTasmota"];
+      fan       [address = ".63", label = "Ceiling fan\nHombli\nDNS dropped by design"];
+      octoprint [address = ".80 .81", label = "OctoPrint\nwired (down) + wifi\ninternet exception"];
+    }
+  }
+}

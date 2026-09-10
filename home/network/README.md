@@ -59,10 +59,11 @@ this regularly rather than only once something's already suspected.
 | [qos.md](qos.md) | Closed by measurement: there is no bufferbloat to fix |
 | [ipv6.md](ipv6.md) | IPv6 via DHCPv6-PD and the NAT66 workaround |
 
-Diagrams: [network.svg](network.svg) is physical topology (Graphviz),
-[network-addressing.svg](network-addressing.svg) is the address plan (nwdiag). Sources are
-`network.dot` and `network-addressing.nwdiag`; render with `dot` and
-[render-nwdiag.py](scripts/render-nwdiag.py) respectively.
+Diagrams live in [diagrams/](diagrams/): [network.svg](diagrams/network.svg) is physical
+topology (Graphviz), [network-addressing.svg](diagrams/network-addressing.svg) is the VLAN
+address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`; render with
+`dot` and [render-nwdiag.py](diagrams/render-nwdiag.py) respectively — see
+[network.md](network.md) for the exact commands.
 
 ## Everything currently open
 
@@ -120,15 +121,21 @@ outstanding test is a host plugged directly into the Internet-Box.
   `changelog.md`'s entry (commands, output, verification) is the durable record, not the file.
   A filename referenced from `changelog.md` or `vlan.md` may therefore no longer exist on disk;
   that's expected, not a broken link to chase down. Keep only genuinely reusable tools
-  (`dump-configs.sh`, `fetch-backups.sh`, `measure-bufferbloat.sh`, `render-nwdiag.py` as of
-  this writing) — anything written for a single migration step gets cleaned up after.
+  (`dump-configs.sh`, `fetch-backups.sh`, `measure-bufferbloat.sh` in `scripts/`,
+  [render-nwdiag.py](diagrams/render-nwdiag.py) in `diagrams/` as of this writing) — anything
+  written for a single migration step gets cleaned up after.
 
 ## Hard-won lessons
 
 - **Safe mode discards everything if the session drops.** It silently lost work twice here.
   For changes that cannot affect the management path, run them directly and verify
-  immediately. For changes that can, use a scheduled auto-rollback instead — the pattern is
-  in [vlan.md](vlan.md).
+  immediately. For changes that can, use a scheduled auto-rollback instead — see the
+  `mikrotik-routeros-rsc` skill for the idempotent-scripting pattern this project now follows.
+- **A per-device VLAN port move is two commands, not one.** Bridge-vlan table membership and
+  `pvid` are independent, and `untagged=` on the bridge-vlan table takes the full replacement
+  port list, not an add/remove delta. For a long list (mikrotik2's VLAN 10 untagged list ran to
+  25 ports), read and rebuild it programmatically in the script rather than hand-retyping — a
+  transcription error at that size is easy to miss.
 - **`set [find ...]` against an empty result is a silent no-op**, indistinguishable from
   success. Always re-print after a `set`.
 - **Build the `mgmt` address list before the rule that references it.** Doing it the other

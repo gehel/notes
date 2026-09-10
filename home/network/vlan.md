@@ -6,18 +6,12 @@ document holds the design reference and current state, not the story of how it w
 
 ## Status
 
-- **Phases 0-4: done.** VLAN plumbing, full renumber to `192.168.10/20/30.0/24`, all seven
-  original devices have router-side work done, and the real firewall policy is live.
-- **Printer**: reverted to `users` (autodiscovery over segmentation — see Decisions).
-- **Pi-hole, Home Assistant, Kids light, ceiling fan, OctoPrint**: migrated and verified.
+Still open:
+
+- **Finding 21** — IPv6 for `vlan-services`/`vlan-iot`, next up now that the Phase 5 firewall
+  reorg is finished.
 - **IotaWatt**: router-side config applied, device-side verification still pending (was
   unreachable, possibly pre-existing — device currently powered off).
-- **Phase 5: done (2026-09-09/10).** Findings 19/20 cleanup, forward chain reorganized into
-  one jump-chain per VLAN pair, log-reviewed and tightened (Pi-hole DoT, HA's printer/Samsung-TV
-  exceptions, HA-source scoping), then the now-dead old rules removed and every remaining
-  literal `ether1` reference replaced with the `WAN` interface list — see `changelog.md` for
-  the full story. **Next: finding 21** — IPv6 for `vlan-services`/`vlan-iot`, deliberately
-  deferred until this IPv4 work was fully wrapped up, which it now is.
 - **Open, not blocking**: the "second laptop" in the device inventory is still unidentified.
 
 **Before writing any new `find`-based command**, skim `README.md`'s hard-won lessons —
@@ -92,14 +86,10 @@ local) — narrowly scoped to those ports only.
 
 "No internet except a named list" rather than a blanket ban, because OctoPrint needs apt/pip/
 GitHub to update itself — and it's the device most worth compromising precisely because it's
-a full Linux host sitting among microcontrollers. Scoped narrowly:
-
-```
-/ip/firewall/address-list/add list=iot-internet address=<device> comment=<name>
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
-    src-address-list=iot-internet out-interface=ether1 protocol=tcp dst-port=80,443 \
-    comment="iot exception: updates" place-before=[find where comment="Drop all other forward traffic"]
-```
+a full Linux host sitting among microcontrollers. Implemented as a named address-list
+(`octoprint`, renamed from `iot-internet` during the Phase 5 reorg) with a narrow forward-chain
+accept for tcp/80,443 ahead of the catch-all drop — see [firewall.md](firewall.md) for the live
+rule and address-list membership.
 
 **Keep the list short and review it.** One entry is a decision; six is the policy quietly
 abandoned — if it grows, give those devices their own VLAN with internet instead.
@@ -203,160 +193,21 @@ Current state, all three devices:
 
 ## Migration reference
 
-The commands below are what's actually live, kept as a runbook/reference — not a plan still
-being executed. Full narrative (mistakes, root causes, evidence) is in `changelog.md`.
+What's actually live is documented where it's kept current, not repeated here as a point-in-time
+snapshot: the exact commands and evidence for each phase are in `changelog.md`; the live
+ruleset, in evaluation order, is in [firewall.md](firewall.md) (regenerated after every
+significant firewall change, most recently the Phase 5 reorg — the address-list `iot-internet`
+referenced during the original design was renamed `octoprint` there); the addressing and
+DHCP/NTP layout is in this document's device inventory and `README.md`'s network summary; and
+safe, idempotent scripting practice (including the auto-rollback pattern this migration used by
+hand for management-path changes) is now covered by the `mikrotik-routeros-rsc` skill rather than
+written out here.
 
-**Rollback pattern**, used for changes that could affect the current management session
-(address moves, `vlan-filtering` toggles) — not needed for ordinary rule additions:
-
-```
-/system/scheduler/add name=rollback interval=5m on-event={
-    /interface/bridge/set [find] vlan-filtering=no;
-    /system/scheduler/remove rollback }
-```
-Make the change as a `/system/script`, not pasted interactively, so it completes server-side
-even if the session drops. Remove the scheduler once confirmed working. **Never use safe
-mode** — it silently discarded work twice on this network.
-
-**VLAN interfaces, addressing, DHCP, NTP option 42** (mikrotik1):
-
-```
-/interface/vlan/add interface=bridge-main vlan-id=20 name=vlan-services
-/interface/vlan/add interface=bridge-main vlan-id=30 name=vlan-iot
-/ip/address/add address=192.168.20.1/24 interface=vlan-services
-/ip/address/add address=192.168.30.1/24 interface=vlan-iot
-
-/ip/pool/add name=pool-services ranges=192.168.20.100-192.168.20.200
-/ip/pool/add name=pool-iot      ranges=192.168.30.100-192.168.30.200
-/ip/dhcp-server/add name=dhcp-services interface=vlan-services address-pool=pool-services lease-time=5m
-/ip/dhcp-server/add name=dhcp-iot      interface=vlan-iot      address-pool=pool-iot      lease-time=5m
-/ip/dhcp-server/network/add address=192.168.20.0/24 gateway=192.168.20.1 \
-    dns-server=192.168.20.40 domain=home.ledcom.fr dhcp-option=ntp-services
-/ip/dhcp-server/network/add address=192.168.30.0/24 gateway=192.168.30.1 \
-    dns-server=192.168.20.40 domain=home.ledcom.fr dhcp-option=ntp-iot
-
-/ip/dhcp-server/option/add name=ntp-users    code=42 value=0xC0A80A01
-/ip/dhcp-server/option/add name=ntp-services code=42 value=0xC0A81401
-/ip/dhcp-server/option/add name=ntp-iot      code=42 value=0xC0A81E01
-```
-
-DHCP option 42 is unreliable in practice (see Decisions) — always verify NTP by hand on a
-newly-migrated device rather than assuming it picked up the right server.
-
-**`LEDCOM-IoT` SSID** on both CAPsMAN radios:
-
-```
-/caps-man/configuration/add name=caps_iot ssid=LEDCOM-IoT country=switzerland \
-    security.authentication-types=wpa2-psk security.passphrase="<redacted>" \
-    datapath.bridge=bridge-main datapath.vlan-id=30 datapath.vlan-mode=use-tag
-/caps-man/provisioning/set [find] slave-configurations=caps_iot
-/caps-man/remote-cap/provision [find]
-```
-
-**Per-device VLAN port move** is two commands, not one — bridge-vlan table membership and
-`pvid` are separate:
-
-```
-/interface/bridge/vlan/set [find where vlan-ids=10] untagged=<full list, minus the port>
-/interface/bridge/vlan/set [find where vlan-ids=20] untagged=<full list, plus the port>
-/interface/bridge/port/set [find where interface=<port>] pvid=20
-```
-`untagged=` takes the full replacement list, not add/remove — for a long list, read and
-rebuild it programmatically in the script rather than hand-retyping (see any `phase3-*`
-script in git history for the pattern). `/ip/dhcp-server/network/set [find address=...]` is
-confirmed buggy on this RouterOS version (silently matches nothing) — use the row's numeric
-index instead, always `print` to confirm.
-
-**Full firewall policy**, applied 2026-09-08:
-
-```
-# address lists
-/ip/firewall/address-list/add list=iot-internet address=192.168.30.81 comment=octoprint-wifi
-/ip/firewall/address-list/add list=iot-internet address=192.168.30.80 comment=octoprint-wired
-
-# --- forward chain, in order, before the catch-all drop ---
-
-# iot -> services: the one hole in containment
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
-    out-interface=vlan-services dst-address=192.168.20.60 protocol=tcp dst-port=1883 \
-    comment="iot: MQTT to HA"
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
-    out-interface=vlan-services dst-address=192.168.20.40 port=53 protocol=udp \
-    comment="iot: DNS to pi-hole"
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
-    out-interface=vlan-services dst-address=192.168.20.40 port=53 protocol=tcp \
-    comment="iot: DNS to pi-hole"
-
-# ceiling fan: excluded from the DNS rule above (see Decisions) -- must sit
-# before it to take precedence; disabled by default, see changelog.md
-/ip/firewall/filter/add chain=forward action=drop protocol=udp src-address=192.168.30.63 \
-    dst-address=192.168.20.40 in-interface=vlan-iot out-interface=vlan-services port=53 \
-    disabled=yes comment="ceiling fan: drop DNS (udp)"
-/ip/firewall/filter/add chain=forward action=drop protocol=tcp src-address=192.168.30.63 \
-    dst-address=192.168.20.40 in-interface=vlan-iot out-interface=vlan-services port=53 \
-    disabled=yes comment="ceiling fan: drop DNS (tcp)"
-
-# iot -> internet: the named exception, then the wall
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-iot \
-    src-address-list=iot-internet out-interface=ether1 protocol=tcp dst-port=80,443 \
-    comment="iot exception: octoprint updates"
-/ip/firewall/filter/add chain=forward action=drop in-interface=vlan-iot \
-    log=yes log-prefix="iot-drop" comment="iot: deny everything else"
-
-# services -> internet: unconditional
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    in-interface=vlan-services out-interface=ether1 comment="services: internet"
-
-# services -> iot: HA reaching device APIs, then the wall
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    in-interface=vlan-services out-interface=vlan-iot dst-port=80 protocol=tcp \
-    comment="HA -> Tasmota/IotaWatt"
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    in-interface=vlan-services out-interface=vlan-iot dst-port=6668 protocol=tcp \
-    comment="HA -> Tuya local (fan)"
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    in-interface=vlan-services out-interface=vlan-iot dst-port=6053 protocol=tcp \
-    comment="HA -> ESPHome (IotaWatt)"
-/ip/firewall/filter/add chain=forward action=drop in-interface=vlan-services \
-    out-interface=vlan-users log=yes log-prefix="infra2users" comment="services: no users"
-
-# services -> users: HA's MikroTik integration reaching mikrotik2/mikrotik3
-/ip/firewall/address-list/add list=ha-mikrotik-targets address=192.168.10.2 comment=mikrotik2
-/ip/firewall/address-list/add list=ha-mikrotik-targets address=192.168.10.3 comment=mikrotik3
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    src-address=192.168.20.60 dst-address-list=ha-mikrotik-targets protocol=tcp dst-port=8728 \
-    in-interface=vlan-services out-interface=vlan-users \
-    comment="HA MikroTik integration: services -> users API"
-
-# users -> services: mgmt full, everyone else named services
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    in-interface=vlan-users out-interface=vlan-services src-address-list=mgmt \
-    comment="mgmt hosts: full"
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-users \
-    out-interface=vlan-services dst-address=192.168.20.40 port=53 protocol=udp \
-    comment="users: DNS"
-/ip/firewall/filter/add chain=forward action=accept connection-state=new in-interface=vlan-users \
-    out-interface=vlan-services dst-address=192.168.20.60 protocol=tcp dst-port=443 \
-    comment="users: HA web"
-/ip/firewall/filter/add chain=forward action=drop in-interface=vlan-users \
-    out-interface=vlan-services log=yes log-prefix="users2services" comment="users2services"
-
-# users -> iot: mgmt only
-/ip/firewall/filter/add chain=forward action=accept connection-state=new \
-    in-interface=vlan-users out-interface=vlan-iot src-address-list=mgmt \
-    comment="mgmt hosts: iot"
-/ip/firewall/filter/add chain=forward action=drop in-interface=vlan-users \
-    out-interface=vlan-iot log=yes log-prefix="users2iot" comment="users2iot"
-
-# input chain: NTP for iot
-/ip/firewall/filter/add chain=input action=accept connection-state=new in-interface=vlan-iot \
-    protocol=udp dst-port=123 comment="iot: NTP from gateway" \
-    place-before=[find comment="Drop anything else!"]
-```
-
-The existing broad `Home can connect everywhere (vlan-users)` rule was deliberately left
-untouched — every rule above is inserted before it, so `users -> internet` keeps working
-unmodified while `users -> services/iot` now hits the narrow allows and logged drops first.
+One gotcha worth keeping as prose since it has no other home: a per-device VLAN port move is two
+separate commands, not one — bridge-vlan table membership and `pvid` are independent, and
+`untagged=` on the bridge-vlan table takes the full replacement port list, not an add/remove
+delta. For a long list, read and rebuild it programmatically rather than hand-retyping (see
+README.md's hard-won lessons).
 
 **mDNS repeat: deliberately off.** Tried for cross-VLAN discovery, found to have a confirmed
 RouterOS defect (drops the reply to a proxied query — see `changelog.md` and README's

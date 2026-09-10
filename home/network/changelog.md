@@ -23,6 +23,11 @@ numbers are stable and are never reused.
 - **`admin` bound to the LAN** — `address=192.168.1.0/24`.
 - **Broken `/ipv6 dhcp-server dhcp1`** (referencing a nonexistent `delegation` pool) removed.
 - **IPv6 IPsec, IKE, and HIP accepts removed** from both chains.
+- **Confirmed mikrotik1 is not an open DNS resolver**, despite `/ip/dns
+  allow-remote-requests=yes` predating this work. Confirmed from the full config export:
+  `drop all from WAN in-interface=ether1` is rule 1 of the IPv4 input chain, ahead of the port
+  53 accepts; the IPv6 side is covered by its own input drop. Not actionable — informational
+  only, no configuration change made.
 
 Round 1 finding 18 (`udp-timeout=10s`) was withdrawn as a false positive: it is the
 RouterOS default and governs only unreplied UDP flows. Not re-raised.
@@ -489,9 +494,9 @@ during the reprovision.
 ### IPv6 RDNSS was leaking the ISP's own DNS server, bypassing Pi-hole (2026-09-07)
 
 Found while scoping the Home Assistant VLAN migration: a dual-stack desktop's `dig` for a name
-with both a public and a Pi-hole-local answer got the public one. Root cause and full writeup
-in [ipv6.md](ipv6.md#resolved-rdnss-was-leaking-the-isps-own-dns-server-bypassing-pi-hole); a
-second instance of [config-review.md](config-review.md)'s finding 8 (DNS can bypass Pi-hole).
+with both a public and a Pi-hole-local answer got the public one — a second instance of
+[config-review.md](config-review.md)'s finding 8 (DNS can bypass Pi-hole). See
+[ipv6.md](ipv6.md) for the current IPv6 configuration this fix is now part of.
 
 Two fix attempts before the real one. First: `use-peer-dns=no` on the IPv6 DHCP client
 (`ether1`), on the theory that DHCPv6-PD's peer-DNS copy was populating `/ip/dns`'s

@@ -1,0 +1,105 @@
+// Home network topology — see ../network.md for the tool choice and how to render.
+//
+//   dot -Tsvg network.dot -o network.svg
+//
+// Edge styles carry meaning:
+//   solid   verified from device output (neighbour tables, link flags, dumps)
+//   dashed  inferred, or wireless (no cable to verify)
+//   dotted  planned, not yet cabled/deployed
+
+digraph home {
+  rankdir=TB;
+  bgcolor="white";
+  splines=polyline;
+  nodesep=0.45;
+  ranksep=0.55;
+  node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=10
+        color="#44403c" fontcolor="#1c1917" penwidth=1.2];
+  edge [fontname="Helvetica" fontsize=8 color="#57534e" fontcolor="#57534e"];
+
+  // ---------------------------------------------------------------- upstream
+  internet [label="Internet\nSwisscom 10 Gbps subscription"
+            shape=ellipse fillcolor="#e7e5e4"];
+  box      [label="Swisscom Internet-Box\n10.1.1.1\ngigabit ports — caps the line\nreplacement ordered 2026-09-04, not yet arrived"
+            fillcolor="#fee2e2"];
+
+  // ------------------------------------------------------------------ routers
+  mt1 [label="mikrotik1 — RB2011UiAS-2HnD\n192.168.10.1  ·  edge router\nCAPsMAN manager (legacy /caps-man)\nWAN ether1 (DHCP from the box)\nNAT44 + NAT66\ncarries vlan-users/services/iot on bridge-main"
+       fillcolor="#dbeafe"];
+  mt2 [label="mikrotik2 — CRS125-24G-1S-2HnD\n192.168.10.2  ·  L2 bridge, VLAN trunk\nCAPsMAN CAP (wlan1)\n24×GE + SFP, hardware switch chip"
+       fillcolor="#dbeafe"];
+  mt3 [label="mikrotik3 — RB750Gr3 (hEX)\n192.168.10.3  ·  L2 bridge, office, VLAN trunk\n5×GE, no PoE-out"
+       fillcolor="#dbeafe"];
+
+  rb5009 [label="RB5009UG+S+IN\nplanned — future edge router\nfixes IPv6 (no NAT66), runs QoS\nhosts both CAPsMAN managers (B3)"
+          fillcolor="#f5f5f4" style="rounded,filled,dashed"];
+  poesw  [label="Office PoE switch\nplanned — candidate CRS112-8P-4S-IN\nmust do PASSIVE PoE (SXTsq needs it)\nand must not energise non-PoE ports"
+          fillcolor="#f5f5f4" style="rounded,filled,dashed"];
+
+  // ----------------------------------------------------------------- wireless
+  subgraph cluster_wifi {
+    label="Wireless — CAPsMAN, WPA2-PSK\nSSID LEDCOM -> vlan-users (10), LEDCOM-IoT -> vlan-iot (30)";
+    fontname="Helvetica"; fontsize=10; fontcolor="#57534e";
+    style="rounded,dashed"; color="#a8a29e";
+
+    cap6 [label="cap6 — mikrotik1 wlan1\n2.4 GHz  ch 1  (2412/20)\nAtheros AR9300" fillcolor="#dcfce7"];
+    cap7 [label="cap7 — mikrotik2 wlan1\n2.4 GHz  ch 11 (2462/20)\nAtheros AR9300" fillcolor="#dcfce7"];
+    capx [label="cAP XL ac\nplanned — 2.4 GHz + 5 GHz\nthe only 5 GHz on the network\ndriver question open (legacy vs wifi-qcom-ac)\nCEILING mount, central"
+          fillcolor="#f5f5f4" style="rounded,filled,dashed"];
+    mt4  [label="mikrotik4 — SXTsq Lite2\n192.168.10.4 (reserved)  ·  planned\n2.4 GHz ch 6, DIRECTIONAL\naimed at the garden, offline"
+          fillcolor="#f5f5f4" style="rounded,filled,dashed"];
+  }
+
+  inj [label="PoE injectors ×2\npassive — required because\nmikrotik3 has no PoE-out"
+       shape=note fillcolor="#fef3c7" style="filled,dashed"];
+
+  // ---------------------------------------------------------- vlan-users (10)
+  desktop [label="desktop \"during\"\n192.168.10.90  ·  wired, mgmt list" fillcolor="#dcfce7"];
+  gimli   [label="laptop \"gimli\"\n192.168.10.92  ·  wireless" fillcolor="#dcfce7"];
+  printer [label="Printer NPI52346B\n192.168.10.110  ·  wired\nusers, wired — reverted from services\n(mDNS repeater defect, see vlan.md)" fillcolor="#dcfce7"];
+  users_other [label="Other users clients — wireless\nGalaxy S24 Ultra, phone, Samsung TV,\nNintendo Switch (likely), Onkyo amp,\nsecond laptop (still unidentified)" fillcolor="#dcfce7" style="rounded,filled,dashed"];
+
+  // ------------------------------------------------------- vlan-services (20)
+  pihole  [label="Pi-hole\n192.168.20.40  ·  wired\nDNS for the whole LAN" fillcolor="#ede9fe"];
+  ha      [label="Home Assistant\n192.168.20.60  ·  wired\nAPI user 'homeassistant'" fillcolor="#ede9fe"];
+
+  // ------------------------------------------------------------- vlan-iot (30)
+  octoprint [label="OctoPrint\n192.168.30.81 (wifi, active)\n192.168.30.80 (wired, cable down)\nnamed internet exception (updates)" fillcolor="#fed7aa"];
+  iotawatt  [label="IotaWatt\n192.168.30.50  ·  wireless\nrouter-side done, device unreachable" fillcolor="#fed7aa" style="rounded,filled,dashed"];
+  kidslight [label="Kids light (Tasmota)\n192.168.30.61  ·  wireless" fillcolor="#fed7aa"];
+  fan       [label="Hombli ceiling fan\n192.168.30.63  ·  wireless\nDNS dropped by design (Decisions)" fillcolor="#fed7aa"];
+
+  // -------------------------------------------------------------------- links
+  internet -> box   [label="  10 Gbps sold\n  ~940 Mbps real"];
+  box -> mt1        [label="  ether1\n  10.1.1.0/24"];
+
+  mt1 -> mt2        [label="  ether2-master, trunk\n  untagged 10, tagged 20/30\n  verified", style=solid];
+  mt2 -> mt3        [label="  ether16 -> ether1, trunk\n  untagged 10, tagged 20/30\n  verified", style=solid];
+
+  mt1 -> cap6       [style=bold color="#16a34a" label="  CAPsMAN"];
+  mt2 -> cap7       [style=bold color="#16a34a" label="  CAPsMAN"];
+
+  mt3 -> desktop    [label="  ether3", style=dashed];
+  mt3 -> printer    [label="  ether2", style=solid];
+  mt3 -> inj        [style=dotted];
+  inj -> capx       [style=dotted label="  passive PoE"];
+  inj -> mt4        [style=dotted label="  passive PoE"];
+
+  mt2 -> pihole     [label="  ether23-slave-local\n  verified", style=solid];
+  mt2 -> ha         [label="  ether21-slave-local\n  verified", style=solid];
+  mt2 -> octoprint  [label="  ether24-slave-local, VLAN 30\n  cable down", style=dotted];
+
+  { cap6; cap7; } -> gimli       [style=dashed];
+  { cap6; cap7; } -> users_other [style=dashed];
+  { cap6; cap7; } -> octoprint   [style=dashed label="  LEDCOM-IoT, current path"];
+  { cap6; cap7; } -> iotawatt    [style=dashed];
+  { cap6; cap7; } -> kidslight   [style=dashed];
+  { cap6; cap7; } -> fan         [style=dashed];
+
+  rb5009 -> box     [style=dotted label="  replaces mikrotik1\n  at the edge"];
+  poesw -> mt3      [style=dotted label="  replaces mikrotik3's injectors"];
+
+  { rank=same; desktop; gimli; printer; users_other; }
+  { rank=same; pihole; ha; }
+  { rank=same; octoprint; iotawatt; kidslight; fan; }
+}

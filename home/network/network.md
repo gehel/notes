@@ -1,18 +1,20 @@
 # Network diagrams
 
-Two diagrams, because they answer different questions and neither tool does both well.
+Two diagrams, because they answer different questions and neither tool does both well. Sources,
+render script and rendered output all live in [diagrams/](diagrams/).
 
 | Diagram | Question it answers | Source | Tool |
 |---|---|---|---|
-| [network.svg](network.svg) | what is plugged into what | [network.dot](network.dot) | Graphviz |
-| [network-addressing.svg](network-addressing.svg) | which device is on which subnet | [network-addressing.nwdiag](network-addressing.nwdiag) | nwdiag |
+| [diagrams/network.svg](diagrams/network.svg) | what is plugged into what | [diagrams/network.dot](diagrams/network.dot) | Graphviz |
+| [diagrams/network-addressing.svg](diagrams/network-addressing.svg) | which device is on which VLAN | [diagrams/network-addressing.nwdiag](diagrams/network-addressing.nwdiag) | nwdiag |
 
 ```
+cd diagrams
 dot -Tsvg network.dot -o network.svg
 dot -Tpng -Gdpi=140 network.dot -o network.png
 
-scripts/render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg
-scripts/render-nwdiag.py -T png network-addressing.nwdiag -o network-addressing.png
+./render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg
+./render-nwdiag.py -T png network-addressing.nwdiag -o network-addressing.png
 ```
 
 Regenerate after any change and commit the sources alongside the output — the `.dot` and
@@ -40,10 +42,14 @@ raises. It survives unnoticed because `min()` on a one-element list never invoke
 the bug only appears once a node belongs to **two** networks, which is exactly what a router
 does.
 
-[render-nwdiag.py](scripts/render-nwdiag.py) defines `__lt__` on the same key the sort already uses,
-so `min()` agrees with the sort rather than papering over it, then calls the normal CLI. It
+[render-nwdiag.py](diagrams/render-nwdiag.py) defines `__lt__` on the same key the sort already
+uses, so `min()` agrees with the sort rather than papering over it, then calls the normal CLI. It
 takes the same arguments as `nwdiag3`. Nothing is patched on the system, so a package upgrade
 cannot silently undo it — and if upstream ever fixes this, the shim becomes a harmless no-op.
+
+Re-checked 2026-09-10 against plain `nwdiag3` on the current `network-addressing.nwdiag`
+(mikrotik1 sits on all three VLAN networks, which is exactly the two-networks-per-node case that
+triggers this): still raises the same `TypeError`. The shim is still required.
 
 Note the shebang is `/usr/bin/python3`: `nwdiag` is installed in the system
 `dist-packages`, which the default `python3` on this machine does not see.
@@ -60,15 +66,20 @@ is worse than no diagram:
 | **dotted** | planned, not yet cabled |
 | **green** | CAPsMAN control relationship, not a cable |
 
-Node fill: blue = MikroTik infrastructure, green = radios, purple = hosts, orange = the flat
-IoT segment, yellow = a known constraint, red = the current bottleneck, grey dashed = planned.
+Node fill: blue = MikroTik infrastructure, green = `vlan-users` clients and radios, purple =
+`vlan-services` hosts, orange = `vlan-iot` devices, yellow = a known constraint, red = the
+current bottleneck, grey dashed = planned.
 
 **What is verified.** `mikrotik1 -> mikrotik2` and `mikrotik2 -> mikrotik3` come from the
-neighbour tables on both ends. `mikrotik3 -> desktop` on `ether3` is inferred: `ether3` is
+neighbour tables on both ends and from the VLAN migration's own reachability checks. Pi-hole
+(`mikrotik2 ether23`), Home Assistant (`ether21`) and the printer (`mikrotik3 ether2`) are
+verified the same way — each port's VLAN membership was explicitly set and then confirmed
+working (DHCP lease bound at the expected address, service reachable) during the migration.
+`mikrotik3 -> desktop` on `ether3` is still inferred, not verified the same way: `ether3` is
 one of only two ports with link on that device, the other faces upstream, and the desktop is
-in the office. Host attachment for Pi-hole, Home Assistant and the IoT devices is **not**
-recorded anywhere in the dumps — those edges say "somewhere on this L2 segment", not "in
-this port".
+in the office. Every IoT and `vlan-users`-wireless-client edge is drawn dashed for the same
+reason as before — wireless attachment is "on this SSID/VLAN," not "on this port," so there is
+no port to verify in the first place.
 
 ## Why these two tools
 
@@ -96,36 +107,27 @@ as a horizontal bus with hosts hanging off it, which makes address-plan question
 who is static, who is in `mgmt`, which devices are destined for the IoT VLAN — and makes
 physical questions impossible, since it has no notion of a cable. Graphviz is the reverse.
 
-It is now the right tool for a VLAN diagram: the port map is fully collected (see
-[vlan.md](vlan.md)'s trunk/port plan), so the groups can become `vlan-users`, `vlan-services`
-and `vlan-iot` directly. Not yet drawn — the two diagrams below predate the VLAN migration and
-have not been regenerated since.
+It is the right tool for a VLAN diagram: the groups in `network-addressing.nwdiag` are
+`vlan-users`, `vlan-services` and `vlan-iot` directly, matching [vlan.md](vlan.md)'s device
+inventory and trunk/port plan.
 
-## What the diagram records
+## What the diagrams record
 
-**Predates the VLAN migration — not yet regenerated.** Facts as of when it was drawn:
+**Regenerated 2026-09-10** against the current, post-VLAN-migration state (renumbered
+`192.168.10/20/30.0/24`, `bridge-fon`/Fonera fully removed in Phase 0). Facts worth calling out:
 
-- The **Internet-Box has gigabit ports**, capping a 10 Gbps subscription at ~940 Mbps, and
+- The **Internet-Box still has gigabit ports**, capping a 10 Gbps subscription at ~940 Mbps, and
   separately delivers only ~170 Mbps down against ~565 Mbps up (see
-  [performance.md](performance.md)).
+  [performance.md](performance.md)). Replacement ordered 2026-09-04, not yet arrived.
 - **mikrotik3 has no PoE-out**, so both planned access points need injectors until the office
   switch is replaced.
-- **IoT shared one flat L2 segment** with the desktop and the management plane — since fixed
-  by the VLAN work (see [vlan.md](vlan.md)).
-- **cap6 and cap7 are 2.4 GHz only.** The cAP XL ac is the only planned 5 GHz radio.
+- **cap6 and cap7 are 2.4 GHz only.** The cAP XL ac is the only planned 5 GHz radio, and the
+  driver question (legacy `/caps-man` vs. `wifi-qcom-ac`) is still open — see
+  [wifi.md](wifi.md).
+- **OctoPrint's wired port is tagged and ready but idle** — its cable is down, so it currently
+  reaches the network over `LEDCOM-IoT` wireless instead.
+- The printer is drawn on `vlan-users`, not `vlan-services` — it was migrated and then
+  deliberately reverted (mDNS repeater defect, see [vlan.md](vlan.md)'s Decisions).
 
-## Corrected while drawing this
-
-Two errors surfaced only because the diagram forced every device to be placed somewhere
-specific. Both had been stated in earlier notes and are now fixed:
-
-- **The Fonera is at `192.168.1.101` on the main LAN**, not on `bridge-fon`. It had been
-  recorded as being on the FON network on the strength of the name.
-- **`bridge-fon` is entirely unused.** `ether6` through `ether10` all show `S` with no `R` in
-  `/interface/print detail` — no link on any port — and its `.100-.200` pool is idle.
-
-The second one matters beyond tidiness: **`ether10`, the port with PoE-out, is a `bridge-fon`
-member.** Powering the cAP XL ac from it would have placed the access point on an isolated,
-unrouted network rather than the LAN. The suggestion was already withdrawn for a different
-reason — it is at the wrong end of the house — but it was wrong twice over, and only drawing
-the picture made that visible.
+Keep them current: regenerate after any change to the trunk/port plan, the device inventory, or
+the wireless build-out, and commit the sources alongside the rendered output.
