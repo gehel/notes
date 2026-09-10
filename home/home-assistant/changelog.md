@@ -296,6 +296,7 @@ and proved nothing about whether Pi-hole could actually reach mikrotik1 for data
 already have. Guillaume caught this. A clean test (`dig -x 192.168.10.194 @192.168.10.1`, a
 plain dynamic lease with no Pi-hole record) showed mikrotik1 itself returning `NXDOMAIN` —
 RouterOS doesn't expose DHCP leases via DNS at all natively. Full root-cause and the
-lease-script fix that makes it actually work are in `home/network/changelog.md` (mikrotik1 now
-gives real answers; whether Pi-hole's forward relays them correctly, versus a suspected cached
-negative answer from all the earlier failed attempts, is still being confirmed there).
+lease-script fix that makes it actually work are in `home/network/changelog.md` — mikrotik1 now
+gives real answers, and Pi-hole's forward is confirmed relaying them correctly end-to-end (the
+`SERVFAIL` was a cached negative answer from the many earlier failed attempts; `pihole
+reloaddns` cleared it).

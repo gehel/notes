@@ -1100,11 +1100,16 @@ $ dig -x 192.168.10.194 @192.168.10.1
 am335x-opt.home.ledcom.fr. 300  IN A   192.168.10.194
 ```
 
-**Not yet confirmed:** the same query through Pi-hole's Conditional Forwarding
-(`dig -x 192.168.10.194 @192.168.20.40`) still returned `SERVFAIL` immediately after this fix.
-Guillaume's hypothesis, plausible given how many times that exact query was repeated against
-Pi-hole while mikrotik1 had nothing to answer: a cached negative response. Testing with a
-`pihole restartdns` cache clear — result pending.
+**Confirmed — the Pi-hole side too.** The same query through Conditional Forwarding
+(`dig -x 192.168.10.194 @192.168.20.40`) still returned `SERVFAIL` immediately after this fix —
+Guillaume's hypothesis was a cached negative response, from the many times that exact query
+had been repeated against Pi-hole while mikrotik1 had nothing to answer. `pihole restartdns`
+doesn't exist on this Pi-hole version's CLI; the correct command is **`pihole reloaddns`**
+("update the lists and flush the cache without restarting the DNS server" — gentler than a
+restart, no service interruption). Confirmed the hypothesis exactly: after the flush, the same
+query returned `NOERROR`, `am335x-opt.home.ledcom.fr`, matching TTL 300 — identical to
+mikrotik1's own direct answer. **The full chain (Pi-hole → Conditional Forwarding → mikrotik1
+→ lease-script) is verified working end-to-end.**
 
 ### DHCP pool renamed for consistency (2026-09-10)
 
