@@ -54,16 +54,19 @@ limitation — it should be including the router's own identity in the unique ID
 interface MAC); worth a note in `home/network` as a known HA-integration quirk of the two-router
 CAPsMAN setup, and possibly a bug report upstream.
 
-### 7. Two `dlna_dmr` entries are dead weight, superseded by native integrations (low) — in progress
+### 7. `dlna_dmr` entry for the Onkyo receiver is dead weight, superseded by the native integration (low)
 
-Both the Onkyo receiver and the Samsung TV have a `dlna_dmr` config entry with
+Originally both the Onkyo receiver and the Samsung TV had a `dlna_dmr` config entry with
 `source: "ignore"` (deliberately dismissed at some point) sitting alongside the actual
-`onkyo`/`samsungtv` integrations that are in real use.
+`onkyo`/`samsungtv` integrations that are in real use. Guillaume un-ignored both 2026-09-08 to
+see whether they'd reappear/misbehave now that the network renumber was done.
 
-**Guillaume un-ignored both 2026-09-08** to see whether they reappear/misbehave now that the
-network renumber is done (they held pre-renumber addresses — see finding 1's neighbour
-discussion of why zeroconf-discovered entries self-heal). Watching; check next sync whether
-they've settled on current addresses harmlessly or gone back to being worth re-ignoring.
+**Answered by a later sync (2026-09-10), narrowing this finding:** the Samsung TV's `dlna_dmr`
+entry is gone entirely — only its `samsungtv` entry remains, so that half is fully resolved on
+its own, no action needed. The Onkyo's `dlna_dmr` entry did resettle, though — still present,
+`source: ssdp` now (successfully rediscovered, no longer dismissed), sitting alongside the
+`onkyo` integration that's actually in use. Not misbehaving, just redundant. Guillaume's call
+whether to re-ignore/remove it or leave it — not otherwise urgent.
 
 ### 11. ZHA `device_id` triggers/actions are fragile against re-pairing (low, no known live impact)
 
