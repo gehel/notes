@@ -1300,3 +1300,38 @@ exists. Both one-shot scripts deleted per this project's convention.
 
 Next: phase 3, `vlan-iot` — expected to be small, since most IoT devices here don't speak IPv6
 at all.
+
+### Phase 3 — `vlan-iot` IPv6 addressing and firewall, applied, verification pending (2026-09-10)
+
+Two scripts, same split as phase 2.
+
+**Step a**, `scripts/ipv6-03a-iot-addressing.rsc`: same pattern as `vlan-services` — drew the
+last of the four `/64`s from the delegated `/62` (`from-pool=swisscom-pd interface=vlan-iot
+advertise=yes address=::1`) plus a fresh `/ipv6/nd` entry, same shape as the other two VLANs.
+**Verified from its own print output** — the resulting `/64` is `2a02:1210:680f:c40e::/64`,
+address and RA entry both confirmed present. Deleted per this project's one-shot-script
+convention: nothing here needed functional confirmation beyond what the object print already
+shows (unlike firewall matching, addressing either exists correctly or it doesn't).
+
+**Step b**, `scripts/ipv6-03b-iot-firewall.rsc`: deliberately minimal, matching this phase's
+framing. One dispatch chain, `iot2internet` — deny by default, with a named exception for
+OctoPrint (mirrors its existing IPv4 `octoprint` address-list exception) via a new
+`octoprint-v6` address-list holding both of its known addresses (wifi + wired, same two MACs as
+the IPv4 list), computed via EUI-64 the same way as `ha-v6` in phase 2:
+`E4:5F:01:DA:22:96`/`E4:5F:01:DA:22:95` + `2a02:1210:680f:c40e::/64` →
+`...e65f:1ff:feda:2296`/`...e65f:1ff:feda:2295`. No `iot2services`/`iot2users` chains —
+nothing on this VLAN needs IPv6 access to either today, so they fall through to the existing
+terminating catch-all, same outcome as an explicit deny. Router management over IPv6 stays
+closed, same reasoning as the other two VLANs.
+
+New rules again briefly showed `I - INVALID` on `print` immediately after the script ran,
+matching the now-familiar pattern from phases 1-2 (see `README.md`'s hard-won lessons).
+
+**Not yet functionally verified — OctoPrint was offline when this was applied.** Config is live
+(confirmed via the script's own before/after print), but the one thing actually worth testing —
+whether OctoPrint's exception really lets it reach the internet over IPv6 — hasn't been checked
+from a real client, unlike every other rule change in this project. **Finding 21 stays open**
+and `scripts/ipv6-03b-iot-firewall.rsc` stays in place (not deleted) until that's confirmed —
+per this project's convention, a finding doesn't close on the strength of "should work." When
+OctoPrint is back: `ping -6 -c 3 2606:4700:4700::1111` and `curl -6 https://ifconfig.co` from
+it are the two checks to paste back.

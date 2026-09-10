@@ -60,8 +60,9 @@ next up.
 per-VLAN-pair dispatch shape as IPv4, closing an incidental gap where router management was
 reachable from `vlan-users` over IPv6 with none of IPv4's `mgmt`-list scoping) and phase 2
 (`vlan-services` addressing + a matching, narrower firewall) both done and verified 2026-09-10
-— see [changelog.md](changelog.md). Phase 3 (`vlan-iot`) next; expected to be small, since most
-IoT devices here don't speak IPv6 at all.
+— see [changelog.md](changelog.md). Phase 3 (`vlan-iot` addressing + a deny-by-default
+firewall with a named OctoPrint exception) applied 2026-09-10 but **not yet functionally
+verified** — OctoPrint was offline. Stays open until confirmed.
 
 
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)

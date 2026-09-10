@@ -9,8 +9,9 @@ Written so that work can resume from these documents alone, with no session hist
 (`users`/`services`/`iot`), full renumber, real firewall policy — all live. The forward chain
 is reorganized into one jump-chain per VLAN pair, log-reviewed and tightened, with the old
 rules fully cleaned up. In progress: finding 21, bringing IPv6 up to the same shape — phases 1-2
-(`vlan-users`/`vlan-services`) done 2026-09-10, `vlan-iot` next. IotaWatt still needs
-device-side verification. Read
+(`vlan-users`/`vlan-services`) done 2026-09-10; phase 3 (`vlan-iot`) applied the same day but
+still needs its one functional check (OctoPrint's internet exception, OctoPrint was offline).
+IotaWatt still needs device-side verification. Read
 `vlan.md`'s **Status** section first.
 
 ## The network as it stands
@@ -70,7 +71,9 @@ address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`
 
 **VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint verified. Open: IotaWatt
 (unreachable) device-side; finding 21 (IPv6 for every VLAN) — `vlan-users` and `vlan-services`
-done 2026-09-10, `vlan-iot` next. The "second laptop" from the device inventory is still
+done 2026-09-10, `vlan-iot` applied the same day but not yet functionally verified (OctoPrint
+was offline — its internet exception is the one thing left to check). The "second laptop" from
+the device inventory is still
 unidentified.
 
 **Wireless** — [wifi.md](wifi.md).

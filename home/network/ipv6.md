@@ -7,18 +7,19 @@ Configured 2026-09-03. Front router is a MikroTik running RouterOS 7.23.3 (now 7
 
 ## Current state
 
-IPv6 works for clients on `vlan-users` and `vlan-services` (`vlan-iot` next — see
-[Extending to every VLAN](#extending-to-every-vlan-finding-21) below), but **via NAT66**, not
+IPv6 is addressed and firewalled on all three VLANs as of 2026-09-10 — `vlan-iot`'s is applied
+but not yet functionally verified (OctoPrint was offline; see
+[Extending to every VLAN](#extending-to-every-vlan-finding-21) below) — via **NAT66**, not
 native routing. This is a deliberate workaround, not an oversight — see
 [Why NAT66](#why-nat66) below.
 
 | | |
 |---|---|
 | Upstream | Swisscom, native IPv6 via DHCPv6 (no PPPoE, no 6rd) |
-| Topology | Swisscom Internet-Box (`10.1.1.1`) → MikroTik `ether1` → `bridge-main` → `vlan-users`/`vlan-services` → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
-| Delegated prefix | `/62` from the Internet-Box via DHCPv6-PD, i.e. 4 × `/64` — one per dual-stack VLAN |
-| LAN prefixes | `vlan-users` `2a02:1210:680f:c40c::/64`, `vlan-services` `2a02:1210:680f:c40d::/64` (both **illustrative**, see below), router at `::1` on each |
-| Client addressing | SLAAC from RAs sent by the MikroTik on every dual-stack VLAN |
+| Topology | Swisscom Internet-Box (`10.1.1.1`) → MikroTik `ether1` → `bridge-main` → `vlan-users`/`vlan-services`/`vlan-iot` → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
+| Delegated prefix | `/62` from the Internet-Box via DHCPv6-PD, i.e. 4 × `/64` — one per VLAN, one spare |
+| LAN prefixes | `vlan-users` `2a02:1210:680f:c40c::/64`, `vlan-services` `2a02:1210:680f:c40d::/64`, `vlan-iot` `2a02:1210:680f:c40e::/64` (all **illustrative**, see below), router at `::1` on each |
+| Client addressing | SLAAC from RAs sent by the MikroTik on every VLAN |
 | `bridge-fon` | removed entirely, along with the FON network — see `changelog.md`'s VLAN segmentation entry |
 | DNS | clients use `192.168.10.40` (Pi-hole) over IPv4 — was leaking the ISP's own resolver via RDNSS until 2026-09-07, fixed; see `changelog.md` |
 
@@ -201,9 +202,15 @@ each with the same per-VLAN-pair dispatch shape the IPv4 firewall already uses (
   added to an address-list — nothing currently needs to reference it specifically.
   `services2internet` (HTTP/HTTPS) is host-unscoped, matching IPv4's own rule 45, which isn't
   host-scoped either. `services2iot` wasn't added — `vlan-iot` has no IPv6 yet.
-- **Phase 3, `vlan-iot` — not started.** Most IoT devices here don't speak IPv6 at all, so this
-  is expected to be small: addressing plus a deliberate deny-by-default, closing the
-  accidentally-correct gap finding 21 describes for this VLAN.
+- **Phase 3, `vlan-iot` — applied 2026-09-10, verification pending.** Small, as expected: its
+  own `/64` and RA, then a deny-by-default `iot2internet` chain with one named exception —
+  OctoPrint, mirroring its existing IPv4 `octoprint` address-list, pinned via EUI-64 the same
+  way as `ha-v6` (`octoprint-v6`, both its wifi and wired MACs). No `iot2services`/`iot2users`
+  chains — nothing here needs IPv6 access to either, so both fall through to the general
+  catch-all, same outcome as an explicit deny. This closes the accidentally-correct gap finding
+  21 originally described for this VLAN, deliberately rather than by accident. **Not yet
+  functionally verified** — OctoPrint, the one device the exception matters for, was offline
+  when this was applied. See `changelog.md`.
 
 ## Operational notes
 

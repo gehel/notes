@@ -33,11 +33,12 @@ on 2026-09-10, see below). Rate-limited ping now works between every VLAN pair a
 internet, including combinations the table would otherwise suggest are fully denied (e.g.
 `iot <-> services`/`users`) — a deliberate widening, not an oversight.
 
-IPv6 has no equivalent rows for `iot` at all — see **[21]**, phase 3 not started. It ends up
-with no IPv6 anywhere by accident, which happens to match intent. `users`/`services` now have
-their own IPv6 dispatch chains (phases 1-2, done 2026-09-10) — see the IPv6 section below;
-`services`'s is narrower than its IPv4 row (HTTP/HTTPS + HA-only access to the printer/TV, no
-IPv6 equivalent of Pi-hole's own DNS/DoT exception yet, since nothing needs it).
+All three VLANs now have their own IPv6 dispatch chains — see **[21]** and the IPv6 section
+below. `services`'s is narrower than its IPv4 row (HTTP/HTTPS + HA-only access to the
+printer/TV, no IPv6 equivalent of Pi-hole's own DNS/DoT exception yet, since nothing needs it);
+`iot`'s deny-by-default now matches IPv4's intent deliberately rather than by accident, with the
+same `octoprint` internet exception mirrored. `vlan-iot`'s rules are applied but not yet
+functionally verified (OctoPrint was offline) — see `changelog.md`.
 
 ## mikrotik1 (RB2011UiAS, edge router) — `chain=input`
 
@@ -256,12 +257,14 @@ matches the lease time (5m), so the list churns constantly; not reproduced here.
 
 ## mikrotik1 — IPv6 firewall
 
-**Finding 21, in progress:** `vlan-users` (phase 1) and `vlan-services` (phase 2) restructured
-to the same per-VLAN-pair dispatch shape the IPv4 firewall uses, done 2026-09-10. `vlan-iot`
-(phase 3) not started. Neither VLAN exposes router management (ssh/Winbox/API/www) over IPv6 —
-SLAAC gives no stable per-host address to scope an IPv4-style `mgmt` list against, so "not
-exposed" is the deliberate equivalent rather than a leaky approximation. Full design and
-reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
+**Finding 21, in progress:** `vlan-users` (phase 1), `vlan-services` (phase 2), and `vlan-iot`
+(phase 3) all restructured to the same per-VLAN-pair dispatch shape the IPv4 firewall uses,
+applied 2026-09-10. **Phase 3 is applied but not yet functionally verified** — OctoPrint, the
+one thing worth testing, was offline; see `changelog.md`. None of the three VLANs exposes
+router management (ssh/Winbox/API/www) over IPv6 — SLAAC gives no stable per-host address to
+scope an IPv4-style `mgmt` list against, so "not exposed" is the deliberate equivalent rather
+than a leaky approximation. Full design and reasoning in
+[ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
 
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
@@ -279,6 +282,7 @@ reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
 | — | forward | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
 | — | forward | jump -> `services2internet` | `in-interface=vlan-services out-interface-list=WAN` | dispatch: services -> internet |
 | — | forward | jump -> `services2users` | `in-interface=vlan-services out-interface=vlan-users` | dispatch: services -> users |
+| — | forward | jump -> `iot2internet` | `in-interface=vlan-iot out-interface-list=WAN` | dispatch: iot -> internet |
 | — | forward | drop | *(none — catch-all)* | drop inbound from WAN |
 | — | `users2internet` | accept | `connection-state=new` | users2internet: internet |
 | — | `services2internet` | accept | `protocol=tcp dst-port=80,443 connection-state=new` | services2internet: HTTP/HTTPS |
@@ -286,6 +290,8 @@ reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
 | — | `services2users` | accept | `protocol=tcp dst-port=631 src-address-list=ha-v6 connection-state=new` | services2users: HA -> printer (CUPS) |
 | — | `services2users` | accept | `protocol=tcp dst-port=8002 src-address-list=ha-v6 connection-state=new` | services2users: HA -> Samsung TV |
 | — | `services2users` | drop, logged | *(catch-all)* | services2users: deny everything else |
+| — | `iot2internet` | accept | `protocol=tcp dst-port=80,443 src-address-list=octoprint-v6 connection-state=new` | iot2internet: octoprint updates |
+| — | `iot2internet` | drop, logged | *(catch-all)* | iot2internet: deny everything else |
 
 Rule numbers aren't shown — RouterOS's `print` index is positional, not a stable ID (this table
 follows the project's own convention of finding by comment, not number).
@@ -298,16 +304,24 @@ Assistant's IPv6 address, computed via EUI-64 from its known MAC combined with
 `vlan-services`'s actual delegated prefix (**not** a DHCP-style reservation; see
 [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21) for the caveats this carries: it depends
 on IPv6 privacy extensions staying off on that host, and on Swisscom's delegation not changing).
-`services2iot` doesn't exist yet — `vlan-iot` has no IPv6 addressing until phase 3.
+`services2iot` doesn't exist — `vlan-iot`'s policy is deny-by-default (below), so there's
+nothing for services to reach there yet.
 
-New rules again briefly showed `I - INVALID` on `print` immediately after creation in both
-phases — unlike their identically-shaped IPv4 counterparts — and cleared on their own with no
-action taken; both phases were also confirmed functionally enforced from real clients (see
+`iot2internet` is deny-by-default with one named exception, mirroring IPv4's `octoprint`
+address-list — `octoprint-v6` holds both of OctoPrint's known addresses (wifi + wired),
+computed via EUI-64 the same way as `ha-v6`. No `iot2services`/`iot2users` chains exist —
+nothing on `vlan-iot` needs IPv6 access to either today, so both fall through to the general
+forward catch-all, same outcome as an explicit deny.
+
+**`vlan-iot`'s rules are applied but not yet functionally verified** — OctoPrint, the one
+device the exception matters for, was offline when this was applied. See `changelog.md`;
+`scripts/ipv6-03b-iot-firewall.rsc` stays in place until confirmed.
+
+New rules again briefly showed `I - INVALID` on `print` immediately after creation in every
+phase — unlike their identically-shaped IPv4 counterparts — and cleared on their own with no
+action taken; phases 1-2 were also confirmed functionally enforced from real clients (see
 `changelog.md`). See `README.md`'s hard-won lessons for the caveat this adds to the existing
 `I - INVALID` catalog.
-
-**No equivalent rules exist for `vlan-iot` on either chain — see [21], phase 3.** It falls
-straight through to the input/forward catch-alls above.
 
 ## mikrotik2 (CRS125) and mikrotik3 (RB750Gr3) — `chain=input`
 
