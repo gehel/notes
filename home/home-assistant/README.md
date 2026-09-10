@@ -21,10 +21,13 @@ tracking whatever findings turn up on their own merits rather than one overarchi
 ## Status
 
 **Round 1 of the config review is done, including `automations.yaml`/scenes/dashboards — see
-[config-review.md](config-review.md).** Twelve items closed so far, see
-[changelog.md](changelog.md) — most recently Bathroom Upstairs's Z-Wave thermostat recovering
-after charging (bumpier than Living Room's, but same root cause and same fix). Two of the
-three original problem valves are now fixed; only Parent's Bedroom remains. Open: IotaWatt's
+[config-review.md](config-review.md).** Thirteen items closed so far, see
+[changelog.md](changelog.md) — most recently HA's internal DNS plugin leaking private reverse
+lookups to Cloudflare over DNS-over-TLS (found via `home/network`'s firewall logs; fixed by
+disabling HA's DNS fallback and adding Pi-hole Conditional Forwarding to mikrotik1). Before
+that, Bathroom Upstairs's Z-Wave thermostat recovered after charging (bumpier than Living
+Room's, but same root cause and same fix) — two of the three original problem valves are now
+fixed, only Parent's Bedroom remains. Open: IotaWatt's
 address (device currently powered off), the un-ignored `dlna_dmr` entries (watching), fragile
 ZHA `device_id` usage in three automations (finding 11), a broken "All cold" scene wired to a
 physical remote button (finding 12), and a fully-explained,

@@ -1041,6 +1041,15 @@ established/related, syn-flood detect+drop, ICMP jump, bogon-drop, spammer detec
 drop-invalid, *then* the ten dispatch jumps, then the final catch-all — no `I - INVALID`
 flags anywhere, rule content unchanged, only positions moved. **Phase 5's firewall reorg is
 done.** Next up: pick finding 21 (IPv6 for `vlan-services`/`vlan-iot`) back up, and separately
-investigate finding 23 (Pi-hole's NTP not honoring the DHCP-supplied option) and the
-still-unexplained recurring DoT burst from Home Assistant itself (still seen in the most
-recent log snapshot, 270 more hits).
+investigate finding 23 (Pi-hole's NTP not honoring the DHCP-supplied option).
+
+### Home Assistant's DoT burst to Cloudflare — root-caused and closed (2026-09-10)
+
+The recurring burst flagged above (hundreds of TCP/853 attempts from `192.168.20.60`, not
+Pi-hole) turned out to be Home Assistant's own internal DNS plugin (`hassio_dns`) falling back
+to Cloudflare for private (`192.168.20.0/24`) reverse-DNS lookups Pi-hole couldn't answer —
+nothing wrong on the network side, and no further firewall change needed. Full root-cause and
+fix (disabling HA's DNS fallback, adding Pi-hole Conditional Forwarding to mikrotik1) recorded
+in `home/home-assistant/changelog.md`, since the fix lives entirely on that side. Verified
+end-to-end with `dig -x 192.168.20.60 @192.168.20.40` returning a clean answer instead of
+nothing.

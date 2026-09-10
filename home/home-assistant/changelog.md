@@ -251,4 +251,41 @@ reports 100%.
 timeout streak stopped. Guillaume confirmed battery level at 100% live in HA.
 
 Only Parent's Bedroom left of the original three — same fix expected to apply, not yet
+
+## HA's internal DNS was leaking private reverse-lookups to Cloudflare over DoT (closed 2026-09-10)
+
+Found from `home/network`'s firewall logs (`dump-logs.sh`): recurring bursts of hundreds of TCP
+SYNs from Home Assistant itself (`192.168.20.60`, not Pi-hole) to `1.1.1.1`/`1.0.0.1:853`
+(DNS-over-TLS), all denied — `services2internet`'s DoT accept was scoped to Pi-hole's address
+only. Root-caused via `ha dns info`/`ha dns logs`, not just the firewall side:
+
+- `ha dns info` showed `fallback: true`, `servers: []`, `locals: [dns://192.168.20.40]` (Pi-hole) —
+  Supervisor's internal DNS plugin (`hassio_dns`) had no explicit upstream forwarder, so
+  anything Pi-hole couldn't answer cleanly fell back to its hardcoded Cloudflare DoT resolvers.
+- `ha dns logs` showed the actual queries: **PTR (reverse-DNS) lookups for a `/26`-sized block
+  of `192.168.20.0/24`** (`.193`-`.254`) — private RFC1918 space Cloudflare could never answer
+  even if the firewall let it through. Each query hung the full 30-second dial timeout because
+  the firewall was silently dropping the fallback attempt, rather than failing fast.
+- The swept range didn't match the DHCP pool (`192.168.20.100`-`.200`, confirmed from
+  `home/network`'s router dump) or a misconfigured netmask on HA's own interface (confirmed
+  correctly `/24` via `ha network info`) — the exact integration/component issuing the sweep
+  wasn't identified (checked config entries, `configuration.yaml`, and a fresh core log; nothing
+  obviously explained it), but wasn't needed to fix the actual problem.
+
+**Two-part fix, per Guillaume's direction ("all queries should go through Pi-hole; we're
+blocking direct internet access anyway, so the fallback doesn't work"):**
+
+1. **`ha dns options --fallback=false`** — Supervisor's DNS plugin no longer falls back to
+   Cloudflare at all. Verified: `ha dns info` now shows `fallback: false`.
+2. **Pi-hole Conditional Forwarding added** (Settings → DNS, web UI) — a single rule,
+   `192.168.0.0/16` → `192.168.10.1` (mikrotik1, the DHCP server for all three VLANs), so
+   Pi-hole actually has somewhere to ask for hostnames of devices it never DHCP'd itself,
+   instead of returning nothing. Confirmed mikrotik1 would answer such a query beforehand
+   (`allow-remote-requests: yes` in its dump, and `chain=input`'s DNS accept rules aren't
+   scoped to any particular VLAN).
+
+**Verified:** `dig -x 192.168.20.60 @192.168.20.40` (Pi-hole) now returns a clean, fast
+(`NOERROR`, 2ms) answer — `home.ledcom.fr` — instead of no data. See `home/network/changelog.md`
+for the network-side half of this (the firewall log finding and the DoT-restricted-to-Pi-hole
+rule that first surfaced this).
 started.
