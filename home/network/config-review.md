@@ -58,9 +58,10 @@ next up.
 
 **In progress.** Phase 1 (`vlan-users`'s own IPv6 firewall restructured to the same
 per-VLAN-pair dispatch shape as IPv4, closing an incidental gap where router management was
-reachable from `vlan-users` over IPv6 with none of IPv4's `mgmt`-list scoping) done and
-verified 2026-09-10 — see [changelog.md](changelog.md). Phase 2 (`vlan-services` addressing +
-firewall) next, then phase 3 (`vlan-iot`).
+reachable from `vlan-users` over IPv6 with none of IPv4's `mgmt`-list scoping) and phase 2
+(`vlan-services` addressing + a matching, narrower firewall) both done and verified 2026-09-10
+— see [changelog.md](changelog.md). Phase 3 (`vlan-iot`) next; expected to be small, since most
+IoT devices here don't speak IPv6 at all.
 
 
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)

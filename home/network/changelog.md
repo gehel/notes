@@ -1247,4 +1247,56 @@ Both changes confirmed: internet access intact, router management over IPv6 now 
 blocked (not just configured). `scripts/ipv6-01-users-hardening.rsc` deleted per this project's
 one-shot-script convention — this entry is the durable record.
 
-Next: phase 2, IPv6 addressing and the equivalent firewall dispatch for `vlan-services`.
+### Phase 2 — `vlan-services` gets IPv6 addressing and a matching firewall (2026-09-10)
+
+Two scripts, run and verified in sequence.
+
+**Step a**, `scripts/ipv6-02a-services-addressing.rsc`: `/ipv6/address add
+from-pool=swisscom-pd interface=vlan-services advertise=yes address=::1` (drew the next
+available `/64` from the same delegated `/62` `vlan-users` already uses one slice of) plus a
+fresh `/ipv6/nd` entry (`advertise-dns=no managed-address-configuration=no
+other-configuration=no ra-lifetime=30m`, same shape as `vlan-users`'s). **Verified:** the
+resulting `/64` is `2a02:1210:680f:c40d::/64` — printed and pasted back before step b, since
+this value had to be known to write it (the assistant doesn't reach the router directly, per
+this project's collaboration model — see the intro to this section).
+
+**Step b**, `scripts/ipv6-02b-services-firewall.rsc`: added the `services2internet` (HTTP/HTTPS,
+tcp/80,443, host-unscoped — matches IPv4 rule 45, which isn't host-scoped either) and
+`services2users` (Home Assistant only, via a new `ha-v6` address-list — printer CUPS/631 and
+Samsung TV/8002, both by port only rather than also pinning the destination's address like IPv4
+does) dispatch chains, each with a logged deny-all, then the two `chain=forward` jump rules
+dispatching into them ahead of the terminating catch-all. `services2iot` deliberately not
+added — `vlan-iot` has no IPv6 addressing yet (phase 3).
+
+**`ha-v6`'s one entry is a computed EUI-64 address, not a DHCP reservation** — see
+[ipv6.md](ipv6.md#extending-to-every-vlan-finding-21) for the full reasoning (this VLAN has no
+stateful DHCPv6, deliberately, to stay consistent with `vlan-users`'s pure-SLAAC design) and the
+two caveats it carries (depends on Home Assistant's host keeping IPv6 privacy extensions off;
+depends on Swisscom's delegated prefix not changing). Computed from
+`D8:3A:DD:31:E0:59` (Home Assistant's LAN MAC, from `/ip dhcp-server lease`) + the actual
+`2a02:1210:680f:c40d::/64` from step a = `2a02:1210:680f:c40d:da3a:ddff:fe31:e059`. Pi-hole's
+equivalent (`B8:27:EB:83:79:48` → `...ba27:ebff:fe83:7948`) was computed but not added to any
+list — nothing references it yet.
+
+Both new dispatch rules and every new chain rule again briefly showed `I - INVALID` on `print`
+immediately after the script ran, matching phase 1's already-documented pattern (see
+`README.md`'s hard-won lessons) — not re-checked for clearing this time, since functional
+verification is what actually matters and that passed (below).
+
+**Verified, from Pi-hole itself (`192.168.20.40`, a real `vlan-services` host):**
+
+```
+ping -6 -c 3 2606:4700:4700::1111        # 0% loss
+curl -6 https://ifconfig.co               # returned the router's WAN v6 address (NAT66 working,
+                                           # over HTTPS specifically -- confirms the port-scoped
+                                           # accept rule, not just ICMPv6 which bypasses it)
+nc -6 -w 3 -zv <printer's vlan-users IPv6 address> 631   # timed out
+```
+
+The `nc` is the important one: Pi-hole is *not* in `ha-v6`, so it correctly cannot reach the
+printer's CUPS port over IPv6 even though Home Assistant can — proves the `src-address-list`
+scoping actually discriminates between the two `vlan-services` hosts, not just that the chain
+exists. Both one-shot scripts deleted per this project's convention.
+
+Next: phase 3, `vlan-iot` — expected to be small, since most IoT devices here don't speak IPv6
+at all.

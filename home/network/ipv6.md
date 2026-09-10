@@ -7,17 +7,18 @@ Configured 2026-09-03. Front router is a MikroTik running RouterOS 7.23.3 (now 7
 
 ## Current state
 
-IPv6 works for clients on `vlan-users` (VLAN 10 on `bridge-main`), but **via NAT66**, not
+IPv6 works for clients on `vlan-users` and `vlan-services` (`vlan-iot` next — see
+[Extending to every VLAN](#extending-to-every-vlan-finding-21) below), but **via NAT66**, not
 native routing. This is a deliberate workaround, not an oversight — see
 [Why NAT66](#why-nat66) below.
 
 | | |
 |---|---|
 | Upstream | Swisscom, native IPv6 via DHCPv6 (no PPPoE, no 6rd) |
-| Topology | Swisscom Internet-Box (`10.1.1.1`) → MikroTik `ether1` → `bridge-main` → `vlan-users` (VLAN 10) → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
-| Delegated prefix | `/62` from the Internet-Box via DHCPv6-PD, i.e. 4 × `/64` |
-| LAN prefix | one `/64` from that pool on `vlan-users`, router at `::1` |
-| Client addressing | SLAAC from RAs sent by the MikroTik |
+| Topology | Swisscom Internet-Box (`10.1.1.1`) → MikroTik `ether1` → `bridge-main` → `vlan-users`/`vlan-services` → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
+| Delegated prefix | `/62` from the Internet-Box via DHCPv6-PD, i.e. 4 × `/64` — one per dual-stack VLAN |
+| LAN prefixes | `vlan-users` `2a02:1210:680f:c40c::/64`, `vlan-services` `2a02:1210:680f:c40d::/64` (both **illustrative**, see below), router at `::1` on each |
+| Client addressing | SLAAC from RAs sent by the MikroTik on every dual-stack VLAN |
 | `bridge-fon` | removed entirely, along with the FON network — see `changelog.md`'s VLAN segmentation entry |
 | DNS | clients use `192.168.10.40` (Pi-hole) over IPv4 — was leaking the ISP's own resolver via RDNSS until 2026-09-07, fixed; see `changelog.md` |
 
@@ -167,6 +168,42 @@ rules referencing `bridge-main` all moved to `vlan-users`. Verified: desktop's W
 the real `2a02:1210:680f:c40c::/64` prefix as primary, the old ULA aged out on its own as
 `deprecated`/`preferred_lft 0` (the same graceful-expiry behavior already documented under
 "Stale prefix on clients after renumbering" below), and `ping6` to a real host succeeded.
+
+## Extending to every VLAN (finding 21)
+
+Started 2026-09-10. `vlan-users` had IPv6 from the start; `vlan-services` and `vlan-iot` never
+got it, so their firewall silently fell through to catch-all drops instead of a deliberate
+policy — [config-review.md](config-review.md)'s finding 21. Rolling out one VLAN at a time,
+each with the same per-VLAN-pair dispatch shape the IPv4 firewall already uses (see
+[firewall.md](firewall.md)). Full evidence for each phase is in `changelog.md`.
+
+- **Phase 1, `vlan-users` (done).** Already had addressing; its firewall was two flat
+  unscoped accepts. Restructured to match IPv4's shape, and closed an incidental gap along the
+  way: router management (ssh/Winbox/API/www) was reachable from any `vlan-users` host over
+  IPv6, with none of IPv4's `mgmt`-list scoping. Fixed by not exposing router management over
+  IPv6 at all — SLAAC gives no stable per-host address to scope an address-list against, so
+  "not exposed" is the honest equivalent rather than a leaky approximation.
+- **Phase 2, `vlan-services` (done).** Got its own `/64` and RA, same pattern as `vlan-users`.
+  Its IPv4 firewall scopes several rules to Home Assistant's own address specifically
+  (`192.168.20.60`) — not reproducible directly under SLAAC, so Home Assistant's IPv6 address
+  is pinned via a computed **EUI-64** address instead of a DHCP-style reservation: take its
+  known LAN MAC (`D8:3A:DD:31:E0:59`, from `/ip dhcp-server lease`), flip the
+  universal/local bit of the first byte, split around `ff:fe`, and append the result to the
+  VLAN's actual `/64`. Held in the `ha-v6` IPv6 address-list. Two caveats that don't apply to
+  IPv4's version of this scoping:
+  - Valid only as long as Home Assistant's host keeps IPv6 privacy extensions (RFC 4941
+    temporary addresses) off — otherwise it prefers a rotating source address for outbound
+    connections and stops matching `ha-v6` entirely.
+  - The prefix half is Swisscom's current delegation, which this document already says is not
+    stable — if it's ever re-delegated, `ha-v6`'s one entry needs recomputing.
+
+  Pi-hole's own IPv6 address was computed the same way (from `B8:27:EB:83:79:48`) but not yet
+  added to an address-list — nothing currently needs to reference it specifically.
+  `services2internet` (HTTP/HTTPS) is host-unscoped, matching IPv4's own rule 45, which isn't
+  host-scoped either. `services2iot` wasn't added — `vlan-iot` has no IPv6 yet.
+- **Phase 3, `vlan-iot` — not started.** Most IoT devices here don't speak IPv6 at all, so this
+  is expected to be small: addressing plus a deliberate deny-by-default, closing the
+  accidentally-correct gap finding 21 describes for this VLAN.
 
 ## Operational notes
 

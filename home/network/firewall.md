@@ -33,9 +33,11 @@ on 2026-09-10, see below). Rate-limited ping now works between every VLAN pair a
 internet, including combinations the table would otherwise suggest are fully denied (e.g.
 `iot <-> services`/`users`) — a deliberate widening, not an oversight.
 
-IPv6 has no equivalent rows for `services`/`iot` at all — see **[21]**, in progress (phase 1,
-`vlan-users`, done 2026-09-10). `vlan-iot` ends up with no IPv6 anywhere by accident, which
-happens to match intent; `vlan-services` ends up with no IPv6 internet access, which doesn't.
+IPv6 has no equivalent rows for `iot` at all — see **[21]**, phase 3 not started. It ends up
+with no IPv6 anywhere by accident, which happens to match intent. `users`/`services` now have
+their own IPv6 dispatch chains (phases 1-2, done 2026-09-10) — see the IPv6 section below;
+`services`'s is narrower than its IPv4 row (HTTP/HTTPS + HA-only access to the printer/TV, no
+IPv6 equivalent of Pi-hole's own DNS/DoT exception yet, since nothing needs it).
 
 ## mikrotik1 (RB2011UiAS, edge router) — `chain=input`
 
@@ -254,12 +256,12 @@ matches the lease time (5m), so the list churns constantly; not reproduced here.
 
 ## mikrotik1 — IPv6 firewall
 
-**Phase 1 of finding 21, done 2026-09-10:** `vlan-users` restructured to mirror the IPv4
-per-VLAN-pair dispatch shape instead of two flat accepts. Router management (ssh/winbox/api/www)
-is no longer reachable from `vlan-users` over IPv6 at all — IPv6 clients here are SLAAC-addressed
-with no stable per-host address to scope an IPv4-style `mgmt` list against, so "not exposed" is
-the safe equivalent rather than a leaky approximation. `vlan-services`/`vlan-iot` are next
-(phases 2-3).
+**Finding 21, in progress:** `vlan-users` (phase 1) and `vlan-services` (phase 2) restructured
+to the same per-VLAN-pair dispatch shape the IPv4 firewall uses, done 2026-09-10. `vlan-iot`
+(phase 3) not started. Neither VLAN exposes router management (ssh/Winbox/API/www) over IPv6 —
+SLAAC gives no stable per-host address to scope an IPv4-style `mgmt` list against, so "not
+exposed" is the deliberate equivalent rather than a leaky approximation. Full design and
+reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
 
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
@@ -275,19 +277,37 @@ the safe equivalent rather than a leaky approximation. `vlan-services`/`vlan-iot
 | 9 | forward | accept | `protocol=icmpv6` | defconf |
 | — | input | drop | *(none — catch-all)* | drop everything else to router |
 | — | forward | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
+| — | forward | jump -> `services2internet` | `in-interface=vlan-services out-interface-list=WAN` | dispatch: services -> internet |
+| — | forward | jump -> `services2users` | `in-interface=vlan-services out-interface=vlan-users` | dispatch: services -> users |
 | — | forward | drop | *(none — catch-all)* | drop inbound from WAN |
 | — | `users2internet` | accept | `connection-state=new` | users2internet: internet |
+| — | `services2internet` | accept | `protocol=tcp dst-port=80,443 connection-state=new` | services2internet: HTTP/HTTPS |
+| — | `services2internet` | drop, logged | *(catch-all)* | services2internet: deny everything else |
+| — | `services2users` | accept | `protocol=tcp dst-port=631 src-address-list=ha-v6 connection-state=new` | services2users: HA -> printer (CUPS) |
+| — | `services2users` | accept | `protocol=tcp dst-port=8002 src-address-list=ha-v6 connection-state=new` | services2users: HA -> Samsung TV |
+| — | `services2users` | drop, logged | *(catch-all)* | services2users: deny everything else |
 
 Rule numbers aren't shown — RouterOS's `print` index is positional, not a stable ID (this table
-follows the project's own convention of finding by comment, not number). The dispatch and
-`users2internet` rules briefly showed `I - INVALID` on `print` immediately after creation —
-unlike their identically-shaped IPv4 counterparts — but cleared on their own on a later print
-with no further action taken; also confirmed functionally enforced throughout (IPv6 internet
-works from a `vlan-users` client; `nc -6` to the router's management port times out). See
-`README.md`'s hard-won lessons for the caveat this adds to the existing `I - INVALID` catalog.
+follows the project's own convention of finding by comment, not number).
 
-**No equivalent rules exist for `vlan-services` or `vlan-iot` on either chain — see [21].**
-Both VLANs fall straight through to the input/forward catch-alls above.
+`services2users` is deliberately narrower than IPv4's version of the same policy: IPv4 also
+scopes by the *destination's* own address (the printer, the TV specifically); this only scopes
+by port, since pinning two more devices' IPv6 addresses for a path that already works over IPv4
+wasn't judged worth it. `ha-v6` is an `/ipv6/firewall/address-list` holding one entry — Home
+Assistant's IPv6 address, computed via EUI-64 from its known MAC combined with
+`vlan-services`'s actual delegated prefix (**not** a DHCP-style reservation; see
+[ipv6.md](ipv6.md#extending-to-every-vlan-finding-21) for the caveats this carries: it depends
+on IPv6 privacy extensions staying off on that host, and on Swisscom's delegation not changing).
+`services2iot` doesn't exist yet — `vlan-iot` has no IPv6 addressing until phase 3.
+
+New rules again briefly showed `I - INVALID` on `print` immediately after creation in both
+phases — unlike their identically-shaped IPv4 counterparts — and cleared on their own with no
+action taken; both phases were also confirmed functionally enforced from real clients (see
+`changelog.md`). See `README.md`'s hard-won lessons for the caveat this adds to the existing
+`I - INVALID` catalog.
+
+**No equivalent rules exist for `vlan-iot` on either chain — see [21], phase 3.** It falls
+straight through to the input/forward catch-alls above.
 
 ## mikrotik2 (CRS125) and mikrotik3 (RB750Gr3) — `chain=input`
 

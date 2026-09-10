@@ -8,8 +8,8 @@ Written so that work can resume from these documents alone, with no session hist
 **Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-5 done.** Three VLANs
 (`users`/`services`/`iot`), full renumber, real firewall policy — all live. The forward chain
 is reorganized into one jump-chain per VLAN pair, log-reviewed and tightened, with the old
-rules fully cleaned up. In progress: finding 21, bringing IPv6 up to the same shape — phase 1
-(`vlan-users` firewall) done 2026-09-10, `vlan-services`/`vlan-iot` next. IotaWatt still needs
+rules fully cleaned up. In progress: finding 21, bringing IPv6 up to the same shape — phases 1-2
+(`vlan-users`/`vlan-services`) done 2026-09-10, `vlan-iot` next. IotaWatt still needs
 device-side verification. Read
 `vlan.md`'s **Status** section first.
 
@@ -69,9 +69,9 @@ address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`
 ## Everything currently open
 
 **VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint verified. Open: IotaWatt
-(unreachable) device-side; finding 21 (IPv6 for `vlan-services`/`vlan-iot`) — `vlan-users`'s
-own IPv6 firewall done 2026-09-10, `vlan-services` next. The "second laptop" from the device
-inventory is still unidentified.
+(unreachable) device-side; finding 21 (IPv6 for every VLAN) — `vlan-users` and `vlan-services`
+done 2026-09-10, `vlan-iot` next. The "second laptop" from the device inventory is still
+unidentified.
 
 **Wireless** — [wifi.md](wifi.md).
 - The cAP XL ac is unused and is the only 5 GHz on the network. Blocked on one question:
