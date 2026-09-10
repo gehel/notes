@@ -974,5 +974,37 @@ enough).
 `where chain=services2iot`, both pasted after each change, matching exactly what was
 intended.
 
-Cleanup of the now-dead old rules (`scripts/phase5-06-firewall-reorg-cleanup.rsc`) is written
-and linted but not yet applied — next step.
+**Cleanup applied (2026-09-10) via `scripts/phase5-06-firewall-reorg-cleanup.rsc`** — all 21
+dead old rules removed, `iot-internet` address list removed, and the syn-flood/port-scan/WAN-drop
+input rules plus the `srcnat` masquerade rule repointed at the `WAN` interface list instead of
+literal `ether1`.
+
+Hit one real RouterOS syntax gotcha along the way: `in-interface=""`/`out-interface=""` is
+**not** valid syntax to clear a property on `set` — an empty string is treated as an ambiguous
+wildcard matching every interface, and RouterOS refuses with "ambiguous value of interface".
+Clearing a property needs `!property` instead (e.g. `!in-interface in-interface-list=WAN`).
+First attempt hit this mid-script in safe mode (without `dry-run`, so the earlier `/remove`s in
+that run had already executed); rolled back via Ctrl+X and re-ran cleanly with `dry-run` first
+after the fix.
+
+**A second pass over the live output caught two more things the reorg itself had missed:**
+- `"Accept DNS requests from Pi-hole"` — only ever the *anchor* the new dispatch jumps were
+  placed before (phase5-02), never itself in the removal list, but dead for the same reason as
+  everything else: any Pi-hole -> internet packet already hits the `services -> internet`
+  dispatch jump first, which terminates inside `services2internet` (which has its own explicit
+  Pi-hole DNS accept). No path reaches it anymore.
+- Four rules still hardcoded `ether1` literally instead of the `WAN` interface list created in
+  phase5-02 for exactly this purpose: the three internet-facing dispatch jumps
+  (`users2internet`/`services2internet`/`iot2internet`) and the `internet2services` jump, plus
+  the Home Assistant HTTPS `dst-nat` rule.
+
+Both fixed via `scripts/phase5-07-firewall-final-polish.rsc`.
+
+**Verified: full forward chain and NAT table printed clean** — 20 forward-chain rules total (2
+established/fasttrack, 10 dispatch jumps all using `WAN` where they reference the internet
+side, then the pre-existing anti-scan/anti-spam/bogon rules, unchanged), NAT's `masquerade` and
+`dst-nat` both on `WAN`, `iot-internet` gone from the address-list table, no leftover VLAN-era
+rules anywhere. **Phase 5's firewall reorg is done.** Next up: pick finding 21 (IPv6 for
+`vlan-services`/`vlan-iot`) back up, and separately investigate finding 23 (Pi-hole's NTP not
+honoring the DHCP-supplied option) and the still-unexplained DoT burst from Home Assistant
+itself.

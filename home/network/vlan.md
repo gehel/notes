@@ -12,12 +12,12 @@ document holds the design reference and current state, not the story of how it w
 - **Pi-hole, Home Assistant, Kids light, ceiling fan, OctoPrint**: migrated and verified.
 - **IotaWatt**: router-side config applied, device-side verification still pending (was
   unreachable, possibly pre-existing — device currently powered off).
-- **Phase 5, in progress (2026-09-09/10)**: findings 19/20 cleanup done; forward chain
-  reorganized into one jump-chain per VLAN pair, log-reviewed and tightened (Pi-hole DoT, HA's
-  printer/Samsung-TV exceptions, HA-source scoping) — see `changelog.md`. Final step (removing
-  the now-dead old individual rules) written, not yet applied. IPv6 for
-  `vlan-services`/`vlan-iot` (finding 21) deliberately deferred until this IPv4 work is fully
-  wrapped up.
+- **Phase 5: done (2026-09-09/10).** Findings 19/20 cleanup, forward chain reorganized into
+  one jump-chain per VLAN pair, log-reviewed and tightened (Pi-hole DoT, HA's printer/Samsung-TV
+  exceptions, HA-source scoping), then the now-dead old rules removed and every remaining
+  literal `ether1` reference replaced with the `WAN` interface list — see `changelog.md` for
+  the full story. **Next: finding 21** — IPv6 for `vlan-services`/`vlan-iot`, deliberately
+  deferred until this IPv4 work was fully wrapped up, which it now is.
 - **Open, not blocking**: the "second laptop" in the device inventory is still unidentified.
 
 **Before writing any new `find`-based command**, skim `README.md`'s hard-won lessons —
@@ -365,10 +365,10 @@ IP-based address instead of a discovered one.
 
 ## Phase 5 — read the evidence, then tighten
 
-Findings 19/20 (dead debris) closed 2026-09-09. The rest of Phase 5 turned into a full forward
-chain reorganization rather than incremental tightening of the old rule set — see
-`changelog.md`'s Phase 5 entry for the complete story. Summary of what the original checklist
-below turned into:
+**Done.** Findings 19/20 (dead debris) closed 2026-09-09. The rest of Phase 5 turned into a
+full forward chain reorganization rather than incremental tightening of the old rule set,
+finished 2026-09-10 — see `changelog.md`'s Phase 5 entries for the complete story. Summary of
+what the original checklist below turned into:
 
 - ~~Convert genuine `infra2users`/`users2services`/`users2iot`/`iot-drop` log hits into narrow
   rules~~ — superseded: the whole forward chain was reorganized into one jump-chain per VLAN
@@ -381,9 +381,10 @@ below turned into:
   burst of DoT attempts from HA itself (not Pi-hole) to Cloudflare, and Pi-hole's NTP
   apparently not honoring the DHCP-supplied `ntp-services` option (config-review.md finding
   23).
-- **Remove the temporary `users -> services tcp/1883` rule** — folded into
-  `scripts/phase5-06-firewall-reorg-cleanup.rsc` (not yet applied) along with every other old
-  rule the reorg made dead.
+- **Remove the temporary `users -> services tcp/1883` rule** — done, folded into
+  `scripts/phase5-06-firewall-reorg-cleanup.rsc` along with every other old rule the reorg
+  made dead (plus a straggler it missed, `"Accept DNS requests from Pi-hole"`, caught and
+  removed in a follow-up polish pass along with four remaining literal `ether1` references).
 - **Narrow `services -> internet` from blanket allow to specific ports** — done: HTTP/HTTPS
   plus Pi-hole's own DNS/DoT, everything else denied and logged.
 - Once IotaWatt is verified: re-run `octoprint`'s (formerly `iot-internet`'s) address-list

@@ -6,9 +6,12 @@ policy and the reasoning behind it, see [vlan.md](vlan.md)'s policy matrix; for 
 found while writing this, see [config-review.md](config-review.md) findings 19-22, referenced
 inline below as **[19]**-**[22]**.
 
-**Stale as of 2026-09-09 — findings 19/20's dead rules were removed and IPv6 for
-`vlan-services`/`vlan-iot` (finding 21) is being added.** Rule numbers and the IPv6 table below
-no longer match live state. Regenerating once that work lands rather than twice in a row.
+**Stale as of 2026-09-09, more so now — the whole forward chain has since been reorganized
+into jump-chains per VLAN pair (see [changelog.md](changelog.md)'s Phase 5 entries), not just
+had a few dead rules trimmed.** Every table below is out of date: rule numbers, the flat
+forward-chain listing, and the IPv6 section (finding 21, still pending). Needs a full
+regeneration from a fresh `dump-configs.sh` run, not an incremental fix — deferred until
+finding 21's IPv6 work lands too, rather than regenerating twice in a row.
 
 RouterOS evaluates each chain top to bottom and stops at the first match, so **position is
 part of the rule** — a correct-looking rule in the wrong place is a bug. That's why this is a

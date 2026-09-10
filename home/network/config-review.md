@@ -48,12 +48,12 @@ access at all. For `vlan-iot` the accidental result actually matches the intende
 any kind" policy — but for the wrong reason, and it would silently break the day someone adds a
 real IPv6 rule to `vlan-iot` without realizing there was never a matching input accept either.
 
-**2026-09-09: deliberately deferred.** Guillaume wants full IPv6 for
-`vlan-services`/`vlan-iot` (addressing + RA + the IPv6 equivalent of the existing IPv4 policy
-matrix), not the minimal "add two accept rules" fix originally sketched above — but decided
-the IPv4 forward chain needed cleaning up and reorganizing first (see Phase 5's jump-chain
-reorg, [changelog.md](changelog.md)). Pick this back up once that IPv4 work is fully wrapped
-up and documented.
+**2026-09-09: deliberately deferred, now unblocked (2026-09-10).** Guillaume wants full IPv6
+for `vlan-services`/`vlan-iot` (addressing + RA + the IPv6 equivalent of the existing IPv4
+policy matrix), not the minimal "add two accept rules" fix originally sketched above — but
+decided the IPv4 forward chain needed cleaning up and reorganizing first. That reorg (Phase 5's
+jump-chain work, see [changelog.md](changelog.md)) is now fully done and documented, so this is
+next up.
 
 ### 23. Pi-hole (and other services/IoT clients) may be sourcing NTP from the internet directly
 
