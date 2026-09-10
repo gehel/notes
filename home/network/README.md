@@ -238,12 +238,14 @@ outstanding test is a host plugged directly into the Internet-Box.
   - **This whole catalog is IPv4-derived (`/ip/firewall/filter`) and doesn't transfer cleanly to
     `/ipv6/firewall/filter`.** A `jump` dispatch rule and its target chain's `accept
     connection-state=new` rule, identically shaped to a long-working IPv4 `users2internet`
-    pair, both showed `I - INVALID` the first time this was tried on IPv6 (`vlan-users`
-    hardening, finding 21 phase 1) — yet were functionally confirmed enforced (internet access
-    worked, the blocked management port actually timed out). Looks like a false positive
-    specific to how `/ipv6/firewall/filter` evaluates jump-target chains on this RouterOS
-    version, not a real gap — but unconfirmed, so don't assume either way going in: verify
-    functionally against a real client for anything on the IPv6 side, same as this rule was.
+    pair, both showed `I - INVALID` immediately after creation the first time this was tried on
+    IPv6 (`vlan-users` hardening, finding 21 phase 1) — but the flag was gone on a later print
+    with no action taken, and the rules were functionally confirmed enforced throughout
+    (internet access worked, the blocked management port actually timed out). Looks like a
+    transient artifact right after rule creation, not a permanent false positive or a real
+    gap — but don't assume that either: keep verifying functionally against a real client for
+    new IPv6 rules, and re-print rather than trust the flag state from immediately after an
+    `/add`.
 - **Clearing a property back to default/empty is trickier than it looks — three distinct
   failure modes found in one session.** `property=""` on an interface-typed field
   (`in-interface=`/`out-interface=`) is treated as an ambiguous wildcard match against every

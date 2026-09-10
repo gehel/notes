@@ -280,9 +280,10 @@ the safe equivalent rather than a leaky approximation. `vlan-services`/`vlan-iot
 
 Rule numbers aren't shown — RouterOS's `print` index is positional, not a stable ID (this table
 follows the project's own convention of finding by comment, not number). The dispatch and
-`users2internet` rules both show `I - INVALID` on `print`, unlike their identically-shaped IPv4
-counterparts — **functionally verified as enforced anyway** (IPv6 internet works from a
-`vlan-users` client; `nc -6` to the router's management port now times out) — see
+`users2internet` rules briefly showed `I - INVALID` on `print` immediately after creation —
+unlike their identically-shaped IPv4 counterparts — but cleared on their own on a later print
+with no further action taken; also confirmed functionally enforced throughout (IPv6 internet
+works from a `vlan-users` client; `nc -6` to the router's management port times out). See
 `README.md`'s hard-won lessons for the caveat this adds to the existing `I - INVALID` catalog.
 
 **No equivalent rules exist for `vlan-services` or `vlan-iot` on either chain — see [21].**

@@ -1223,13 +1223,15 @@ Applied via `scripts/ipv6-01-users-hardening.rsc` (idempotent, comment-`find`-gu
    connection-state=new` — deliberately matching the IPv4 `users2internet` chain's name and
    shape (separate table, `/ipv6/firewall/filter` vs `/ip/firewall/filter`, so no collision).
 
-**A new `I - INVALID` data point.** Both new rules show `I - INVALID` on `print`, unlike their
-identically-shaped IPv4 counterparts (IPv4's `users2internet` dispatch has never been flagged).
-Rather than assume "unenforced" from the IPv4-derived catalog in `README.md`, this was verified
-functionally instead — see below. The flag appears to be a false positive specific to
-`/ipv6/firewall/filter`'s handling of jump-target chains on this RouterOS version, not a real
-enforcement gap. Noted in `README.md`'s hard-won lessons as an exception to the existing
-`I - INVALID` catalog rather than folded into it, since the mechanism is unconfirmed.
+**A new `I - INVALID` data point — transient, not permanent.** Both new rules showed
+`I - INVALID` on `print` immediately after the script ran, unlike their identically-shaped IPv4
+counterparts (IPv4's `users2internet` dispatch has never been flagged). Rather than assume
+"unenforced" from the IPv4-derived catalog in `README.md`, this was verified functionally
+instead — see below, both passed. A later, unprompted `print` (same session, no action taken in
+between) showed the flag gone on both rules. Recorded in `README.md`'s hard-won lessons as an
+addition to the existing `I - INVALID` catalog: on `/ipv6/firewall/filter`, the flag can appear
+right after rule creation and clear on its own — re-print rather than trust the state from
+immediately after an `/add`.
 
 **Verified, from a real `vlan-users` client (not the router — the forward chain only applies to
 transit traffic, so this can't be checked from the router's own CLI):**
