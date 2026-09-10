@@ -5,10 +5,11 @@ Written so that work can resume from these documents alone, with no session hist
 
 ## Start here
 
-**Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-4 done.** Three VLANs
-(`users`/`services`/`iot`), full renumber, real firewall policy — all live. What's left:
-verify OctoPrint and IotaWatt device-side, then Phase 5 (read a week of log evidence and
-tighten). Read `vlan.md`'s **Status** section first.
+**Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-4 done, Phase 5 in progress.**
+Three VLANs (`users`/`services`/`iot`), full renumber, real firewall policy — all live. The
+forward chain has been reorganized into one jump-chain per VLAN pair and log-reviewed; only
+the final cleanup of now-dead old rules is left before Phase 5 wraps up. IotaWatt still needs
+device-side verification. Read `vlan.md`'s **Status** section first.
 
 ## The network as it stands
 
@@ -31,7 +32,7 @@ snapshot, not a source of truth.
 
 | File | What it holds |
 |---|---|
-| [vlan.md](vlan.md) | **Active, Phase 5 next.** VLAN design, device inventory, address plan, migration reference |
+| [vlan.md](vlan.md) | **Active, Phase 5 in progress.** VLAN design, device inventory, address plan, migration reference |
 | [wifi.md](wifi.md) | Wireless: the channel fix already applied, the 5 GHz plan, mikrotik4 build |
 | [config-review.md](config-review.md) | Open findings and the hardware/architecture decisions |
 | [firewall.md](firewall.md) | Every live firewall rule, in evaluation order, on all three devices |
@@ -48,9 +49,11 @@ Diagrams: [network.svg](network.svg) is physical topology (Graphviz),
 
 ## Everything currently open
 
-**VLAN work** — [vlan.md](vlan.md). Phases 0-4 done. Open: verify OctoPrint (device was off)
-and IotaWatt (unreachable) device-side; then Phase 5 — read a week of log evidence and
-tighten. The "second laptop" from the device inventory is still unidentified.
+**VLAN work** — [vlan.md](vlan.md). Phases 0-4 done, OctoPrint verified. Open: IotaWatt
+(unreachable) device-side; Phase 5's forward-chain reorg is done and log-reviewed, only the
+final cleanup of now-dead old rules remains, and finding 21 (IPv6 for
+`vlan-services`/`vlan-iot`) is deliberately deferred until then. The "second laptop" from the
+device inventory is still unidentified.
 
 **Wireless** — [wifi.md](wifi.md).
 - The cAP XL ac is unused and is the only 5 GHz on the network. Blocked on one question:

@@ -48,10 +48,27 @@ access at all. For `vlan-iot` the accidental result actually matches the intende
 any kind" policy — but for the wrong reason, and it would silently break the day someone adds a
 real IPv6 rule to `vlan-iot` without realizing there was never a matching input accept either.
 
-**2026-09-09: being addressed properly**, not just patched — Guillaume wants full IPv6 for
+**2026-09-09: deliberately deferred.** Guillaume wants full IPv6 for
 `vlan-services`/`vlan-iot` (addressing + RA + the IPv6 equivalent of the existing IPv4 policy
-matrix), not the minimal "add two accept rules" fix originally sketched above. Design in
-progress.
+matrix), not the minimal "add two accept rules" fix originally sketched above — but decided
+the IPv4 forward chain needed cleaning up and reorganizing first (see Phase 5's jump-chain
+reorg, [changelog.md](changelog.md)). Pick this back up once that IPv4 work is fully wrapped
+up and documented.
+
+### 23. Pi-hole (and other services/IoT clients) may be sourcing NTP from the internet directly
+
+Found 2026-09-10 while reviewing firewall logs before the Phase 5 cleanup: Pi-hole
+(`192.168.20.40`) was making repeated outbound NTP requests (udp/123) straight to public pool
+servers, denied by the new `services2internet` default-deny (see
+[changelog.md](changelog.md)'s Phase 5 entry). This project already configured DHCP option 42
+(`ntp-services`/`ntp-iot`, mikrotik1's own address on each VLAN) back in Phase 3 specifically
+so services/IoT clients wouldn't need internet access for time sync — but Pi-hole is still
+reaching out externally, meaning either its NTP client isn't honoring the DHCP-supplied
+option, or it was configured with explicit upstream servers that override it.
+
+Guillaume's intended fix: point Pi-hole (and confirm every other services/IoT client) at
+mikrotik1 for NTP via the DHCP-advertised option, not a new firewall accept. Not yet
+investigated on the Pi-hole side or re-verified against the DHCP network config.
 
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)
 

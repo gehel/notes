@@ -882,3 +882,97 @@ to touch this same area anyway.
 surviving rules' `vlan-users`-suffixed counterparts intact, no `I` flags, 54 rules remaining
 (was ~60). `/ipv6/firewall/filter/print` — both IPv6 target rules gone, only the
 `vlan-users`-suffixed pair remains, 14 rules remaining (was 16).
+
+### Phase 5 — forward chain reorganized into one jump-chain per VLAN pair (2026-09-09/10)
+
+Guillaume's call: clean up and improve the IPv4 forward chain before doing anything with IPv6
+for `vlan-services`/`vlan-iot` (finding 21, deliberately deferred — see its updated entry in
+[config-review.md](config-review.md)). Read MikroTik's
+["Building Advanced Firewall"](https://help.mikrotik.com/docs/spaces/ROS/pages/328513/Building+Advanced+Firewall)
+guide and applied its jump-chain pattern: one custom chain per traffic relationship
+(`users2internet`, `services2internet`, `iot2internet`, `users2services`, `users2iot`,
+`services2users`, `services2iot`, `iot2users`, `iot2services`, `internet2services`), a `WAN`
+interface list (`ether1`) instead of the literal interface name, and a dispatch section of
+`jump` rules ahead of the old individual rules.
+
+Applied via `scripts/phase5-02-firewall-reorg-chains.rsc` in safe mode. Every new rule's
+comment is prefixed with its own chain name, deliberately never reusing an old rule's exact
+comment text — this project has repeatedly hit `find`/`remove` behaving unreliably on
+ambiguous combined conditions, and reusing old comment text would have made the later cleanup
+(removing old rules by comment) unsafe. Caught and fixed in my own draft before handoff.
+
+**Three real policy bugs found and fixed during Guillaume's review of the draft, before it was
+ever applied:**
+- `services2internet` had a blanket `accept connection-state=new` as its first rule, making
+  the Pi-hole DNS accept after it permanently dead code — the exact same class of mistake as
+  finding 19. Replaced with HTTP/HTTPS (tcp/80,443) from any services host, Pi-hole's own DNS,
+  then a logged deny.
+- `users2iot` was missing a general exception for OctoPrint's web UI — added
+  (tcp/80, dst-address-list=octoprint), plus a new `octoprint` address list. Guillaume edited
+  the draft himself to also point `iot2internet` at the same `octoprint` list rather than the
+  pre-existing, identical-membership `iot-internet` list I had left it on (my reasoning — "may
+  diverge later" — was speculative; consolidating was the better call, applied, `iot-internet`
+  scheduled for removal as now-unused).
+- `iot2services`' DNS-to-Pi-hole accept was UDP and TCP; narrowed to UDP only (this project has
+  never needed DNS-over-TCP for IoT devices), which also made the ceiling fan's TCP DNS-drop
+  override redundant — removed.
+
+`internet2services`'s jump was also deliberately scoped with
+`in-interface=ether1 out-interface=vlan-services`, tightening what had been an unscoped rule —
+safe, since the matching dst-nat can only ever arrive that way.
+
+**Verified live** (pasted safe-mode output): all 25 sub-chain rules present and correct, zero
+`I - INVALID` flags anywhere, the 10 dispatch jumps landed right after
+fasttrack/established-related and ahead of every old rule. Careful reachability analysis of
+that output showed every one of the ~21 old `users`/`services`/`iot`-related forward rules —
+including the original, previously-undiscovered bug where `Home can connect everywhere
+(vlan-users)` had no `out-interface` restriction, silently bypassing `mgmt`-gating for
+`users -> services`/`users -> iot` since Phase 4 — was now provably unreachable: every
+destination interface for that traffic is claimed by an earlier terminating jump. No separate
+fix was needed for that bug; removing it along with everything else (Phase 5's next step,
+`scripts/phase5-06-firewall-reorg-cleanup.rsc`) closes it.
+
+**DNS-over-TLS from Pi-hole, found in logs (2026-09-10).** Guillaume noticed Pi-hole also
+resolves upstream over DoT (tcp/853), not just plain DNS — not covered by the reorg. Added via
+`scripts/phase5-03-pihole-dot.rsc`, positioned next to Pi-hole's existing DNS accept in
+`services2internet`. Verified: correctly placed, no `I` flag.
+
+**Before running the cleanup, reviewed live firewall logs as a safety check** (Guillaume's
+explicit request) and found two real gaps the reorg had missed, both invisible before because
+the old ruleset never covered them either — not a reorg regression, just newly visible thanks
+to the new per-chain log prefixes:
+- Home Assistant repeatedly retrying two `vlan-users` hosts it has integrations for: the
+  printer (`192.168.10.110`, CUPS/631) and a Samsung TV (`192.168.10.195`, port 8002).
+  Confirmed by Guillaume and added to `services2users` via
+  `scripts/phase5-04-firewall-additions.rsc`.
+- A large burst of TCP/853 (DoT) connection attempts from Home Assistant itself
+  (`192.168.20.60`), not Pi-hole — to Cloudflare's `1.1.1.1`/`1.0.0.1`. Left open, not fixed;
+  worth understanding before deciding whether it needs an exception or is itself a problem to
+  chase down on the HA side.
+- The same log review also showed Pi-hole's own NTP traffic (udp/123, to public pool servers)
+  being denied — a genuine regression, since the old blanket accept covered it incidentally.
+  Not fixed with a firewall rule: Guillaume wants Pi-hole (and other services/IoT clients)
+  sourcing time from mikrotik1 itself via the DHCP-advertised NTP option instead of reaching
+  the internet directly for it — see the new finding in
+  [config-review.md](config-review.md).
+
+**HA-sourced rules tightened to `src-address=192.168.20.60` (2026-09-10).** Guillaume asked
+for a pass over every rule whose comment names Home Assistant as the traffic's origin, to
+confirm each was actually scoped to HA's address, not just by destination. Five qualified —
+the two just-added `services2users` rules (printer, Samsung TV) and three `services2iot`
+rules live since `phase5-02` (Tuya local/6668, Tasmota/IotaWatt/80, ESPHome/IotaWatt/6053) —
+none had `src-address` set. Fixed via `scripts/phase5-05-restrict-ha-source.rsc`, one `set`
+per rule matched by its own comment.
+
+Deliberately left unrestricted: `services2internet`'s HTTP/HTTPS rule (intentionally "any
+services host" by Guillaume's own design, not HA-specific), and the `services2iot` rules'
+lack of a destination restriction (Guillaume's explicit call — he wants to add IoT devices on
+those ports without reconfiguring the firewall each time; source-address scoping to HA is
+enough).
+
+**Verified:** `/ip/firewall/filter/print where chain=services2users` and
+`where chain=services2iot`, both pasted after each change, matching exactly what was
+intended.
+
+Cleanup of the now-dead old rules (`scripts/phase5-06-firewall-reorg-cleanup.rsc`) is written
+and linted but not yet applied — next step.

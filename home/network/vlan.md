@@ -12,8 +12,12 @@ document holds the design reference and current state, not the story of how it w
 - **Pi-hole, Home Assistant, Kids light, ceiling fan, OctoPrint**: migrated and verified.
 - **IotaWatt**: router-side config applied, device-side verification still pending (was
   unreachable, possibly pre-existing — device currently powered off).
-- **Phase 5, next**: read a week of `infra2users`/`users2services`/`users2iot`/`iot-drop` log
-  evidence and tighten from there (see Phase 5 below).
+- **Phase 5, in progress (2026-09-09/10)**: findings 19/20 cleanup done; forward chain
+  reorganized into one jump-chain per VLAN pair, log-reviewed and tightened (Pi-hole DoT, HA's
+  printer/Samsung-TV exceptions, HA-source scoping) — see `changelog.md`. Final step (removing
+  the now-dead old individual rules) written, not yet applied. IPv6 for
+  `vlan-services`/`vlan-iot` (finding 21) deliberately deferred until this IPv4 work is fully
+  wrapped up.
 - **Open, not blocking**: the "second laptop" in the device inventory is still unidentified.
 
 **Before writing any new `find`-based command**, skim `README.md`'s hard-won lessons —
@@ -361,25 +365,32 @@ IP-based address instead of a discovered one.
 
 ## Phase 5 — read the evidence, then tighten
 
-After a week of normal use:
+Findings 19/20 (dead debris) closed 2026-09-09. The rest of Phase 5 turned into a full forward
+chain reorganization rather than incremental tightening of the old rule set — see
+`changelog.md`'s Phase 5 entry for the complete story. Summary of what the original checklist
+below turned into:
 
-```
-/log/print where message~"infra2users"
-/log/print where message~"users2services"
-/log/print where message~"users2iot"
-/log/print where message~"iot-drop"
-```
-
-- Convert genuine hits into narrow rules, or confirm none and set `log=no`.
-- Remove the temporary `users -> services tcp/1883` rule (added during Home Assistant's
-  migration, superseded by the permanent `iot: MQTT to HA` rule).
-- Once IotaWatt is verified: re-run `iot-internet`'s address-list check below and consider it
-  the last device migration to close out.
-- Confirm `iot-internet` still has exactly the OctoPrint entries — growth is the signal to
-  give those devices their own VLAN instead.
-- Narrow `services -> internet` from blanket allow to specific ports (DNS upstream for
-  Pi-hole, HTTPS for HA) once actual needs are confirmed.
-- Consider moving VLAN 10 to tagged-only on the trunks.
+- ~~Convert genuine `infra2users`/`users2services`/`users2iot`/`iot-drop` log hits into narrow
+  rules~~ — superseded: the whole forward chain was reorganized into one jump-chain per VLAN
+  pair instead (`users2internet`, `services2internet`, `iot2internet`, `users2services`,
+  `users2iot`, `services2users`, `services2iot`, `iot2users`, `iot2services`,
+  `internet2services`), each with its own `log=yes` deny-everything-else at the end. Verified
+  clean, then log-reviewed before cleanup as this checklist intended — found and fixed
+  Pi-hole's DNS-over-TLS, Home Assistant's printer/Samsung-TV access, and missing
+  `src-address` scoping on every HA-sourced rule. Still open from that review: an unexplained
+  burst of DoT attempts from HA itself (not Pi-hole) to Cloudflare, and Pi-hole's NTP
+  apparently not honoring the DHCP-supplied `ntp-services` option (config-review.md finding
+  23).
+- **Remove the temporary `users -> services tcp/1883` rule** — folded into
+  `scripts/phase5-06-firewall-reorg-cleanup.rsc` (not yet applied) along with every other old
+  rule the reorg made dead.
+- **Narrow `services -> internet` from blanket allow to specific ports** — done: HTTP/HTTPS
+  plus Pi-hole's own DNS/DoT, everything else denied and logged.
+- Once IotaWatt is verified: re-run `octoprint`'s (formerly `iot-internet`'s) address-list
+  check and consider it the last device migration to close out. Still pending.
+- Confirm `octoprint`'s address list still has exactly the OctoPrint entries — growth is the
+  signal to give those devices their own VLAN instead. Still applies.
+- Consider moving VLAN 10 to tagged-only on the trunks. Still open, unrelated to the reorg.
 
 ## Open technical question
 
