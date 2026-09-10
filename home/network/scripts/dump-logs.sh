@@ -10,13 +10,14 @@
 #   ./dump-logs.sh [output-dir]
 #
 # Defaults to ../logs (i.e. home/network/logs, regardless of this script's
-# own location). Each run writes a new timestamped file rather than
-# overwriting one — RouterOS's own memory log buffer is small and rotates,
-# so anything not captured before it fills is gone for good. Run this
-# regularly (a periodic cron job, or by hand every so often) rather than
-# only once something's already suspected, so a week of evidence is
-# actually available when you go looking for it (see vlan.md's Phase 5
-# section for what this was originally meant to support).
+# own location). Each run overwrites the previous dump — no historical
+# data kept, just the latest snapshot. RouterOS's own memory log buffer is
+# small and rotates, so anything not captured before it fills is gone for
+# good. Run this regularly (a periodic cron job, or by hand every so
+# often) rather than only once something's already suspected, so recent
+# evidence is actually available when you go looking for it (see
+# vlan.md's Phase 5 section for what this was originally meant to
+# support).
 #
 # Override the login with MIKROTIK_USER=someone ./dump-logs.sh
 
@@ -29,7 +30,7 @@ HOST="192.168.10.1"
 NAME="mikrotik1-main"
 
 mkdir -p "$OUTDIR"
-OUT="$OUTDIR/${NAME}-$(date +%Y-%m-%d_%H%M%S).txt"
+OUT="$OUTDIR/${NAME}.txt"
 
 if ! timeout 5 bash -c "</dev/tcp/$HOST/22" 2>/dev/null; then
   echo "port 22 unreachable on $HOST — aborting" >&2

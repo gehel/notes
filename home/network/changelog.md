@@ -1004,7 +1004,43 @@ Both fixed via `scripts/phase5-07-firewall-final-polish.rsc`.
 established/fasttrack, 10 dispatch jumps all using `WAN` where they reference the internet
 side, then the pre-existing anti-scan/anti-spam/bogon rules, unchanged), NAT's `masquerade` and
 `dst-nat` both on `WAN`, `iot-internet` gone from the address-list table, no leftover VLAN-era
-rules anywhere. **Phase 5's firewall reorg is done.** Next up: pick finding 21 (IPv6 for
-`vlan-services`/`vlan-iot`) back up, and separately investigate finding 23 (Pi-hole's NTP not
-honoring the DHCP-supplied option) and the still-unexplained DoT burst from Home Assistant
-itself.
+rules anywhere.
+
+**Two more gaps found from a second round of log review (2026-09-10), after `dump-logs.sh`
+made it easy to check regularly:**
+
+- **Pi-hole needs DNS over TCP too, not just UDP** — 166 denied attempts in one log snapshot,
+  Pi-hole (`192.168.20.40`) falling back to TCP/53 for large or DNSSEC-heavy responses, only
+  UDP/53 was ever allowed. Guillaume applied the fix directly:
+  `services2internet: Pi-hole's own upstream DNS (TCP)`, positioned next to the existing UDP
+  rule.
+- **A real regression in the reorg itself, caught by Guillaume from reading the chain, not the
+  logs**: the general forward-chain hygiene rules (syn-flood detect+drop, the ICMP jump,
+  bogon-drop, spammer detect+drop, drop-invalid) sat *after* the ten dispatch jumps. Since
+  those jumps match on interface pairs alone and every sub-chain they call terminates
+  unconditionally, essentially all real traffic was swallowed by the dispatch section before
+  ever reaching this block — it had been dead or misattributed since the reorg. The three
+  `connection-state=invalid` HA packets seen in the earlier log review, logged under
+  `services2internet`'s deny-all instead of the dedicated "drop invalid" rule, were the tell.
+  Fixed via `scripts/phase5-09-forward-chain-hygiene-reorder.rsc`: moved the whole block
+  (preserving its internal order) to right after "accept established,related", before the
+  dispatch section, using single-condition `/move` commands per this project's own
+  find-reliability history.
+
+  **Deliberate side effect, confirmed with Guillaume before applying**: moving the ICMP jump
+  this early means `chain=ICMP`'s own rules now decide every ICMP packet's fate regardless of
+  VLAN pair, since (unlike the other five rules moved) it wasn't purely dead — some VLAN pairs
+  (`users -> internet`) already got unrestricted ICMP via their own chain's blanket accept.
+  The result is a real widening: ping now works uniformly, rate-limited, between every VLAN
+  pair and to/from the internet — including `iot <-> services`/`users`, which had no ICMP
+  accept anywhere before. Chosen deliberately (via `AskUserQuestion`) over keeping ICMP
+  VLAN-scoped, on the reasoning that ping is low-risk and rate-limited either way.
+
+**Verified: full `chain=forward` printed clean after the move** — order is now
+established/related, syn-flood detect+drop, ICMP jump, bogon-drop, spammer detect+drop,
+drop-invalid, *then* the ten dispatch jumps, then the final catch-all — no `I - INVALID`
+flags anywhere, rule content unchanged, only positions moved. **Phase 5's firewall reorg is
+done.** Next up: pick finding 21 (IPv6 for `vlan-services`/`vlan-iot`) back up, and separately
+investigate finding 23 (Pi-hole's NTP not honoring the DHCP-supplied option) and the
+still-unexplained recurring DoT burst from Home Assistant itself (still seen in the most
+recent log snapshot, 270 more hits).
