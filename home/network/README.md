@@ -8,11 +8,11 @@ Written so that work can resume from these documents alone, with no session hist
 **Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-5 done.** Three VLANs
 (`users`/`services`/`iot`), full renumber, real firewall policy — all live. The forward chain
 is reorganized into one jump-chain per VLAN pair, log-reviewed and tightened, with the old
-rules fully cleaned up. In progress: finding 21, bringing IPv6 up to the same shape — phases 1-2
-(`vlan-users`/`vlan-services`) done 2026-09-10; phase 3 (`vlan-iot`) applied the same day but
-still needs its one functional check (OctoPrint's internet exception, OctoPrint was offline).
-IotaWatt still needs device-side verification. Read
-`vlan.md`'s **Status** section first.
+rules fully cleaned up. **Finding 21 (IPv6 up to the same shape on every VLAN) closed
+2026-09-11** — all three phases verified end-to-end from real clients; see `ipv6.md` and
+`changelog.md`, including a real bug found along the way (IPv6 privacy extensions on
+Pi-hole/OctoPrint silently broke the EUI-64 address pinning, fixed per-host). IotaWatt still
+needs device-side verification. Read `vlan.md`'s **Status** section first.
 
 ## The network as it stands
 
@@ -51,7 +51,7 @@ this regularly rather than only once something's already suspected.
 
 | File | What it holds |
 |---|---|
-| [vlan.md](vlan.md) | **Active, Phases 0-5 done, finding 21 (IPv6) next.** VLAN design, device inventory, address plan, migration reference |
+| [vlan.md](vlan.md) | **Phases 0-5 done, finding 21 (IPv6) closed 2026-09-11.** VLAN design, device inventory, address plan, migration reference |
 | [wifi.md](wifi.md) | Wireless: the channel fix already applied, the 5 GHz plan, mikrotik4 build |
 | [config-review.md](config-review.md) | Open findings and the hardware/architecture decisions |
 | [firewall.md](firewall.md) | Every live firewall rule, in evaluation order, on all three devices |
@@ -70,9 +70,7 @@ address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`
 ## Everything currently open
 
 **VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint verified. Open: IotaWatt
-(unreachable) device-side; finding 21 (IPv6 for every VLAN) — `vlan-users` and `vlan-services`
-done 2026-09-10, `vlan-iot` applied the same day but not yet functionally verified (OctoPrint
-was offline — its internet exception is the one thing left to check). The "second laptop" from
+(unreachable) device-side. Finding 21 (IPv6 for every VLAN) closed 2026-09-11. The "second laptop" from
 the device inventory is still
 unidentified.
 
@@ -85,12 +83,11 @@ unidentified.
 - Both existing APs are 2.4 GHz only. TX power rose 16 -> 20 dBm as a side effect of the
   channel fix; deliberately not adjusted yet.
 
-**Main router** — [config-review.md](config-review.md). Open findings: IPv6 never extended
-to `vlan-services`/`vlan-iot` (21, next up), a minor `connection-state=new` inconsistency
-on `chain=input` (22, informational, no known impact), and no mechanism to update
-`home.ledcom.fr`'s DNS record when the public IP changes (25, medium — found 2026-09-11,
-bit us twice in one day during the Internet-Box replacement). mikrotik4 has never been
-reviewed; needs the full S1-S16 pass when it returns.
+**Main router** — [config-review.md](config-review.md). Open findings: a minor
+`connection-state=new` inconsistency on `chain=input` (22, informational, no known impact),
+and no mechanism to update `home.ledcom.fr`'s DNS record when the public IP changes (25,
+medium — found 2026-09-11, bit us twice in one day during the Internet-Box replacement).
+mikrotik4 has never been reviewed; needs the full S1-S16 pass when it returns.
 
 **Hardware.**
 - Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ

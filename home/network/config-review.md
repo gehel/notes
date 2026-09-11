@@ -33,38 +33,6 @@ findings `S<n>`, so the two sets never collide.
 
 ## Open findings
 
-### 21. IPv6 firewall was never extended to `vlan-services`/`vlan-iot` (low)
-
-Found 2026-09-08. [ipv6.md](ipv6.md)'s "Migrated onto `vlan-users`" work moved the router's own
-IPv6 address, RA and firewall rules from `bridge-main` onto `vlan-users` — but only `vlan-users`.
-`/ipv6/firewall/filter/print` has an input and a forward accept for `vlan-users` and nothing at
-all for `vlan-services` or `vlan-iot`, which both fall through to the chain's terminating drops
-(the dead `bridge-main` twins of the `vlan-users` pair were cleaned up as part of finding 20's
-debris removal, 2026-09-09).
-
-**Not a security problem — it fails closed** — but it's an undocumented gap, not a decision: the
-IPv4 policy explicitly grants `services -> internet: allow` (added deliberately during Pi-hole's
-migration, [changelog.md](changelog.md)), while IPv6 silently gives `vlan-services` no internet
-access at all. For `vlan-iot` the accidental result actually matches the intended "no internet of
-any kind" policy — but for the wrong reason, and it would silently break the day someone adds a
-real IPv6 rule to `vlan-iot` without realizing there was never a matching input accept either.
-
-**2026-09-09: deliberately deferred, now unblocked (2026-09-10).** Guillaume wants full IPv6
-for `vlan-services`/`vlan-iot` (addressing + RA + the IPv6 equivalent of the existing IPv4
-policy matrix), not the minimal "add two accept rules" fix originally sketched above — but
-decided the IPv4 forward chain needed cleaning up and reorganizing first. That reorg (Phase 5's
-jump-chain work, see [changelog.md](changelog.md)) is now fully done and documented, so this is
-next up.
-
-**In progress.** Phase 1 (`vlan-users`'s own IPv6 firewall restructured to the same
-per-VLAN-pair dispatch shape as IPv4, closing an incidental gap where router management was
-reachable from `vlan-users` over IPv6 with none of IPv4's `mgmt`-list scoping) and phase 2
-(`vlan-services` addressing + a matching, narrower firewall) both done and verified 2026-09-10
-— see [changelog.md](changelog.md). Phase 3 (`vlan-iot` addressing + a deny-by-default
-firewall with a named OctoPrint exception) applied 2026-09-10 but **not yet functionally
-verified** — OctoPrint was offline. Stays open until confirmed.
-
-
 ### 22. `chain=input` accepts are inconsistent about `connection-state=new` (informational)
 
 Found 2026-09-08, the exact audit this document had planned to run. Every `chain=forward` accept

@@ -190,33 +190,86 @@ each with the same per-VLAN-pair dispatch shape the IPv4 firewall already uses (
   IPv6, with none of IPv4's `mgmt`-list scoping. Fixed by not exposing router management over
   IPv6 at all — SLAAC gives no stable per-host address to scope an address-list against, so
   "not exposed" is the honest equivalent rather than a leaky approximation.
-- **Phase 2, `vlan-services` (done).** Got its own `/64` and RA, same pattern as `vlan-users`.
-  Its IPv4 firewall scopes several rules to Home Assistant's own address specifically
-  (`192.168.20.60`) — not reproducible directly under SLAAC, so Home Assistant's IPv6 address
-  is pinned via a computed **EUI-64** address instead of a DHCP-style reservation: take its
-  known LAN MAC (`D8:3A:DD:31:E0:59`, from `/ip dhcp-server lease`), flip the
-  universal/local bit of the first byte, split around `ff:fe`, and append the result to the
-  VLAN's actual `/64`. Held in the `ha-v6` IPv6 address-list. Two caveats that don't apply to
-  IPv4's version of this scoping:
-  - Valid only as long as Home Assistant's host keeps IPv6 privacy extensions (RFC 4941
-    temporary addresses) off — otherwise it prefers a rotating source address for outbound
-    connections and stops matching `ha-v6` entirely.
+- **Phase 2, `vlan-services` (done, verified 2026-09-11).** Got its own `/64` and RA, same
+  pattern as `vlan-users`. Its IPv4 firewall scopes several rules to Home Assistant's own
+  address specifically (`192.168.20.60`) — not reproducible directly under SLAAC, so Home
+  Assistant's IPv6 address is pinned via a computed **EUI-64** address instead of a
+  DHCP-style reservation: take its known LAN MAC (`D8:3A:DD:31:E0:59`, from
+  `/ip dhcp-server lease`), flip the universal/local bit of the first byte, split around
+  `ff:fe`, and append the result to the VLAN's actual `/64`. Held in the `ha-v6` IPv6
+  address-list; Pi-hole's own (`pihole-v6`) followed the same recipe once its DNS exception
+  was added (below). Two caveats that don't apply to IPv4's version of this scoping, **both
+  of which turned out to be real, not just theoretical** — see
+  [Privacy extensions broke the EUI-64 pinning](#privacy-extensions-broke-the-eui-64-pinning-2026-09-11)
+  below:
+  - Valid only as long as the host keeps IPv6 privacy extensions (RFC 4941 temporary
+    addresses) off — otherwise it prefers a rotating source address for outbound connections
+    and stops matching the address-list entirely.
   - The prefix half is Swisscom's current delegation, which this document already says is not
-    stable — if it's ever re-delegated, `ha-v6`'s one entry needs recomputing.
+    stable — if it's ever re-delegated, every pinned entry needs recomputing. Happened once
+    already, the same day this was built (see `changelog.md`'s Internet-Box replacement
+    entry).
 
-  Pi-hole's own IPv6 address was computed the same way (from `B8:27:EB:83:79:48`) but not yet
-  added to an address-list — nothing currently needs to reference it specifically.
   `services2internet` (HTTP/HTTPS) is host-unscoped, matching IPv4's own rule 45, which isn't
-  host-scoped either. `services2iot` wasn't added — `vlan-iot` has no IPv6 yet.
-- **Phase 3, `vlan-iot` — applied 2026-09-10, verification pending.** Small, as expected: its
-  own `/64` and RA, then a deny-by-default `iot2internet` chain with one named exception —
-  OctoPrint, mirroring its existing IPv4 `octoprint` address-list, pinned via EUI-64 the same
-  way as `ha-v6` (`octoprint-v6`, both its wifi and wired MACs). No `iot2services`/`iot2users`
-  chains — nothing here needs IPv6 access to either, so both fall through to the general
-  catch-all, same outcome as an explicit deny. This closes the accidentally-correct gap finding
-  21 originally described for this VLAN, deliberately rather than by accident. **Not yet
-  functionally verified** — OctoPrint, the one device the exception matters for, was offline
-  when this was applied. See `changelog.md`.
+  host-scoped either. Pi-hole's own upstream DNS/DoT exception (mirroring its IPv4 one) was
+  added 2026-09-11 after the firewall log showed it repeatedly failing over IPv6 — the
+  original "nothing needs it yet" assumption turned out wrong once real traffic was observed.
+  `services2iot` still doesn't exist — `vlan-iot` doesn't need it.
+- **Phase 3, `vlan-iot` (done, verified 2026-09-11).** Its own `/64` and RA, then a
+  deny-by-default `iot2internet` chain with one named exception — OctoPrint, mirroring its
+  existing IPv4 `octoprint` address-list, pinned via EUI-64 the same way as `ha-v6`
+  (`octoprint-v6`, both its wifi and wired MACs). No `iot2services`/`iot2users` chains —
+  nothing here needs IPv6 access to either, so both fall through to the general catch-all,
+  same outcome as an explicit deny. This closes the accidentally-correct gap finding 21
+  originally described for this VLAN, deliberately rather than by accident. Confirmed working
+  via `ping -6`/`curl -6` from OctoPrint itself, once its own address was fixed to actually
+  match `octoprint-v6` (below).
+
+### Privacy extensions broke the EUI-64 pinning (2026-09-11)
+
+Found while reviewing a firewall log the day after phase 2 shipped: Pi-hole's and OctoPrint's
+*real* outbound IPv6 traffic used addresses that didn't match `pihole-v6`/`octoprint-v6` at
+all — `2a02:...2f67:e1e2:25f2:be49` instead of Pi-hole's computed
+`2a02:...ba27:ebff:fe83:7948`, for instance. Both hosts had IPv6 privacy extensions on,
+contradicting the assumption made when this design was chosen ("likely already the default on
+a Pi-hole/Debian install") — an assumption that was never actually verified against real
+traffic until this log review. The address-list-scoped rules looked entirely correct on
+`print` the whole time; only checking actual traffic revealed they'd never matched anything
+real.
+
+**Fixed per host** (Pi-hole, OctoPrint; Home Assistant not yet checked or fixed — no
+`services2users`-triggering traffic has been observed from it to confirm either way):
+
+```
+sudo tee /etc/sysctl.d/99-disable-ipv6-privacy.conf <<'EOF'
+net.ipv6.conf.all.use_tempaddr = 0
+net.ipv6.conf.default.use_tempaddr = 0
+net.ipv6.conf.all.addr_gen_mode = 0
+net.ipv6.conf.default.addr_gen_mode = 0
+EOF
+sudo sysctl --system
+
+# NetworkManager can override the sysctl on reconnect -- belt and suspenders
+sudo nmcli connection modify <connection-name> ipv6.ip6-privacy 0 ipv6.addr-gen-mode eui64
+sudo nmcli connection up <connection-name>
+sudo reboot
+```
+
+`addr_gen_mode=0` matters as much as `use_tempaddr=0`: modern NetworkManager/systemd-networkd
+defaults often use RFC 7217 "stable-privacy" addressing for the *permanent* address too — a
+stable but non-MAC-derived hash, not classic EUI-64. Disabling only temporary addresses isn't
+enough; the generation mode has to be forced to EUI-64 explicitly.
+
+**Verified:** `ip -6 addr show scope global` on both hosts, post-reboot, now shows exactly the
+precomputed EUI-64 address. Functional confirmation followed from each host directly
+(`ping -6`/`curl -6` from OctoPrint; Pi-hole's `ping -6` — its DNS-over-v6 specifically wasn't
+independently re-tested, `dig` wasn't available on the host tried, but the address match plus
+the already-proven rule mechanism from phase 2's Pi-hole-exclusion test make this high
+confidence, not a direct retest).
+
+**If either address-list stops matching real traffic again, check privacy extensions before
+the prefix** — this is now the second time an assumption about a "fixed appliance" host's own
+network behavior turned out to need direct verification rather than being taken on faith.
 
 ## Internet-Box replacement (2026-09-11)
 

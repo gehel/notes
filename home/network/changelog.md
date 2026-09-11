@@ -1529,3 +1529,113 @@ pattern for `/ipv6/firewall/filter`, not re-verified for clearing this time.
 **Verification pending:** confirm via `/log/print` after a few minutes that the ceiling fan's
 entries have actually stopped, and confirm Pi-hole's IPv6 upstream queries succeed instead of
 being logged as dropped (wait ~10 minutes for its next check, or trigger one directly).
+
+### Finding 21 (IPv6 for every VLAN) — closed, after finding a real pinning bug (2026-09-11)
+
+Following up on the log review above: checking whether Pi-hole's new `pihole-v6` DNS exception
+actually worked (not just that the rule looked right) turned up a real bug affecting the whole
+EUI-64-pinning approach from phases 2-3, not just Pi-hole.
+
+**The bug.** A fresh log check, filtered to Pi-hole's traffic *after* the `pihole-v6` fix was
+applied and confirmed live, showed its DNS-over-IPv6 queries still being dropped by
+`services2internet`'s catch-all. Its actual source address —
+`2a02:1210:7621:9a41:2f67:e1e2:25f2:be49` — didn't match the computed EUI-64 entry
+(`...ba27:ebff:fe83:7948`) at all. Same story for OctoPrint, checked at the same time:
+real traffic from `...1b66:2a1a:7ff9:3e39`, `octoprint-v6` holding `...e65f:1ff:feda:2296`.
+Both hosts have IPv6 privacy extensions (RFC 4941 temporary addresses) on, contradicting the
+assumption made when `ha-v6` was designed in phase 2 ("likely already the default on a
+Pi-hole/Debian install") — an assumption never actually checked against real traffic until
+now. The rules were entirely correct on `print` the whole time; only watching real packets
+revealed they'd never matched anything.
+
+**Fixed per host**, Pi-hole and OctoPrint (Home Assistant not checked or fixed — no
+`services2users`-triggering traffic has been observed from it either way, so whether `ha-v6`
+has the same problem is still unknown):
+
+```
+sudo tee /etc/sysctl.d/99-disable-ipv6-privacy.conf <<'EOF'
+net.ipv6.conf.all.use_tempaddr = 0
+net.ipv6.conf.default.use_tempaddr = 0
+net.ipv6.conf.all.addr_gen_mode = 0
+net.ipv6.conf.default.addr_gen_mode = 0
+EOF
+sudo sysctl --system
+
+sudo nmcli connection modify <connection-name> ipv6.ip6-privacy 0 ipv6.addr-gen-mode eui64
+sudo nmcli connection up <connection-name>
+sudo reboot
+```
+
+`addr_gen_mode=0` (force EUI-64) matters as much as `use_tempaddr=0` (disable temporary
+addresses) — modern NetworkManager/systemd-networkd defaults often use RFC 7217
+"stable-privacy" for the *permanent* address too, a stable but non-MAC-derived hash. Disabling
+only temporary addresses would have left the permanent address wrong as well. `nmcli` was
+applied in addition to the sysctl file as belt-and-suspenders, since NetworkManager can
+override the raw kernel default on reconnect — worth it in practice: both hosts' first sysctl
+file had a typo (`user_tempaddr` on Pi-hole, `addr_gen_mdoe` on OctoPrint) that would have
+silently left `addr_gen_mode` unset via that path alone; the `nmcli` change is what actually
+took effect for both.
+
+**Verified:** `ip -6 addr show scope global` on both hosts, post-reboot, now shows exactly the
+precomputed EUI-64 address (confirmed, not assumed). Functional retest from each:
+
+```
+# Pi-hole
+ping -6 -c 3 2606:4700:4700::1111   # 0% loss (its DNS-over-v6 specifically wasn't
+                                     # independently retested -- dig wasn't installed on the
+                                     # host tried -- but the address now matches pihole-v6
+                                     # exactly, and the rule mechanism was already proven
+                                     # correct in phase 2's Pi-hole-exclusion test)
+
+# OctoPrint
+ping -6 -c 3 2606:4700:4700::1111   # 0% loss
+curl -6 https://ifconfig.co         # succeeded, returning the router's WAN v6 address
+                                     # (NAT66 working) -- finding 21 phase 3 now fully
+                                     # confirmed end-to-end, the check that was blocked on
+                                     # OctoPrint being offline since 2026-09-10
+```
+
+**Finding 21 is now closed** — all three phases (`vlan-users`, `vlan-services`, `vlan-iot`)
+verified end-to-end from real clients. Moved out of `config-review.md`'s open findings; full
+history is this entry plus the phase 1-3 entries earlier in this file.
+
+### OctoPrint: NTP and DNS also not following DHCP (2026-09-11)
+
+Found while chasing the above: OctoPrint's `curl -6` initially failed with `SSL certificate
+problem: certificate is not yet valid` — not a network problem. `date` on the host showed
+`Wed 20 Nov 2024`, nearly two years behind real time. Root cause matched a pattern already
+documented for the Kids Light Tasmota device (see the DHCP-to-DNS section earlier in this
+file): OctoPrint's `systemd-timesyncd` was pointed at public NTP pool servers, not honoring
+DHCP option 42, and those outbound NTP attempts (confirmed in the firewall log, `iot2internet`
+drops to `2a02:168:420b:4::7b:13`/`2a10:8247:0:1013::11` on UDP/123) were correctly being
+blocked — IoT devices use the local NTP server by design, not the internet.
+
+**Fixed:**
+
+```
+sudo tee /etc/systemd/timesyncd.conf <<'CONF'
+[Time]
+NTP=192.168.30.1
+FallbackNTP=
+CONF
+sudo systemctl restart systemd-timesyncd
+```
+
+`FallbackNTP=` set empty deliberately — left at its default, systemd-timesyncd falls back to
+its compiled-in public servers whenever the primary is briefly unreachable, silently
+recreating the same problem later.
+
+**Verified:** `timedatectl timesync-status` showed `Server: 192.168.30.1`, a real stratum-2
+reference, and a one-time offset correction of about 1 year 9 months; `date` immediately after
+showed the correct current time. `curl -6 https://ifconfig.co` (see above) then succeeded
+cleanly, confirming the TLS failure really was just the clock.
+
+**A related DNS quirk, resolved without any firewall change.** The `iot2internet` log also
+showed OctoPrint repeatedly querying `1.1.1.1:53` directly over TCP, blocked the same way —
+despite `/etc/resolv.conf` correctly pointing at Pi-hole (`nameserver 192.168.20.40`) the whole
+time. Root cause: OctoPrint's own **Connectivity Check** feature (Settings → Server → Online
+connectivity) does its own DNS lookup against a hardcoded public server, by design, to tell a
+real outage apart from a broken local resolver — it doesn't use the OS resolver at all. Fixed
+by Guillaume directly in OctoPrint's own settings, retargeting the check to Wikipedia's public
+IP (`185.15.58.224`) on port 80 instead of a DNS lookup — already covered by the existing
+`octoprint`/`octoprint-v6` exception (`dst-port=80,443`), so no firewall change was needed.

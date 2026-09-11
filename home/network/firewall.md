@@ -2,10 +2,10 @@
 
 Generated 2026-09-10 from that day's [dumps/](dumps/) (17:30 collection — post-Phase-5
 jump-chain reorg, the forward-chain hygiene reorder, Pi-hole's DNS/TCP accept, and the two new
-`chain=input` NTP rules). This is the actual ruleset, in the actual order it's evaluated in —
-not the design intent. For the intended policy and the reasoning behind it, see
-[vlan.md](vlan.md)'s policy matrix; for open issues, see [config-review.md](config-review.md)
-finding 21, referenced inline below as **[21]**.
+`chain=input` NTP rules); the IPv6 section below reflects 2026-09-11's finding 21 completion
+and log-review fixes on top of that. This is the actual ruleset, in the actual order it's
+evaluated in — not the design intent. For the intended policy and the reasoning behind it, see
+[vlan.md](vlan.md)'s policy matrix; for open issues, see [config-review.md](config-review.md).
 
 RouterOS evaluates each chain top to bottom and stops at the first match, so **position is
 part of the rule** — a correct-looking rule in the wrong place is a bug. That's why this is a
@@ -20,7 +20,7 @@ cell below corresponds to exactly one jump-chain, named the same way:
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **services** | HTTP/HTTPS from any services host; Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`, IPv4 only — **[21]**) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
+| **services** | HTTP/HTTPS from any services host; Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **iot** | DROP by default; named exception `octoprint` list, ports 80/443 (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
@@ -33,12 +33,13 @@ on 2026-09-10, see below). Rate-limited ping now works between every VLAN pair a
 internet, including combinations the table would otherwise suggest are fully denied (e.g.
 `iot <-> services`/`users`) — a deliberate widening, not an oversight.
 
-All three VLANs now have their own IPv6 dispatch chains — see **[21]** and the IPv6 section
-below. `services`'s is narrower than its IPv4 row (HTTP/HTTPS + HA-only access to the
-printer/TV, no IPv6 equivalent of Pi-hole's own DNS/DoT exception yet, since nothing needs it);
-`iot`'s deny-by-default now matches IPv4's intent deliberately rather than by accident, with the
-same `octoprint` internet exception mirrored. `vlan-iot`'s rules are applied but not yet
-functionally verified (OctoPrint was offline) — see `changelog.md`.
+**All three VLANs now have their own IPv6 dispatch chains, fully verified end-to-end as of
+2026-09-11** — see the IPv6 section below and `changelog.md` (finding 21, closed). `services`'s
+IPv6 policy is narrower than its IPv4 row only in `services2users` (HA-only access to the
+printer/TV, by port not by the destination's own address); its DNS/DoT exception now mirrors
+IPv4 fully. `iot`'s deny-by-default matches IPv4's intent deliberately rather than by accident,
+with the same `octoprint` internet exception mirrored — confirmed working end-to-end from
+OctoPrint itself.
 
 ## mikrotik1 (RB2011UiAS, edge router) — `chain=input`
 
@@ -267,14 +268,22 @@ matches the lease time (5m), so the list churns constantly; not reproduced here.
 
 ## mikrotik1 — IPv6 firewall
 
-**Finding 21, in progress:** `vlan-users` (phase 1), `vlan-services` (phase 2), and `vlan-iot`
-(phase 3) all restructured to the same per-VLAN-pair dispatch shape the IPv4 firewall uses,
-applied 2026-09-10. **Phase 3 is applied but not yet functionally verified** — OctoPrint, the
-one thing worth testing, was offline; see `changelog.md`. None of the three VLANs exposes
-router management (ssh/Winbox/API/www) over IPv6 — SLAAC gives no stable per-host address to
-scope an IPv4-style `mgmt` list against, so "not exposed" is the deliberate equivalent rather
-than a leaky approximation. Full design and reasoning in
-[ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
+**Finding 21, closed 2026-09-11.** `vlan-users` (phase 1), `vlan-services` (phase 2), and
+`vlan-iot` (phase 3) all restructured to the same per-VLAN-pair dispatch shape the IPv4
+firewall uses, and all three confirmed working end-to-end from real clients — see
+`changelog.md`. None of the three VLANs exposes router management (ssh/Winbox/API/www) over
+IPv6 — SLAAC gives no stable per-host address to scope an IPv4-style `mgmt` list against, so
+"not exposed" is the deliberate equivalent rather than a leaky approximation. Full design and
+reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
+
+**The `ha-v6`/`pihole-v6`/`octoprint-v6` EUI-64 pinning only works because IPv6 privacy
+extensions were explicitly disabled on Home Assistant, Pi-hole, and OctoPrint** — discovered
+2026-09-11 when Pi-hole and OctoPrint's real traffic used temporary addresses that didn't match
+their computed EUI-64 entries at all, silently defeating the address-list scoping despite the
+rules looking correct on `print`. Fixed per-host (`net.ipv6.conf.*.use_tempaddr=0` and
+`addr_gen_mode=0`, plus the NetworkManager equivalent since it can override the sysctl on
+reconnect); see `changelog.md`. If either address-list stops matching real traffic again, this
+is the first thing to check — not the prefix.
 
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
@@ -330,13 +339,13 @@ computed via EUI-64 the same way as `ha-v6`. No `iot2services`/`iot2users` chain
 nothing on `vlan-iot` needs IPv6 access to either today, so both fall through to the general
 forward catch-all, same outcome as an explicit deny.
 
-**`vlan-iot`'s rules are applied but not yet functionally verified** — OctoPrint, the one
-device the exception matters for, was offline when this was applied. See `changelog.md`;
-`scripts/ipv6-03b-iot-firewall.rsc` stays in place until confirmed.
+**`vlan-iot`'s rules confirmed working end-to-end 2026-09-11** — `ping -6`/`curl -6` from
+OctoPrint itself, once its own IPv6 address was fixed to match `octoprint-v6` (see the privacy
+extensions note above). See `changelog.md`.
 
 New rules again briefly showed `I - INVALID` on `print` immediately after creation in every
 phase — unlike their identically-shaped IPv4 counterparts — and cleared on their own with no
-action taken; phases 1-2 were also confirmed functionally enforced from real clients (see
+action taken; every phase was also confirmed functionally enforced from real clients (see
 `changelog.md`). See `README.md`'s hard-won lessons for the caveat this adds to the existing
 `I - INVALID` catalog.
 
