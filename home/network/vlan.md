@@ -8,11 +8,11 @@ document holds the design reference and current state, not the story of how it w
 
 Still open:
 
-- **Finding 21** — IPv6 for `vlan-services`/`vlan-iot`, next up now that the Phase 5 firewall
-  reorg is finished.
-- **IotaWatt**: router-side config applied, device-side verification still pending (was
-  unreachable, possibly pre-existing — device currently powered off).
 - **Open, not blocking**: the "second laptop" in the device inventory is still unidentified.
+
+Recently closed: finding 21 (IPv6 on every VLAN, 2026-09-11) and IotaWatt's connectivity
+(back online 2026-09-11, router-side config confirmed working, HA integration re-added) — see
+`changelog.md`.
 
 **Before writing any new `find`-based command**, skim `README.md`'s hard-won lessons —
 several RouterOS `find`/`I - INVALID` reliability quirks are easy to re-hit otherwise.
@@ -29,7 +29,7 @@ was later reversed, it says so and points to `changelog.md` for the full reasoni
 | Media (TV, amp, console) | folded into `users` — casting is not worth breaking |
 | Printer | `users`, wired — moved to `services` then **reverted**; mDNS repeater can't reliably support cross-VLAN autodiscovery (RouterOS defect, see `changelog.md`) |
 | OctoPrint | `iot`, wireless for now, wired later via a workshop switch |
-| IoT internet | denied by default, with a **named exception list** — currently OctoPrint only |
+| IoT internet | denied by default, with a **named exception list** — OctoPrint and IotaWatt (both firmware/software update needs) |
 | Wireless | two SSIDs: `LEDCOM` -> vlan 10, `LEDCOM-IoT` -> vlan 30 |
 | Addressing | full renumber, `192.168.10/20/30.0/24` — host numbers preserved (`.40` stays `.40`) |
 | `users -> services` | full for `mgmt` hosts, named services (DNS, HA web) for everyone else |
@@ -88,8 +88,15 @@ local) — narrowly scoped to those ports only.
 GitHub to update itself — and it's the device most worth compromising precisely because it's
 a full Linux host sitting among microcontrollers. Implemented as a named address-list
 (`octoprint`, renamed from `iot-internet` during the Phase 5 reorg) with a narrow forward-chain
-accept for tcp/80,443 ahead of the catch-all drop — see [firewall.md](firewall.md) for the live
-rule and address-list membership.
+accept for tcp/443 ahead of the catch-all drop — see [firewall.md](firewall.md) for the live
+rule and address-list membership. `iotawatt` (added 2026-09-11, same shape, firmware updates)
+is the second entry.
+
+A domain-level allowlist (TLS SNI matching, `tls-host=` — no proxy, transparent to any
+device) was tried and abandoned the same day: found not to work as intended (a wildcard match
+broke OctoPrint's access outright rather than adding visibility) and suspected unreliable
+against modern TLS 1.3/Encrypted Client Hello regardless of that specific bug — see
+`changelog.md`. Both devices are back to unrestricted HTTPS to any destination.
 
 **Keep the list short and review it.** One entry is a decision; six is the policy quietly
 abandoned — if it grows, give those devices their own VLAN with internet instead.
@@ -127,7 +134,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 
 | Device | Address | Attachment | Status |
 |---|---|---|---|
-| IotaWatt | `.30.50` | wireless | applied, unreachable — investigating |
+| IotaWatt | `.30.50` | wireless | migrated, verified — back online 2026-09-11 after an extended outage |
 | Kids light (Tasmota) | `.30.61` | wireless | migrated, verified |
 | Hombli ceiling fan | `.30.63` | wireless | migrated, verified |
 | OctoPrint | `.30.81` (wifi), `.30.80` (wired) | wireless now; mikrotik2 `ether24` tagged for when the wired cable is fixed | migrated, verified (reimaged after a lost system password, reconfigured onto `LEDCOM-IoT`) |
@@ -242,10 +249,12 @@ what the original checklist below turned into:
   removed in a follow-up polish pass along with four remaining literal `ether1` references).
 - **Narrow `services -> internet` from blanket allow to specific ports** — done: HTTP/HTTPS
   plus Pi-hole's own DNS/DoT, everything else denied and logged.
-- Once IotaWatt is verified: re-run `octoprint`'s (formerly `iot-internet`'s) address-list
-  check and consider it the last device migration to close out. Still pending.
-- Confirm `octoprint`'s address list still has exactly the OctoPrint entries — growth is the
-  signal to give those devices their own VLAN instead. Still applies.
+- IotaWatt verified 2026-09-11 — the last device migration is closed out. It got its own
+  `iotawatt` address-list (2026-09-11, firmware updates) rather than joining `octoprint`'s —
+  see `firewall.md`.
+- Confirm `octoprint`'s (and now `iotawatt`'s) address lists still have exactly their intended
+  entries — growth is the signal to give those devices their own VLAN instead. Still applies,
+  now at two named exceptions instead of one.
 - Consider moving VLAN 10 to tagged-only on the trunks. Still open, unrelated to the reorg.
 
 ## Open technical question

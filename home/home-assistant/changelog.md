@@ -300,3 +300,49 @@ lease-script fix that makes it actually work are in `home/network/changelog.md` 
 gives real answers, and Pi-hole's forward is confirmed relaying them correctly end-to-end (the
 `SERVFAIL` was a cached negative answer from the many earlier failed attempts; `pihole
 reloaddns` cleared it).
+
+## Finding 1 closed: IotaWatt's stale-address re-add, the last of three (2026-09-11)
+
+IotaWatt came back online after an extended outage (device-side; see
+`home/network/changelog.md`'s VLAN/IPv6 entries for the network-side history). Closes finding
+1 in full — Pi-hole and OctoPrint were already fixed; IotaWatt was the one entry still waiting
+on its device being reachable.
+
+Deleted the `iotawatt` integration and re-added it (**+ Add Integration**) pointed at
+`iotawatt.home.ledcom.fr` instead of the dead `192.168.1.50` — same pattern as Pi-hole and
+OctoPrint, since IotaWatt doesn't offer a "Reconfigure" option either.
+
+**Verified:** all 29 entities under the new config entry carry their original MAC-keyed unique
+IDs (`A848FAF2404D-input-N-...`) and original entity IDs (`sensor.cuisson_l1`,
+`sensor.buandrie_l1_wh`, etc.) — confirmed directly from `core.entity_registry`, not just
+assumed from the "should survive" reasoning finding 1 recorded when this was still open. Entity
+IDs did survive the delete + re-add exactly as expected.
+
+**Found along the way, still open:** the Energy dashboard (`.storage/energy`) references four
+aggregate sensors — `sensor.total_power_wh`, `sensor.total_buandrie_wh`,
+`sensor.total_cuisson_wh`, `sensor.total_reserve_wh` — that don't exist anywhere in the current
+config (not in any YAML file, not as a registered helper, nothing). These sum IotaWatt's
+per-phase circuits and are configured as calculated **Output** channels on IotaWatt itself, not
+raw Inputs:
+
+```
+Total_Buandrie = Buandrie_L1 + Buandrie_L2 + Buandrie_L3   (was Buandrie_L1 + Buandrie_L1 +
+                                                              Buandrie_L3 -- a real bug on the
+                                                              device, double-counting L1 and
+                                                              never reading L2; corrected on
+                                                              IotaWatt itself, 2026-09-11)
+Total_Cuisson  = Cuisson_L1 + Cuisson_L2 + Cuisson_L3
+Total_Power    = Cuisson_L1 + Cuisson_L2 + Cuisson_L3 + Reserve_L1 + Reserve_L2 + Reserve_L3
+                 + Buandrie_L1 + Buandrie_L2 + Buandrie_L3 + Chaufferie + Lumiere_Rez
+                 + Lumiere_1er + Garage + Frigo_Local_Technique
+Total_Reserve  = Reserve_L1 + Reserve_L2 + Reserve_L3
+```
+
+Initially assumed (wrongly, based on the current entity list showing zero output-type
+entities) that the `iotawatt` integration doesn't expose Output channels at all — Guillaume
+pointed at the integration's own documentation
+(home-assistant.io/integrations/iotawatt/), which indicates outputs are supported. Not yet
+reconciled with what's actually in `core.entity_registry`; worth checking whether outputs need
+enabling explicitly (either on IotaWatt's own web UI or the integration's options) before
+concluding anything is actually broken, rather than rebuilding these as separate HA-side
+template sensors. Tracked as open in `config-review.md`.

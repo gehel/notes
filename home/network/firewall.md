@@ -21,7 +21,7 @@ cell below corresponds to exactly one jump-chain, named the same way:
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **services** | HTTP/HTTPS from any services host; Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **iot** | DROP by default; named exception `octoprint` list, ports 80/443 (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
+| **iot** | DROP by default; named exceptions `octoprint` and `iotawatt` lists, port 443 (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
 `changelog.md`'s finding 23 closure; `vlan-iot`'s existed since Phase 3, `vlan-services`/
@@ -150,13 +150,39 @@ own NTP is **not** in this chain — as of 2026-09-10 it's pinned directly at mi
 (`192.168.20.1`) via `timesyncd.conf`, reaching it through `chain=input` rule 13 above, not
 through the internet at all (finding 23, closed).
 
-**`iot2internet`** (# 50-52)
+**`iot2internet`** (# 50-53)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 50 | accept | `protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
 | — | drop | `src-address=192.168.30.63` | iot2internet: ceiling fan phone-home (silenced, expected) |
+| 50 | accept | `protocol=tcp src-address-list=octoprint dst-port=443` | iot2internet: octoprint updates exception |
+| 52 | accept | `protocol=tcp src-address-list=iotawatt dst-port=443` | iot2internet: iotawatt firmware updates exception |
 | 51 | drop, logged | *(catch-all)* | iot2internet: deny everything else |
+
+**A TLS SNI domain-allowlist attempt (2026-09-11) was tried and abandoned.** `tls-host=` in
+RouterOS firewall rules reads the plaintext SNI field from a TLS `ClientHello`, in principle
+letting `iot2internet` allow specific domains instead of any HTTPS destination — no proxy, no
+client-side config, transparent to any device regardless of firmware. In practice
+`tls-host=*` as a "match everything" wildcard matched nothing at all: applying it to
+OctoPrint's existing accept rule broke its internet access outright (confirmed live — a
+`curl` to `github.com` fell through to the catch-all instead of the modified rule) rather than
+just failing to add visibility. Reverted. Suspected root cause, not confirmed: TLS 1.3 with
+Encrypted Client Hello (increasingly common on major CDN-backed services, GitHub included)
+hides the SNI from a passive matcher entirely, which would make domain-based filtering
+unreliable for exactly the services these devices need most, independent of the wildcard
+syntax question. Deprioritized — a proxy remains a possible future option if domain-level
+control becomes worth the complexity again, but isn't currently planned.
+
+`octoprint`'s exception narrowed from `dst-port=80,443` to `443` (HTTPS-only) as part of the
+same pass — kept even after reverting the SNI attempt, since nothing here should still need
+plain HTTP. **`octoprint-v6`'s IPv6 equivalent below still allows both ports** — not narrowed
+to match, a minor asymmetry worth closing but not urgent.
+
+`iotawatt` is a new named exception, added 2026-09-11 — `192.168.30.50` (IPv4 only; no IPv6
+equivalent yet). IotaWatt previously had no internet access at all; this grants it the same
+"full HTTPS to anywhere" exception OctoPrint already had, for firmware updates. Two named
+exceptions now exist in this chain — see `vlan.md`'s Decisions ("keep the list short and
+review it... if it grows, give those devices their own VLAN with internet instead").
 
 The ceiling fan drop is unlogged, added 2026-09-11: it was 97% of the firewall log's volume
 (953 of 981 lines in one collection) — the fan retrying its cloud phone-home every ~2s against
@@ -255,6 +281,7 @@ Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
 | `mgmt` | mikrotik1/2/3/4, desktop (5 hosts) | full router-management access, all three devices |
 | `ha-mikrotik-targets` | mikrotik2, mikrotik3 | scopes HA's MikroTik integration to switch management IPs only |
 | `octoprint` | OctoPrint (wifi + wired) | named exception for both `iot`'s default internet deny and `users -> iot`'s default deny — consolidated from the former separate `iot-internet` list during the Phase 5 reorg |
+| `iotawatt` | IotaWatt (`192.168.30.50`) | named exception for `iot`'s default internet deny only (firmware updates), added 2026-09-11 |
 | `bogons` | RFC 1918/3330 ranges, defconf | unchanged since round 1/2, not VLAN-related |
 | `Syn_Flooder`, `Port_Scanner`, `spammers` | dynamic, populated at runtime | anti-abuse, unchanged since finding 7 |
 

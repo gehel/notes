@@ -27,10 +27,11 @@ lookups to Cloudflare over DNS-over-TLS (found via `home/network`'s firewall log
 disabling HA's DNS fallback and adding Pi-hole Conditional Forwarding to mikrotik1). Before
 that, Bathroom Upstairs's Z-Wave thermostat recovered after charging (bumpier than Living
 Room's, but same root cause and same fix) — two of the three original problem valves are now
-fixed, only Parent's Bedroom remains. Open: IotaWatt's
-address (device currently powered off), the un-ignored `dlna_dmr` entries (watching), fragile
-ZHA `device_id` usage in three automations (finding 11), a broken "All cold" scene wired to a
-physical remote button (finding 12), and a fully-explained,
+fixed, only Parent's Bedroom remains. IotaWatt's back online and its stale-address finding (1)
+is closed, but that surfaced a new one: the Energy dashboard references four aggregate sensors
+that don't exist anywhere in the config (finding 15). Open: the un-ignored `dlna_dmr` entries
+(watching), fragile ZHA `device_id` usage in three automations (finding 11), a broken
+"All cold" scene wired to a physical remote button (finding 12), and a fully-explained,
 safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave thermostats (finding 14).
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing

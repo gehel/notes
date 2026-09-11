@@ -12,29 +12,23 @@ the parts of round 1 originally left for later.
 
 ## Open findings
 
-### 1. One integration still points at a pre-VLAN-renumber address (high)
+### 15. IotaWatt's Energy dashboard aggregates reference sensors that don't exist (medium)
 
-The `home/network` VLAN migration renumbered everything from `192.168.1.0/24` to
-`192.168.10/20/30.0/24` (see `home/network/vlan.md`). Three HA config entries were never
-updated and still held the dead old addresses. **Pi-hole and OctoPrint are fixed — see
-`changelog.md`.** Convention going forward: **hostname, not IP** (Pi-hole itself defines these
-in its local DNS) — `pihole.home.ledcom.fr`, `octoprint-wifi.home.ledcom.fr`.
+Found 2026-09-11 while confirming finding 1's IotaWatt fix (now closed — see `changelog.md`).
+The Energy dashboard (`.storage/energy`) references four sensors —
+`sensor.total_power_wh`, `sensor.total_buandrie_wh`, `sensor.total_cuisson_wh`,
+`sensor.total_reserve_wh` — that don't exist anywhere in the current config: not in any YAML
+file, not as a registered helper, nothing. These sum IotaWatt's per-phase circuits and are
+configured as calculated **Output** channels on IotaWatt itself (formulas confirmed directly
+from the device, e.g. `Total_Cuisson = Cuisson_L1 + Cuisson_L2 + Cuisson_L3`), not raw Inputs.
+One real bug found and fixed on the device side while checking: `Total_Buandrie`'s formula
+double-counted `Buandrie_L1` and never referenced `L2` — corrected on IotaWatt directly.
 
-| Integration | Stored `data.host` | Should be | Evidence |
-|---|---|---|---|
-| IotaWatt | `192.168.1.50` | `iotawatt.home.ledcom.fr` | `source: user` — a manually-entered host, so it will never self-heal via rediscovery. Device is currently powered off — Guillaume to reconfigure once it's back up |
-
-**Why Onkyo and the Samsung TV didn't have this problem, for context:** those integrations are
-zeroconf/SSDP-discovered, so they picked up their new `192.168.10.x` addresses automatically
-the moment the devices re-announced themselves after the renumber (`modified_at: 2026-09-07`
-on both). IotaWatt/Pi-hole/OctoPrint are all manually-configured hosts (`source: user` or a
-one-time `zeroconf` claim that doesn't re-trigger), so nothing rediscovers them.
-
-**Neither Pi-hole nor IotaWatt offered a "Reconfigure" option** in Settings → Devices &
-Services — apparently not implemented by these integrations. Fixed instead via delete +
-re-add (**+ Add Integration**, same host field, new value). Confirmed safe beforehand: both
-integrations key their entities off the device's own identity (Pi-hole: a generated ID;
-IotaWatt: the device MAC), not the host, so entity IDs survive a delete + re-add unchanged.
+**Not yet reconciled:** the `iotawatt` integration's current 29 entities are all raw Inputs,
+zero Outputs — but the integration's own documentation
+(home-assistant.io/integrations/iotawatt/) indicates Outputs are supported. Need to check
+whether they require enabling explicitly (IotaWatt's own web UI, or the integration's options
+in HA) before concluding anything needs rebuilding as HA-side template sensors instead.
 
 ### 4. Two `mikrotik` config entries silently lose an entity to a duplicate ID (low)
 

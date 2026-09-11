@@ -11,8 +11,9 @@ is reorganized into one jump-chain per VLAN pair, log-reviewed and tightened, wi
 rules fully cleaned up. **Finding 21 (IPv6 up to the same shape on every VLAN) closed
 2026-09-11** — all three phases verified end-to-end from real clients; see `ipv6.md` and
 `changelog.md`, including a real bug found along the way (IPv6 privacy extensions on
-Pi-hole/OctoPrint silently broke the EUI-64 address pinning, fixed per-host). IotaWatt still
-needs device-side verification. Read `vlan.md`'s **Status** section first.
+Pi-hole/OctoPrint silently broke the EUI-64 address pinning, fixed per-host). IotaWatt is back
+online and verified the same day, and now has its own `iotawatt` internet exception for
+firmware updates. Read `vlan.md`'s **Status** section first.
 
 ## The network as it stands
 
@@ -69,8 +70,8 @@ address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`
 
 ## Everything currently open
 
-**VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint verified. Open: IotaWatt
-(unreachable) device-side. Finding 21 (IPv6 for every VLAN) closed 2026-09-11. The "second laptop" from
+**VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint and IotaWatt both verified.
+Finding 21 (IPv6 for every VLAN) closed 2026-09-11. The "second laptop" from
 the device inventory is still
 unidentified.
 

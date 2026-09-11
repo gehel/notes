@@ -1668,3 +1668,58 @@ enough at the time not to be noticed.
 its own. `FallbackNTP=` must also be set explicitly empty, or the fix silently stops working
 the next time the primary is briefly unreachable, with no error and no obvious symptom short
 of reading the firewall log.
+
+### TLS SNI domain allowlist for `vlan-iot` — tried and abandoned; IotaWatt gets full HTTPS instead (2026-09-11)
+
+IotaWatt (`192.168.30.50`) came back online today after an extended outage (its Home Assistant
+integration needed a delete + re-add, entities confirmed surviving via MAC-keyed unique IDs —
+see `home/home-assistant/changelog.md`) and, like OctoPrint, needs internet access for
+firmware updates — it had none at all until today. Rather than just widen the
+existing `octoprint`-style port exception to a second device, tried building something
+better first: a domain-level allowlist using RouterOS's `tls-host=` firewall matcher, which
+reads the plaintext SNI field from a TLS `ClientHello`. In principle this lets `iot2internet`
+allow specific domains instead of any HTTPS destination on port 443 — no proxy needed, no
+per-device client configuration (most IoT firmware, IotaWatt's included, has no way to be
+told to use an upstream proxy at all), transparent regardless of what's making the connection.
+Considered and rejected an actual HTTP(S) proxy for the same reason: it only helps for clients
+that can be configured to use one, which is effectively just OctoPrint (a real Linux host) on
+this VLAN.
+
+**What went wrong.** First attempt: add `tls-host=*` (intended as "match any hostname, just
+for logging") to OctoPrint's existing accept rule, to bootstrap visibility into what domains
+it actually needs without breaking its current (broad) access. This was wrong on two counts:
+
+1. `tls-host=*` does not match everything — confirmed live, not just suspected. The very same
+   `curl` to `github.com` that should have hit the modified, now-logging accept rule instead
+   fell straight through to the general `iot2internet` catch-all drop. The wildcard silently
+   matched nothing, which meant the rule it was added to stopped working at all — a real
+   regression (OctoPrint's internet access broken), not just a failed attempt to add
+   visibility. Reverted immediately once caught.
+2. Even with correct syntax, Guillaume flagged the more fundamental problem: TLS 1.3 with
+   Encrypted Client Hello — increasingly common on major CDN-backed services, GitHub
+   included — encrypts the SNI field entirely, making it unreadable to a passive matcher like
+   this one regardless of syntax. Not independently confirmed against GitHub specifically, but
+   plausible enough (and the services that matter most here — GitHub, PyPI, IotaWatt's own
+   update host — are exactly the kind fronted by CDNs likely to support ECH) that pursuing
+   `tls-host=` further wasn't judged worth it.
+
+**Decision: deprioritized.** Domain-level filtering may be worth revisiting later (a real
+proxy is the fallback if it ever is, accepting that it would only cover OctoPrint), but isn't
+currently planned. Both OctoPrint and IotaWatt get unrestricted HTTPS (port 443 only, not 80)
+to any destination instead — the same shape the `octoprint` exception already had, now with a
+second entry.
+
+**Applied:**
+- `octoprint`'s accept rule narrowed from `dst-port=80,443` to `443` — kept even after
+  reverting the `tls-host` experiment, since nothing here should still need plain HTTP. (The
+  IPv6 equivalent, `octoprint-v6`'s rule, was not touched and still allows both ports — a
+  minor inconsistency, not urgent.)
+- New `iotawatt` address-list (`192.168.30.50`, IPv4 only) and a matching `iot2internet`
+  accept rule, same shape as `octoprint`'s.
+- Neither rule carries `log=yes` — Guillaume's call, logging wasn't judged useful now that
+  domain-level decisions aren't being made from it.
+
+**Verified:** `curl -v https://github.com` from OctoPrint after the revert — full TLS 1.3
+handshake, HTTP/2 200 response. IotaWatt's own firmware-update path not independently
+retested (same rule shape as OctoPrint's already-proven-working one, and it's the same
+mechanism verified extensively for finding 21 phase 3 yesterday).
