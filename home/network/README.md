@@ -275,3 +275,21 @@ outstanding test is a host plugged directly into the Internet-Box.
   static A records gives real reverse resolution as a side effect. `add-dns-entries-suffix` on
   `/ip/dhcp-server` looks like it should provide this automatically; confirmed inert regardless
   of its configured value — don't rely on it.
+- **Pinning `NTP=` in a LAN client's `/etc/systemd/timesyncd.conf` is not sufficient on its
+  own — `FallbackNTP=` must also be set explicitly empty.** Left at its commented-out default
+  (`debian.pool.ntp.org`), `systemd-timesyncd` silently falls back to it whenever the pinned
+  server is even briefly slow to answer, which the IoT/services firewall policy then correctly
+  blocks — the fix looks like it worked (verified once, working at the time) and then quietly
+  stops, with no error and no symptom short of reading the firewall log. Hit twice in one day
+  on two different devices (Pi-hole, re-opening a previously "closed" finding 23; OctoPrint,
+  the first time its NTP was ever configured) — always set both together, not just `NTP=`.
+- **IPv6 privacy extensions (RFC 4941 temporary addresses) can't be assumed off on a "fixed
+  appliance" host — verify against real traffic, not just the device's role.** A firewall rule
+  scoped to a computed EUI-64 address can look completely correct on `print` while matching
+  nothing real, because the host's actual outbound address is a rotating temporary one instead.
+  Confirmed on two different hosts (Pi-hole, OctoPrint) the same day this assumption was first
+  made (finding 21 phases 2-3) — check `ip -6 addr show scope global` against what the firewall
+  expects before trusting an EUI-64-pinned rule, and remember that disabling temporary addresses
+  alone isn't enough either: modern NetworkManager/systemd-networkd defaults often use RFC 7217
+  "stable-privacy" addressing for the *permanent* address too, so `addr_gen_mode` needs forcing
+  to EUI-64 explicitly, not just `use_tempaddr=0`.

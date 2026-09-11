@@ -1641,3 +1641,30 @@ real outage apart from a broken local resolver — it doesn't use the OS resolve
 by Guillaume directly in OctoPrint's own settings, retargeting the check to Wikipedia's public
 IP (`185.15.58.224`) on port 80 instead of a DNS lookup — already covered by the existing
 `octoprint`/`octoprint-v6` exception (`dst-port=80,443`), so no firewall change was needed.
+
+### Pi-hole's NTP fix (finding 23) was incomplete — same `FallbackNTP=` gap as OctoPrint (2026-09-11)
+
+Found while reviewing the same firewall log as the OctoPrint NTP issue above: Pi-hole
+(`192.168.20.40`) was also repeatedly hitting `services2internet`'s catch-all on UDP/123, to a
+rotating set of public servers (`195.186.1.101`, `31.3.128.55`, `193.33.30.39`) — despite
+finding 23 having been closed 2026-09-10 with `NTP=192.168.20.1` pinned in
+`/etc/systemd/timesyncd.conf` and verified working at the time.
+
+**Root cause: the exact same gap just found on OctoPrint.** `FallbackNTP=` was left commented
+out (compiled-in default: `debian.pool.ntp.org`), so whenever `192.168.20.1` was even briefly
+slow to answer, `systemd-timesyncd` silently fell back to public servers — which
+`services2internet` correctly blocks, so it never actually recovered, and nothing about this
+was visible without reading the firewall log. Finding 23's original closure pinned `NTP=` but
+never mentioned clearing `FallbackNTP=`, so this was never actually fixed, just working well
+enough at the time not to be noticed.
+
+**Fixed** the same way as OctoPrint: `FallbackNTP=` set explicitly empty.
+
+**Verified:** `timedatectl timesync-status` shows `Server: 192.168.20.1`, `Stratum: 2`,
+`Offset: +491us` — healthy, matching the original finding 23 verification.
+
+**Generalizable lesson, now confirmed on two separate devices in one day — added to
+`README.md`'s hard-won lessons:** pinning `NTP=` on `systemd-timesyncd` is not sufficient on
+its own. `FallbackNTP=` must also be set explicitly empty, or the fix silently stops working
+the next time the primary is briefly unreachable, with no error and no obvious symptom short
+of reading the firewall log.
