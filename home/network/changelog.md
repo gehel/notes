@@ -1335,3 +1335,98 @@ and `scripts/ipv6-03b-iot-firewall.rsc` stays in place (not deleted) until that'
 per this project's convention, a finding doesn't close on the strength of "should work." When
 OctoPrint is back: `ping -6 -c 3 2606:4700:4700::1111` and `curl -6 https://ifconfig.co` from
 it are the two checks to paste back.
+
+## Internet-Box replacement (2026-09-11)
+
+Swisscom replaced with a new, 10G-capable box. mikrotik1 configured as its DMZ host; no
+bridge/modem mode available on this box (checked). Two things broke, both root-caused and
+fixed the same day, working from a fresh `dump-configs.sh` run rather than assuming anything
+carried over from the old box.
+
+### Home Assistant's remote HTTPS access — broken, fixed
+
+The new box's LAN-side subnet is entirely different from the old one (`192.168.1.0/24`
+instead of `10.1.1.0/24`), so mikrotik1's WAN DHCP lease changed address —
+`/ip/address/print` on the fresh dump showed `192.168.1.101/24` on `ether1`, not the
+`10.1.1.101` every prior document assumed. The `dst-nat` rule for HA's HTTPS forward
+(`comment="Home Assistant - HTTPS"`) was hardcoded to the old address and matched nothing
+afterward.
+
+**A near-miss worth recording:** the first hypothesis was that the paired forward-chain rule
+(`internet2services: Home Assistant HTTPS`) also needed fixing, by analogy with the
+NAT-rule-and-paired-forward-rule lesson from the VLAN renumber (see `README.md`). Re-reading
+the dump more carefully showed this was wrong — that forward-chain rule matches
+`dst-address=192.168.20.60` (HA's real internal address) plus `connection-nat-state=dstnat`,
+never the WAN IP, so it was never affected. Fixing it anyway (the original draft would have
+cleared its `dst-address`) would have quietly widened `internet2services` to accept HTTPS to
+*any* forwarded destination, not just HA — caught before running anything, by tracing the
+exact rule shape in the dump rather than trusting the by-analogy assumption.
+
+Fixed via `scripts/fix-ha-nat-new-box.rsc`: dropped `dst-address=` from the `dst-nat` rule
+entirely, matching only on `in-interface-list=WAN protocol=tcp dst-port=443` — nothing else
+could legitimately arrive addressed elsewhere through this device's WAN side, and this survives
+any future WAN IP change (another box swap, or even just a DHCP lease renewal) without needing
+to be touched again.
+
+**A RouterOS syntax gotcha, first attempt:** `/ip firewall nat set $natRule dst-address=""`
+failed with `value of range expects range of ip addresses` — an IP-address-typed property
+can't be cleared with an empty string. Fixed with the documented `!property` idiom (see
+`README.md`'s hard-won lessons), paired with a harmless real reassignment
+(`!dst-address in-interface-list=WAN`) in the same `/set`, since `!property` alone is a syntax
+error.
+
+**Verified:** before/after `print` shows `dst-address` gone from the rule. External HTTPS
+reachability to Home Assistant itself — the test that actually matters — is still pending;
+`scripts/fix-ha-nat-new-box.rsc` stays in place until confirmed.
+
+### IPv6 stopped working entirely — broken, fixed
+
+The new box didn't answer DHCPv6-PD requests at all: `/ipv6/dhcp-client/print detail` showed
+`status=searching...` for over three hours after the swap. Enabling IPv6 prefix delegation
+explicitly in the box's own admin UI was the fix on that side — plausibly DMZ-hosting a client
+makes some consumer CPE treat it as "gets full pass-through" rather than "also gets a routable
+delegation," though this wasn't confirmed further, just worked around.
+
+Even after enabling it on the box, mikrotik1's own DHCPv6 client didn't recover on its own —
+still `status=searching` (its own dhcp-server-v6 field even showed a *different* link-local
+address than before, `fe80::b6ee:b4ff:fe94:3b61` vs. the box's actual
+`fe80::3a06:e6ff:fed9:c720`, suggesting it was talking to a stale/cached server identity).
+Fixed with `/ipv6/dhcp-client/release [find interface=ether1]` followed by a 5-second wait —
+came back `status=bound` with a real prefix on the very next check, no further action needed.
+
+**The delegated prefix changed entirely** — a `/58` on a new `2a02:1210:7621:9a40::/58` base
+(replacing the old `/62` on `2a02:1210:680f:...`), 64 usable `/64`s instead of 4. This broke
+`ha-v6` and `octoprint-v6` (finding 21 phases 2-3's EUI-64-pinned address-lists) exactly as
+their own documentation warned it would when written. Fixed via
+`scripts/fix-eui64-lists-new-prefix.rsc`: same MACs, same EUI-64 computation, new prefix
+(`vlan-services 2a02:1210:7621:9a41::/64`, `vlan-iot 2a02:1210:7621:9a42::/64`) —
+`2a02:1210:7621:9a41:da3a:ddff:fe31:e059` (HA) and
+`2a02:1210:7621:9a42:e65f:1ff:feda:2296`/`...2295` (OctoPrint wifi/wired). Script removes any
+address that doesn't match the current expected value before adding the current one, so it
+also self-heals after any *future* re-delegation, not just this one.
+
+**A coincidence caught before it became a real problem:** the box's own admin UI reported the
+delegated prefix as a `/56` on `2a02:1210:7621:9a00::/56` — which would have overlapped the
+WAN transit link's own SLAAC `/64` (mikrotik1's `ether1` address is also on
+`2a02:1210:7621:9a00::/64`), a real collision risk if RouterOS's pool allocator had handed
+that same `/64` to a LAN VLAN. The actual bound delegation, read from
+`/ipv6/dhcp-client/print detail` on the router itself, was the non-overlapping `/58` above.
+**The router's own bound state is the authority here, not the box's admin UI** — checked before
+assuming any collision needed handling, not after.
+
+**Verified, from Pi-hole (`vlan-services`):**
+
+```
+ping -6 -c 3 2606:4700:4700::1111        # 0% loss
+curl -6 https://ifconfig.co               # succeeded, over the port-restricted
+                                           # services2internet chain (HTTPS specifically)
+```
+
+Desktop (`vlan-users`) picked up the new prefix automatically via SLAAC within one RA cycle,
+with the old prefix's address correctly aging out as `deprecated`/`preferred_lft 0` (the same
+graceful-expiry behavior already documented under "Stale prefix on clients after renumbering"
+in `ipv6.md`) rather than breaking outright. `test-ipv6.run` from desktop: 10/10.
+
+**Still open:** OctoPrint's `iot2internet` exception (finding 21 phase 3) — was already
+unverified before this event (OctoPrint offline) and its `octoprint-v6` addresses needed
+updating too, so it remains unverified now for the same reason plus a fresh one.

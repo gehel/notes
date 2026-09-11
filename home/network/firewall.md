@@ -232,10 +232,13 @@ plus `WAN`/`vlan-services`, so nothing else can reach this chain.
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
 | 0 | srcnat | masquerade | `out-interface-list=WAN` | (unnamed) |
-| 1 | dstnat | dst-nat -> `192.168.20.60:443` | `protocol=tcp dst-address=10.1.1.101 dst-port=443 in-interface-list=WAN` | Home Assistant - HTTPS |
+| 1 | dstnat | dst-nat -> `192.168.20.60:443` | `protocol=tcp dst-port=443 in-interface-list=WAN` | Home Assistant - HTTPS |
 
 Rule 1 pairs with `chain=forward`'s `internet2services` jump (# 35) and its sub-chain rule
-(# 72) above — all three consistent.
+(# 72) above — all three consistent. **No `dst-address=` on rule 1** — deliberately, since
+2026-09-11: previously hardcoded to mikrotik1's then-current WAN DHCP lease, which broke
+outright when a Swisscom box swap changed the whole WAN-side subnet (see `changelog.md`).
+Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
 
 ## mikrotik1 — address lists in use
 

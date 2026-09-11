@@ -208,16 +208,29 @@ buy cAP ax or hAP ax³ units.
 
 Full analysis, the channel plan, and the mikrotik4 garden-AP build are in [wifi.md](wifi.md).
 
-### Before ordering
+### Replacement Swisscom box — arrived and installed 2026-09-11
 
-A replacement Swisscom box was ordered 2026-09-04. Check three things when it arrives:
+Ordered 2026-09-04, 10G-capable per spec. Of the three things flagged to check when it
+arrived:
 
-- **Port speeds it actually offers.** Determines whether 2.5G is a real constraint.
-- **Whether it supports bridge or modem mode.** If it can bridge, the edge migration is much
-  simpler.
-- **Whether it can forward port 80 inward.** That is what RouterOS's built-in ACME needs for
-  HTTP-01, and it is the only thing standing between the current state and Let's Encrypt
-  certificates without an external host. See the TLS note below.
+- **Port speeds it actually offers.** Not yet directly confirmed. Doesn't matter yet either
+  way: mikrotik1 (RB2011, GigE ports) still caps WAN throughput near 1 Gbps regardless of what
+  the box offers, until the RB5009 edge migration below actually happens. Re-baseline
+  throughput (`scripts/measure-bufferbloat.sh`, see `performance.md`) once that's done, not
+  before.
+- **Whether it supports bridge or modem mode — no.** Checked directly in the box's admin UI.
+  mikrotik1 is configured as its DMZ host instead (full port-forwarding to one LAN device),
+  which is why the edge migration below still needs its own WAN-facing DHCP client rather than
+  inheriting a public IP directly.
+- **Whether it can forward port 80 inward.** Not yet directly tested, but plausible now: DMZ
+  hosting forwards every port to mikrotik1, port 80 included. Worth testing explicitly before
+  revisiting the TLS question below — DMZ and "forwards port 80 specifically" aren't quite the
+  same claim.
+
+The swap itself broke two things — a hardcoded WAN IP in the HA HTTPS NAT rule, and the
+IPv6 delegation needing to be re-established with the box's PD setting explicitly enabled and
+mikrotik1's DHCPv6 client force-released — both found and fixed the same day; full account in
+`changelog.md`.
 
 ### The TLS question, deliberately parked
 

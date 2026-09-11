@@ -13,20 +13,26 @@ but not yet functionally verified (OctoPrint was offline; see
 native routing. This is a deliberate workaround, not an oversight — see
 [Why NAT66](#why-nat66) below.
 
+**The Internet-Box itself was replaced 2026-09-11** with a new, 10G-capable Swisscom box —
+see [Internet-Box replacement](#internet-box-replacement-2026-09-11) below for what changed
+and what broke.
+
 | | |
 |---|---|
 | Upstream | Swisscom, native IPv6 via DHCPv6 (no PPPoE, no 6rd) |
-| Topology | Swisscom Internet-Box (`10.1.1.1`) → MikroTik `ether1` → `bridge-main` → `vlan-users`/`vlan-services`/`vlan-iot` → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
-| Delegated prefix | `/62` from the Internet-Box via DHCPv6-PD, i.e. 4 × `/64` — one per VLAN, one spare |
-| LAN prefixes | `vlan-users` `2a02:1210:680f:c40c::/64`, `vlan-services` `2a02:1210:680f:c40d::/64`, `vlan-iot` `2a02:1210:680f:c40e::/64` (all **illustrative**, see below), router at `::1` on each |
+| Topology | Swisscom Internet-Box → MikroTik `ether1` → `bridge-main` → `vlan-users`/`vlan-services`/`vlan-iot` → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
+| Delegated prefix | `/58` from the Internet-Box via DHCPv6-PD as of 2026-09-11 (was `/62` on the old box), i.e. 64 × `/64` — one per VLAN, the rest spare |
+| LAN prefixes | `vlan-users` `2a02:1210:7621:9a40::/64`, `vlan-services` `2a02:1210:7621:9a41::/64`, `vlan-iot` `2a02:1210:7621:9a42::/64` (all **illustrative**, see below), router at `::1` on each |
 | Client addressing | SLAAC from RAs sent by the MikroTik on every VLAN |
 | `bridge-fon` | removed entirely, along with the FON network — see `changelog.md`'s VLAN segmentation entry |
 | DNS | clients use `192.168.10.40` (Pi-hole) over IPv4 — was leaking the ISP's own resolver via RDNSS until 2026-09-07, fixed; see `changelog.md` |
 
 Prefix values are **not stable**. Swisscom's delegation to the Internet-Box can change, and
-the box's delegation to us changes with it. Every address below is derived from the pool at
-runtime — nothing is hardcoded, and nothing should be. The values quoted in this document
-are from 2026-09-03 and are illustrative only.
+the box's delegation to us changes with it — confirmed the hard way on 2026-09-11, when a
+router swap changed the delegated prefix entirely and broke both of finding 21's pinned
+EUI-64 address-lists (`ha-v6`, `octoprint-v6`), exactly as the caveat below already warned.
+Every address below is derived from the pool at runtime — nothing is hardcoded, and nothing
+should be. The values quoted in this document are illustrative only and may already be stale.
 
 ## Why NAT66
 
@@ -211,6 +217,41 @@ each with the same per-VLAN-pair dispatch shape the IPv4 firewall already uses (
   21 originally described for this VLAN, deliberately rather than by accident. **Not yet
   functionally verified** — OctoPrint, the one device the exception matters for, was offline
   when this was applied. See `changelog.md`.
+
+## Internet-Box replacement (2026-09-11)
+
+Swisscom Internet-Box replaced with a new, 10G-capable model. mikrotik1 is configured as its
+DMZ host (no bridge/modem mode available on this box — checked). Two things broke, both fixed
+same-day; full evidence in `changelog.md`.
+
+1. **Home Assistant's remote HTTPS access.** The new box's LAN-side subnet is entirely
+   different (`192.168.1.0/24` instead of the old `10.1.1.0/24`), so mikrotik1's WAN DHCP
+   lease changed address — and the `dst-nat` rule for HA's HTTPS forward was hardcoded to the
+   old one (`dst-address=10.1.1.101`), matching nothing afterward. Fixed by dropping
+   `dst-address=` from the rule entirely, matching only on `in-interface-list=WAN
+   protocol=tcp dst-port=443` — survives any future WAN IP change without needing to be
+   touched again. The paired forward-chain rule (`internet2services: Home Assistant HTTPS`)
+   was never affected: it matches on HA's real internal address plus
+   `connection-nat-state=dstnat`, never on the WAN IP.
+2. **IPv6 stopped working entirely.** The new box didn't answer DHCPv6-PD requests at all
+   (`status=searching`, permanently) until prefix delegation was explicitly enabled in its own
+   admin UI — plausibly because DMZ-hosting a client can make some consumer CPE treat it as
+   "gets full pass-through" instead of "also gets a routable delegation," though this wasn't
+   confirmed further. Even after enabling it, mikrotik1's DHCPv6 client needed an explicit
+   `/ipv6/dhcp-client/release` to actually pick up the new lease rather than retrying its own
+   stuck `searching` state. Once bound, the delegated prefix had changed entirely (a `/58` on
+   a new `2a02:1210:7621:...` base, replacing the old `/62` on `2a02:1210:680f:...`) — which
+   broke `ha-v6` and `octoprint-v6` (finding 21, phases 2-3) exactly as their own
+   documentation warned it would. Recomputed and updated (same MACs, same EUI-64 method, new
+   prefix) and reverified from Pi-hole.
+
+One coincidence worth recording: the box's own admin UI reported the delegated prefix as a
+`/56` on `2a02:1210:7621:9a00::/56` — which would have overlapped the WAN transit link's own
+SLAAC `/64` (also `...9a00::/64`), a real collision risk if RouterOS's pool allocator had
+handed that same `/64` to a LAN VLAN. The *actual* bound delegation
+(`/ipv6/dhcp-client/print detail`) was a `/58` on `2a02:1210:7621:9a40::/58` — a different,
+non-overlapping range. **Trust the router's own bound state over the box's admin UI when they
+disagree.**
 
 ## Operational notes
 

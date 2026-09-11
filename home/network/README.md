@@ -90,9 +90,11 @@ to `vlan-services`/`vlan-iot` (21, next up), and a minor `connection-state=new` 
 on `chain=input` (22, informational, no known impact). mikrotik4 has never been reviewed; needs
 the full S1-S16 pass when it returns.
 
-**Hardware, pending the replacement Swisscom box.**
-- RB5009UG+S+IN for the edge role. Check the new box's port speeds and whether it supports
-  bridge mode when it arrives.
+**Hardware.**
+- Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
+  host) — broke the HA HTTPS NAT rule and IPv6 delegation, both fixed same day, see
+  `changelog.md`. RB5009UG+S+IN for the edge role is still a separate, not-yet-started step —
+  see `config-review.md`'s hardware section for what the box swap did and didn't resolve.
 - Office PoE switch — must do **passive** PoE (the SXTsq needs it) and must not energise
   ports serving laptops. Candidate: CRS112-8P-4S-IN.
 - Living room and workshop both need switches. Moving mikrotik3 to the living room covers one.
