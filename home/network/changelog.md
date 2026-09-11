@@ -1526,9 +1526,11 @@ New rules again briefly showed `I - INVALID` on `print` immediately after creati
 three new `services2internet` rules) — consistent with the now-well-established transient
 pattern for `/ipv6/firewall/filter`, not re-verified for clearing this time.
 
-**Verification pending:** confirm via `/log/print` after a few minutes that the ceiling fan's
-entries have actually stopped, and confirm Pi-hole's IPv6 upstream queries succeed instead of
-being logged as dropped (wait ~10 minutes for its next check, or trigger one directly).
+**Ceiling fan silencing verified:** a later `dump-logs.sh` collection (same day, 14:49) shows
+473 occurrences of its MAC before the silence rule was added (14:26:46) and exactly zero
+after — confirmed working, not just applied. Pi-hole's IPv6 DNS exception is covered by the
+privacy-extensions fix below (its `pihole-v6` entry didn't match real traffic until that was
+fixed).
 
 ### Finding 21 (IPv6 for every VLAN) — closed, after finding a real pinning bug (2026-09-11)
 
