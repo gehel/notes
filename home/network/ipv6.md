@@ -7,8 +7,8 @@ Configured 2026-09-03. Front router is a MikroTik running RouterOS 7.23.3 (now 7
 
 ## Current state
 
-IPv6 is addressed and firewalled on all three VLANs as of 2026-09-10 — `vlan-iot`'s is applied
-but not yet functionally verified (OctoPrint was offline; see
+IPv6 is addressed and firewalled on all three VLANs, verified end-to-end from real clients on
+each (finding 21, closed 2026-09-11 — see
 [Extending to every VLAN](#extending-to-every-vlan-finding-21) below) — via **NAT66**, not
 native routing. This is a deliberate workaround, not an oversight — see
 [Why NAT66](#why-nat66) below.

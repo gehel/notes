@@ -1376,8 +1376,10 @@ can't be cleared with an empty string. Fixed with the documented `!property` idi
 error.
 
 **Verified:** before/after `print` shows `dst-address` gone from the rule. External HTTPS
-reachability to Home Assistant itself — the test that actually matters — is still pending;
-`scripts/fix-ha-nat-new-box.rsc` stays in place until confirmed.
+reachability to Home Assistant itself — the test that actually matters — turned out to still
+fail after this fix, for an unrelated reason (a stale DNS record) — see "External HTTPS access
+to Home Assistant — root-caused" further down this file for the real fix and final
+confirmation.
 
 ### IPv6 stopped working entirely — broken, fixed
 
@@ -1485,8 +1487,8 @@ not evidence about this network at all) rather than the actual box.
 
 **Fixed:** Guillaume manually updated the Gandi A record to the new IP.
 `scripts/revert-ha-nat-port-443.rsc` moved the `dst-nat` rule back to port 443 (the 8443
-workaround wasn't needed once the real cause was found) — **verification of the end-to-end
-fix is still pending**, script stays in place until confirmed working from cellular.
+workaround wasn't needed once the real cause was found). **Verified end-to-end from cellular**
+shortly after — `https://home.ledcom.fr` loads Home Assistant correctly; script deleted.
 
 **Also found and tracked as an open item, not fixed:** nothing updates `home.ledcom.fr`
 automatically when the public IP changes — see [config-review.md](config-review.md) finding
@@ -1723,3 +1725,13 @@ second entry.
 handshake, HTTP/2 200 response. IotaWatt's own firmware-update path not independently
 retested (same rule shape as OctoPrint's already-proven-working one, and it's the same
 mechanism verified extensively for finding 21 phase 3 yesterday).
+
+### IotaWatt NTP exception (2026-09-11)
+
+Unlike Pi-hole and OctoPrint (both fixed earlier today to use mikrotik1's own NTP server —
+see the `FallbackNTP=`/finding 23 entries above), IotaWatt's firmware exposes no way to point
+it at an internal server at all. Rather than leave it silently unable to keep time, added a
+narrow `iot2internet` exception for outbound NTP specifically — `src-address-list=iotawatt
+protocol=udp dst-port=123`, same shape as its HTTPS exception, no destination restriction.
+
+**Verified:** IotaWatt's own clock reads correctly after applying.

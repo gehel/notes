@@ -75,6 +75,16 @@ Finding 21 (IPv6 for every VLAN) closed 2026-09-11. The "second laptop" from
 the device inventory is still
 unidentified.
 
+**Routine reviews, no urgency — good places to start a fresh session, not things that broke:**
+- Re-run `dump-logs.sh` and read through the mikrotik firewall log for anything else worth
+  tuning (silencing expected noise, like the ceiling fan 2026-09-11, or catching a real gap,
+  like Pi-hole's IPv6 DNS the same day). Last full pass: 2026-09-11.
+- Review Pi-hole's own query log to confirm DNS is working well for every device generally —
+  not chasing a specific known problem, just a health check. Not yet done.
+- Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had
+  (finding 21's `ha-v6` address-list) — never checked either way, since no
+  `services2users`-triggering traffic from HA has been observed in a log yet.
+
 **Wireless** — [wifi.md](wifi.md).
 - The cAP XL ac is unused and is the only 5 GHz on the network. Blocked on one question:
   which driver it needs (`/system/package/print`, and whether `/interface/wifi` or
