@@ -149,12 +149,19 @@ own NTP is **not** in this chain — as of 2026-09-10 it's pinned directly at mi
 (`192.168.20.1`) via `timesyncd.conf`, reaching it through `chain=input` rule 13 above, not
 through the internet at all (finding 23, closed).
 
-**`iot2internet`** (# 50-51)
+**`iot2internet`** (# 50-52)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
 | 50 | accept | `protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
+| — | drop | `src-address=192.168.30.63` | iot2internet: ceiling fan phone-home (silenced, expected) |
 | 51 | drop, logged | *(catch-all)* | iot2internet: deny everything else |
+
+The ceiling fan drop is unlogged, added 2026-09-11: it was 97% of the firewall log's volume
+(953 of 981 lines in one collection) — the fan retrying its cloud phone-home every ~2s against
+the default deny, correctly blocked but dominating the log buffer (`README.md` already flags
+this as a risk on RouterOS's small, rotating log). Still dropped, just not logged; anything
+else hitting the catch-all still is.
 
 **`users2services`** (# 52-55)
 
@@ -289,6 +296,9 @@ than a leaky approximation. Full design and reasoning in
 | — | forward | drop | *(none — catch-all)* | drop inbound from WAN |
 | — | `users2internet` | accept | `connection-state=new` | users2internet: internet |
 | — | `services2internet` | accept | `protocol=tcp dst-port=80,443 connection-state=new` | services2internet: HTTP/HTTPS |
+| — | `services2internet` | accept | `protocol=udp dst-port=53 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS |
+| — | `services2internet` | accept | `protocol=tcp dst-port=53 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS (TCP) |
+| — | `services2internet` | accept | `protocol=tcp dst-port=853 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS-over-TLS |
 | — | `services2internet` | drop, logged | *(catch-all)* | services2internet: deny everything else |
 | — | `services2users` | accept | `protocol=tcp dst-port=631 src-address-list=ha-v6 connection-state=new` | services2users: HA -> printer (CUPS) |
 | — | `services2users` | accept | `protocol=tcp dst-port=8002 src-address-list=ha-v6 connection-state=new` | services2users: HA -> Samsung TV |
@@ -302,13 +312,17 @@ follows the project's own convention of finding by comment, not number).
 `services2users` is deliberately narrower than IPv4's version of the same policy: IPv4 also
 scopes by the *destination's* own address (the printer, the TV specifically); this only scopes
 by port, since pinning two more devices' IPv6 addresses for a path that already works over IPv4
-wasn't judged worth it. `ha-v6` is an `/ipv6/firewall/address-list` holding one entry — Home
-Assistant's IPv6 address, computed via EUI-64 from its known MAC combined with
-`vlan-services`'s actual delegated prefix (**not** a DHCP-style reservation; see
-[ipv6.md](ipv6.md#extending-to-every-vlan-finding-21) for the caveats this carries: it depends
-on IPv6 privacy extensions staying off on that host, and on Swisscom's delegation not changing).
-`services2iot` doesn't exist — `vlan-iot`'s policy is deny-by-default (below), so there's
-nothing for services to reach there yet.
+wasn't judged worth it. `ha-v6` and `pihole-v6` are `/ipv6/firewall/address-list`s holding one
+entry each — Home Assistant's and Pi-hole's IPv6 addresses, computed via EUI-64 from their
+known MACs combined with `vlan-services`'s actual delegated prefix (**not** a DHCP-style
+reservation; see [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21) and
+`changelog.md`'s Internet-Box replacement entry for the caveats this carries: it depends on
+IPv6 privacy extensions staying off on each host, and broke once already when the delegated
+prefix changed — recomputed both times, same method, current prefix). `pihole-v6`'s DNS/DoT
+exceptions were added 2026-09-11 after the firewall log showed Pi-hole repeatedly (and
+silently) failing to reach public IPv6 resolvers for its own upstream queries — mirrors its
+existing IPv4 exception. `services2iot` doesn't exist — `vlan-iot`'s policy is deny-by-default
+(below), so there's nothing for services to reach there yet.
 
 `iot2internet` is deny-by-default with one named exception, mirroring IPv4's `octoprint`
 address-list — `octoprint-v6` holds both of OctoPrint's known addresses (wifi + wired),

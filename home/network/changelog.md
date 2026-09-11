@@ -1430,3 +1430,102 @@ in `ipv6.md`) rather than breaking outright. `test-ipv6.run` from desktop: 10/10
 **Still open:** OctoPrint's `iot2internet` exception (finding 21 phase 3) — was already
 unverified before this event (OctoPrint offline) and its `octoprint-v6` addresses needed
 updating too, so it remains unverified now for the same reason plus a fresh one.
+
+### External HTTPS access to Home Assistant — root-caused (2026-09-11)
+
+The HA NAT fix earlier in this section (dropping `dst-address=` from the `dst-nat` rule) was
+necessary but turned out not to be sufficient — external HTTPS still timed out. Real root
+cause found only after a long, mostly-dead-end diagnostic session; recorded because the
+dead ends are as instructive as the answer.
+
+**What didn't turn out to be it, in the order investigated:**
+
+1. **Syn-flood detector (`Syn_Flooder`, scoped to `connection-nat-state=dstnat` — exactly
+   this traffic's shape).** Plausible given `README.md`'s own documented risk, but the list
+   was empty when checked and a fully-reset counter test showed zero hits on it. Not the
+   cause.
+2. **`connection-state=new` not matching inside the `internet2services` chain.** A
+   full-forward-chain-reset test showed the dispatch jump matching the exact same packet
+   count as `dst-nat` (13/13), proving packets *did* enter the chain, but the accept rule
+   inside it matched zero — implying `connection-state=new` was somehow false. Turned out to
+   be a red herring: connection-tracking checks (`/ip/firewall/connection/print`) came back
+   empty, most likely because the default `tcp-syn-sent` conntrack timeout is short and the
+   embryonic connection had already expired before the query ran — not proof of anything
+   structural.
+3. **A live packet capture (`/tool/sniffer/quick`) never caught the actual attempt.** First
+   pass used a nonexistent `filter-port=` parameter (`bad parameter filter-port` — RouterOS
+   error, not this project's own convention this time); the correct property, found by
+   Guillaume directly rather than guessed further, is `filter-interface=`. Capturing on all
+   interfaces with the default buffer also drowned in LAN chatter (HA's own MikroTik API
+   polling on 8728 alone produced hundreds of packets in under 2 seconds) before the phone's
+   request could be captured. Neither capture attempt, even properly scoped, ever showed an
+   inbound SYN to port 443 from an external address — a real, if inconclusive, signal that
+   the traffic wasn't reliably reaching mikrotik1 at all.
+4. **The box's own admin UI is on port 443, DMZ apparently can't override it.** `canyouseeme.org`
+   succeeded at the TCP level against port 443 while a real HTTPS request (`reqbin.com`)
+   timed out — consistent with the box's own listener answering the handshake instead of
+   forwarding through. Worked around by moving HA's external port to 8443
+   (`scripts/fix-ha-nat-port-8443.rsc`, `dst-port` changed on the `dst-nat` rule only — the
+   paired forward-chain rule matches the *post-NAT* port, HA's real 443, so it never needed
+   touching). **Still timed out on 8443 too**, disproving this theory as the actual blocker
+   (though the port-443-conflict may still be real, just not the cause of this specific
+   failure — not conclusively ruled out either way).
+
+**The actual cause: a stale DNS record.** `home.ledcom.fr` (managed at Gandi —
+`ns-142-a/203-b/107-c.gandi.net`, confirmed via `dig NS` and cross-checked against the
+authoritative server directly) was still pointing at the *old* box's public IP
+(`188.61.18.91`, TTL 300s) after the ISP reassigned a new one to the replacement box
+(`178.192.223.49`, confirmed independently both from the box's own admin page and a
+`duckduckgo.com` "what's my IP" check). mikrotik1's own `/ip/cloud` (MikroTik Cloud DDNS,
+`ddns-update-interval: none`) hadn't refreshed either, still showing the old address —
+consistent with it only updating on certain triggers, not proactively. Every test all day had
+been reaching *something* at the stale address (most likely an unrelated host now assigned
+that IP by the ISP, explaining `canyouseeme`'s earlier "success" on port 443 — a coincidence,
+not evidence about this network at all) rather than the actual box.
+
+**Fixed:** Guillaume manually updated the Gandi A record to the new IP.
+`scripts/revert-ha-nat-port-443.rsc` moved the `dst-nat` rule back to port 443 (the 8443
+workaround wasn't needed once the real cause was found) — **verification of the end-to-end
+fix is still pending**, script stays in place until confirmed working from cellular.
+
+**Also found and tracked as an open item, not fixed:** nothing updates `home.ledcom.fr`
+automatically when the public IP changes — see [config-review.md](config-review.md) finding
+25. Guillaume's recollection of an existing "DDNS via the Let's Encrypt app" mechanism was
+checked and ruled out: that add-on's Gandi API usage (confirmed working, from its own log —
+`Using Gandi personal access token` → cert type detected → not yet due for renewal) is for
+DNS-01 ACME domain-ownership proof during certificate renewal, never for updating the A
+record's IP. No such mechanism exists today.
+
+### Firewall log review (2026-09-11)
+
+Reviewed `home/network/logs/mikrotik1-main.txt` (a fresh `dump-logs.sh` collection, per this
+project's standing convention) while investigating the above. Two findings, both fixed via
+`scripts/log-review-fixes.rsc`:
+
+**97% of the log (953 of 981 lines) was one source:** the Hombli ceiling fan (`192.168.30.63`,
+confirmed by MAC `20:F1:B2:C3:F5:C1` against its DHCP reservation) retrying its cloud
+phone-home every ~2 seconds against `iot2internet`'s deny-by-default — correctly blocked
+(isolation working exactly as designed), but dominating the log buffer badly enough to risk
+crowding out anything actually worth noticing, exactly the risk `README.md`'s own hard-won
+lessons already flag about RouterOS's small, rotating log. Fixed with an unlogged drop for
+this specific source, placed ahead of the general logged catch-all — still blocked, just not
+logged; any other source hitting that catch-all still is.
+
+**Pi-hole was repeatedly, silently failing to reach public IPv6 DNS resolvers** (Cloudflare,
+Google, OpenDNS — roughly every 10 minutes, consistent with its own upstream health-checking)
+for its own upstream queries, blocked by `services2internet`'s HTTP/HTTPS-only IPv6 policy
+from finding 21 phase 2 — the "nothing needs v6 DNS yet" assumption made when that chain was
+built turned out to be wrong once real traffic was observed. Fixed by adding the missing
+exception, mirroring Pi-hole's existing IPv4 one (UDP/TCP 53, TCP 853 DoT) via a new
+`pihole-v6` address-list, EUI-64-pinned the same way as `ha-v6`/`octoprint-v6`
+(`B8:27:EB:83:79:48` + `vlan-services`'s current `2a02:1210:7621:9a41::/64` =
+`2a02:1210:7621:9a41:ba27:ebff:fe83:7948`) — same caveats apply (privacy extensions must stay
+off; breaks again if the delegated prefix changes, as already happened once today).
+
+New rules again briefly showed `I - INVALID` on `print` immediately after creation (two of the
+three new `services2internet` rules) — consistent with the now-well-established transient
+pattern for `/ipv6/firewall/filter`, not re-verified for clearing this time.
+
+**Verification pending:** confirm via `/log/print` after a few minutes that the ceiling fan's
+entries have actually stopped, and confirm Pi-hole's IPv6 upstream queries succeed instead of
+being logged as dropped (wait ~10 minutes for its next check, or trigger one directly).

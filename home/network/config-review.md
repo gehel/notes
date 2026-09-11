@@ -81,6 +81,33 @@ already on 7.24.2. Stale integration-side cached state, not a real gap; still wo
 why HA hasn't refreshed it, and whether the integration's upgrade-trigger feature actually works
 (test on a device/moment where an unexpected reboot is low-risk).
 
+### 25. No mechanism updates `home.ledcom.fr`'s DNS record when the public IP changes (medium)
+
+Found 2026-09-11, during the Internet-Box replacement (see `changelog.md`). The record is a
+plain A record at Gandi, manually maintained — nothing watches for the ISP-assigned public IP
+changing and updates it. The box swap changed the public IP *twice* in one day (once from the
+new box's own DHCP lease, confirmed via `/ip/cloud/print` at the time, and again later to
+`178.192.223.49`), and both times `home.ledcom.fr` silently kept pointing at a stale address
+until manually corrected. Not caught sooner because nothing alerts on this — external HTTPS to
+Home Assistant just times out, indistinguishable at first glance from a NAT/firewall problem
+(and this file's own investigation initially chased exactly that before finding the real
+cause).
+
+**A plausible mechanism was ruled out, not confirmed working.** Home Assistant runs the Let's
+Encrypt add-on with the Gandi DNS-01 plugin (`dns-gandi`) — this uses the same Gandi API and
+domain, but only to prove domain ownership for certificate renewal, never to update the A
+record's IP. Its log (`Using Gandi personal access token` → cert type detected → "not yet due
+for renewal") confirms the credential itself works fine; it was never a candidate for the DDNS
+job in the first place, a misconception this finding also corrects.
+
+**Options discussed, not yet decided:**
+- Point `home.ledcom.fr` at mikrotik1's already-working MikroTik Cloud DDNS hostname
+  (`<serial>.sn.mynetname.net`) via a CNAME at Gandi — no new credentials or scripts, but
+  `/ip/cloud`'s `ddns-update-interval: none` means it may not refresh promptly on a mid-session
+  IP change; `/ip/cloud force-update` could be scheduled periodically to close that gap.
+- A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
+  keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
+
 ### mikrotik4 has never been reviewed
 
 `192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no

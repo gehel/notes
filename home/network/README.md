@@ -85,10 +85,12 @@ unidentified.
 - Both existing APs are 2.4 GHz only. TX power rose 16 -> 20 dBm as a side effect of the
   channel fix; deliberately not adjusted yet.
 
-**Main router** — [config-review.md](config-review.md). Two open findings: IPv6 never extended
-to `vlan-services`/`vlan-iot` (21, next up), and a minor `connection-state=new` inconsistency
-on `chain=input` (22, informational, no known impact). mikrotik4 has never been reviewed; needs
-the full S1-S16 pass when it returns.
+**Main router** — [config-review.md](config-review.md). Open findings: IPv6 never extended
+to `vlan-services`/`vlan-iot` (21, next up), a minor `connection-state=new` inconsistency
+on `chain=input` (22, informational, no known impact), and no mechanism to update
+`home.ledcom.fr`'s DNS record when the public IP changes (25, medium — found 2026-09-11,
+bit us twice in one day during the Internet-Box replacement). mikrotik4 has never been
+reviewed; needs the full S1-S16 pass when it returns.
 
 **Hardware.**
 - Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
