@@ -67,3 +67,9 @@ fabric.properties
 # the raw config directory itself; only the reviewed/redacted docs derived
 # from it. See home/home-assistant/README.md.
 /home/home-assistant/config/
+
+# Marp slide tooling: node deps and rendered decks
+/node_modules/
+/talks/*.html
+/talks/*.pdf
+/talks/*.pptx
