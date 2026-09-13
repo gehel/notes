@@ -78,7 +78,10 @@ unidentified.
 **Routine reviews, no urgency — good places to start a fresh session, not things that broke:**
 - Re-run `dump-logs.sh` and read through the mikrotik firewall log for anything else worth
   tuning (silencing expected noise, like the ceiling fan 2026-09-11, or catching a real gap,
-  like Pi-hole's IPv6 DNS the same day). Last full pass: 2026-09-11.
+  like Pi-hole's IPv6 DNS the same day). Last full pass: 2026-09-13 — found three things, now
+  tracked as findings 26-28 in [config-review.md](config-review.md): Kids Light stranded on
+  the wrong VLAN/SSID, Pi-hole's NTP fallback (finding 23) recurring, and an unexplained
+  connection-tracking drop on a Home Assistant outbound connection.
 - Review Pi-hole's own query log to confirm DNS is working well for every device generally —
   not chasing a specific known problem, just a health check. Not yet done.
 - Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had

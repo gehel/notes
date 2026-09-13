@@ -76,6 +76,53 @@ job in the first place, a misconception this finding also corrects.
 - A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
   keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
 
+### 26. Kids Light (Tasmota) associated to the wrong SSID — stranded on `vlan-users`, can't reach HA's MQTT broker (medium)
+
+Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. "Kids light - Tasmota"
+(`D8:BC:38:99:44:68`) has a static DHCP reservation for `192.168.30.61` on `dhcp-iot`, but
+CAPsMAN's registration table (`dumps/mikrotik1-main.txt`) shows it associated to `LEDCOM`
+(`vlan-users`, tag 10), not `LEDCOM-IoT` (`vlan-iot`, tag 30) — so its reservation never
+applies and it falls back to a dynamic `users`-pool address, `192.168.10.105` throughout this
+capture. Continuously from 2026-09-12 21:16 to the end of the capture (2026-09-13 16:38, ~19.5h,
+still ongoing when collected), it has retried a connection to Home Assistant's MQTT broker
+(`192.168.20.60:1883`) every ~2 minutes and been dropped every time by `users2services`'s
+catch-all (rule 55) — there is no `users -> services tcp/1883` accept; that temporary rule was
+deliberately removed in Phase 4 once IoT devices were meant to be off `users` (see
+`changelog.md`). The light has presumably not been controllable or reporting state via Home
+Assistant for the whole window. **Fix is device-side, not router-side**: reconnect Kids light
+to `LEDCOM-IoT` via its own Tasmota web config (reachable at its current `192.168.10.105`
+address) — no firewall change needed or wanted, since `users -> services` MQTT access is
+intentionally not a thing any more.
+
+### 27. Pi-hole's hourly NTP fallback to the public internet is back (finding 23 recurrence) (medium)
+
+Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. `services2internet`'s catch-all (rule 49,
+logged) is dropping a burst of 6-8 UDP/123 packets from Pi-hole (`192.168.20.40`) to a
+different public NTP server almost exactly once an hour, every hour, for the entire ~19.5h
+capture window (21:15:43 on 2026-09-12 through 16:16:11 on 2026-09-13 — 157 drops total, one
+burst per hour without a single gap). This is systemd-timesyncd's periodic poll falling
+through to `FallbackNTP=`, the exact failure mode `README.md`'s hard-won lessons describe for
+finding 23. Finding 23 closed on the strength of pinning both `NTP=` and `FallbackNTP=` (set
+explicitly empty) in Pi-hole's `timesyncd.conf` — since the fallback traffic is back and
+completely regular, that configuration didn't hold (a Pi-hole OS update or reinstall is a
+plausible cause). Needs re-checking and re-applying on Pi-hole directly; no firewall change
+indicated — the design intent (Pi-hole never needs the internet for time) is still correct.
+
+### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
+
+Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. 11 packets from Home Assistant
+(`192.168.20.60`), all sourced from local port 443 (not an ephemeral client port) toward
+`144.202.82.88:61234`, hit `services2internet`'s catch-all and were dropped — in four episodes
+roughly 2-2.5h apart on 2026-09-13 (02:05, 04:39, 07:14, 09:16). None of them are `SYN`s (all
+`ACK`/`ACK,PSH`, i.e. carrying data), which means the underlying connection was already
+established, not being attempted fresh — this looks like RouterOS's connection tracking aging
+out an idle long-lived session and then dropping its genuine continuation traffic, rather than
+Home Assistant actually initiating anything new. `144.202.0.0/16` is a Vultr range; a plausible
+candidate given the source port and persistence is Nabu Casa's remote-access relay. Not enough
+information yet to act on: worth checking Home Assistant's own Nabu Casa/cloud-connectivity log
+for disconnects around those four timestamps, and, if this keeps recurring, mikrotik1's
+`/ip/firewall/connection/tracking` timeouts for the relevant protocol.
+
 ### mikrotik4 has never been reviewed
 
 `192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no
