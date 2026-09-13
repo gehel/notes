@@ -76,24 +76,6 @@ job in the first place, a misconception this finding also corrects.
 - A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
   keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
 
-### 26. Kids Light (Tasmota) associated to the wrong SSID — stranded on `vlan-users`, can't reach HA's MQTT broker (medium)
-
-Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. "Kids light - Tasmota"
-(`D8:BC:38:99:44:68`) has a static DHCP reservation for `192.168.30.61` on `dhcp-iot`, but
-CAPsMAN's registration table (`dumps/mikrotik1-main.txt`) shows it associated to `LEDCOM`
-(`vlan-users`, tag 10), not `LEDCOM-IoT` (`vlan-iot`, tag 30) — so its reservation never
-applies and it falls back to a dynamic `users`-pool address, `192.168.10.105` throughout this
-capture. Continuously from 2026-09-12 21:16 to the end of the capture (2026-09-13 16:38, ~19.5h,
-still ongoing when collected), it has retried a connection to Home Assistant's MQTT broker
-(`192.168.20.60:1883`) every ~2 minutes and been dropped every time by `users2services`'s
-catch-all (rule 55) — there is no `users -> services tcp/1883` accept; that temporary rule was
-deliberately removed in Phase 4 once IoT devices were meant to be off `users` (see
-`changelog.md`). The light has presumably not been controllable or reporting state via Home
-Assistant for the whole window. **Fix is device-side, not router-side**: reconnect Kids light
-to `LEDCOM-IoT` via its own Tasmota web config (reachable at its current `192.168.10.105`
-address) — no firewall change needed or wanted, since `users -> services` MQTT access is
-intentionally not a thing any more.
-
 ### 27. Pi-hole's hourly NTP fallback to the public internet is back (finding 23 recurrence) (medium)
 
 Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. `services2internet`'s catch-all (rule 49,

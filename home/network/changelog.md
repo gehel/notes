@@ -1735,3 +1735,23 @@ narrow `iot2internet` exception for outbound NTP specifically — `src-address-l
 protocol=udp dst-port=123`, same shape as its HTTPS exception, no destination restriction.
 
 **Verified:** IotaWatt's own clock reads correctly after applying.
+
+### Finding 26 closed — Kids Light reconnected to `LEDCOM-IoT` (2026-09-13)
+
+Kids Light (Tasmota, `D8:BC:38:99:44:68`) had been associated to the `LEDCOM` SSID instead of
+`LEDCOM-IoT` since at least 2026-09-12 21:16, stranding it on `vlan-users` with a dynamic
+address and blocking every MQTT attempt to Home Assistant for ~19.5h straight (finding 26 in
+`config-review.md`). Fixed device-side — reconnected to `LEDCOM-IoT` via its own Tasmota web
+config, no router change.
+
+**Verified** against a fresh dump and log (both collected 2026-09-13 ~16:49):
+- `/caps-man/registration-table/print` now shows `D8:BC:38:99:44:68` on `ap-MikroTik-Switch-1-1`
+  with SSID `LEDCOM-IoT`, uptime 1m35s at dump time.
+- Its `dhcp-iot` static reservation (`192.168.30.61`) is bound and resolving —
+  `tasmota-994468-1128.home.ledcom.fr` → `192.168.30.61` in Pi-hole's DNS record list.
+- The firewall log's last `users2services` deny for this device is 16:46:32, a couple of
+  minutes before the SSID switch (registration uptime places the switch around 16:48); no
+  further denies logged afterward, consistent with `iot2services`'s existing MQTT-to-HA accept
+  now covering it instead. Not independently confirmed via a live MQTT session or Home
+  Assistant's own device list — only the negative evidence (denies stopped) plus the correct
+  VLAN/address binding.
