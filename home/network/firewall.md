@@ -138,17 +138,24 @@ design (`vlan-users` keeps unrestricted internet access).
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 45 | accept | `protocol=tcp dst-port=80,443` | services2internet: HTTP/HTTPS from any services host |
+| 45 | accept | `protocol=tcp dst-port=443` | services2internet: HTTPS from any services host |
 | 46 | accept | `protocol=udp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS |
 | 47 | accept | `protocol=tcp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS (TCP) |
 | 48 | accept | `protocol=tcp src-address=192.168.20.40 dst-port=853` | services2internet: Pi-hole's own upstream DNS-over-TLS |
 | 49 | drop, logged | *(catch-all)* | services2internet: deny everything else |
 
+Rule 45 narrowed from `dst-port=80,443` to `443`-only 2026-09-14 (Guillaume, applied directly)
+— see `changelog.md` for the fallout this surfaced (finding 29: Home Assistant needed plain
+HTTP for something). **The IPv6 equivalent (`services2internet-v6`) was not narrowed and
+still allows `dst-port=80,443`** — the same kind of v4/v6 asymmetry already noted for
+`octoprint`/`octoprint-v6`, not urgent but worth closing eventually.
+
 Rule 47 (TCP/53) added 2026-09-10 — found via `dump-logs.sh`: Pi-hole falls back to DNS-over-TCP
 for large/DNSSEC-heavy responses, which only the UDP accept had covered until then. Pi-hole's
 own NTP is **not** in this chain — as of 2026-09-10 it's pinned directly at mikrotik1
 (`192.168.20.1`) via `timesyncd.conf`, reaching it through `chain=input` rule 13 above, not
-through the internet at all (finding 23, closed).
+through the internet at all (finding 23 — reopened 2026-09-14, see `config-review.md`, the
+fix didn't actually hold).
 
 **`iot2internet`** (# 50-53)
 

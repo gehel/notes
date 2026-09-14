@@ -76,6 +76,27 @@ job in the first place, a misconception this finding also corrects.
 - A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
   keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
 
+### 27. Pi-hole's hourly NTP-like traffic to public servers — real cause still unidentified (reopened 2026-09-14) (medium)
+
+Originally found 2026-09-13, closed 2026-09-14 on the strength of a `FallbackNTP=192.168.20.1`
+fix verified via `timedatectl show-timesync --all`. **Reopened the same day**: a log collected
+hours later shows the identical hourly burst pattern to rotating public NTP servers continuing
+*unchanged* after the fix and its restart (`11:52:37`) — bursts at `11:59:26` and `12:59:26`
+both landed on public IPs (`193.134.29.12`, `85.195.210.125`), not `192.168.20.1`. Full account
+in `changelog.md`'s "Correction" entry.
+
+**What this means:** `systemd-timesyncd` was never the source — the real culprit is still
+unidentified. The earlier investigation's cron/timer checks only grepped `/etc/crontab` and
+`/etc/cron.d/*`'s own text for "ntp", which would miss a `cron.hourly` script or a user
+crontab entry that doesn't mention "ntp" literally in the schedule line itself. `FallbackNTP=
+192.168.20.1` stays applied (harmless, closes a theoretical gap) but doesn't fix the live
+problem.
+
+**Next step:** catch it live. The pattern is precisely hourly at `:59`, minute-ish — a process
+or socket snapshot (`sudo ss -up`, `sudo lsof -i UDP:123`) taken right around the `:58`-`:00`
+window, or a short `sudo tcpdump -i eth0 udp port 123 -n` left running across one full hour
+boundary, should catch it directly instead of guessing from config again.
+
 ### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
 
 Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. 11 packets from Home Assistant
@@ -90,6 +111,29 @@ candidate given the source port and persistence is Nabu Casa's remote-access rel
 information yet to act on: worth checking Home Assistant's own Nabu Casa/cloud-connectivity log
 for disconnects around those four timestamps, and, if this keeps recurring, mikrotik1's
 `/ip/firewall/connection/tracking` timeouts for the relevant protocol.
+
+**Recurred 2026-09-14** (10:42:11, 10:42:46, both `ACK`, same shape) — consistent with the
+original description, no new information.
+
+### 29. Home Assistant needs plain HTTP for something — surfaced by narrowing `services2internet` to HTTPS-only (medium)
+
+Found 2026-09-14, the same day `services2internet` rule 45 was narrowed from
+`dst-port=80,443` to `443`-only (see `changelog.md`). Home Assistant (`192.168.20.60`) has been
+continuously retrying plain HTTP (port 80) to three Cloudflare edge IPs (`104.26.4.238`,
+`104.26.5.238`, `172.67.68.90`) — roughly one SYN every 20-25s per destination, no backoff,
+unbroken across the entire ~4.5h capture (`09:22:03`-`13:52:09`, 729 drops total, still going
+at the end of the capture window). All three IPs are generic Cloudflare anycast edges — could
+be any Cloudflare-fronted domain, not identifiable from the firewall log alone.
+
+**Needs identifying on the HA side**, not from mikrotik1: check Home Assistant's own logs
+(Settings → System → Logs, or `core.log`) for connection errors/retries around the same
+destinations or matching the retry cadence — most likely a specific integration or add-on
+doing an HTTP (not HTTPS) check. Directly relevant to Guillaume's goal of moving
+`services2internet` fully to HTTPS: this is the one known blocker right now. Options once
+identified: fix the integration's own config to use HTTPS if it supports it, or, if it
+genuinely only speaks HTTP, decide whether that's acceptable to special-case (same shape as
+OctoPrint's connectivity-check retarget, finding closed 2026-09-11) or worth dropping/disabling
+the integration instead.
 
 ### mikrotik4 has never been reviewed
 

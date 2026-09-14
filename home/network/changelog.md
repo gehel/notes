@@ -1818,3 +1818,50 @@ fix requires `timedatectl show-timesync --all` (`FallbackNTPServers=`), not just
 re-verified against device output in this session (no `show-timesync --all`/log evidence
 collected here), so treat as done on his word rather than independently confirmed the way
 Pi-hole's fix above was.
+
+### Correction, same day: the "Finding 27 closed" entry above was premature (2026-09-14)
+
+A fresh log collected several hours after the `FallbackNTP=192.168.20.1` fix and its
+`show-timesync --all` verification shows **the exact same hourly burst of UDP/123 packets to
+rotating public NTP servers, continuing unchanged after the fix**: bursts at `09:59:25`,
+`10:59:25`, `11:59:26`, and `12:59:26` (2026-09-14), all still to different public IPs
+(`84.254.99.155`, `158.180.28.150`, `193.134.29.12`, `85.195.210.125`) — including the two
+bursts *after* the fix was applied and restarted at `11:52:37`. If `systemd-timesyncd`'s
+`FallbackNTP=` were really the mechanism, changing it to `192.168.20.1` should have made these
+bursts either disappear or start hitting `192.168.20.1` (accepted by `chain=input`, so not
+logged here at all) — neither happened.
+
+**Conclusion: `systemd-timesyncd` was never actually the source of this traffic.** The
+`show-timesync --all` verification was real (the property genuinely changed), but it verified
+the wrong thing — a live property readback, not a behavioral test over time. The precise
+hourly-at-:59 cadence, unaffected by any change to `timesyncd.conf`, points at something else
+entirely on Pi-hole: most likely a `cron.hourly`/systemd-timer job whose *contents* weren't
+checked in the earlier investigation (only `/etc/crontab` and `/etc/cron.d/*`'s own text were
+grepped for "ntp" — not what any referenced `/etc/cron.hourly/*` script actually does), a user
+crontab entry with a schedule like `59 * * * *` (the two crontab checks that ran wouldn't
+catch this unless the literal word "ntp" appeared in the crontab line itself, not inside a
+script it calls), or something unrelated to `cron`/`systemd-timesyncd` entirely.
+
+**Finding 27 reopened** — see `config-review.md`. `FallbackNTP=192.168.20.1` stays applied (it
+is at minimum harmless, and closes the theoretical gap it was meant to close even though it
+wasn't the live problem), but the real source of the hourly bursts is still unidentified.
+OctoPrint's identical reconfiguration is unverified against its own log either way.
+
+### `services2internet` narrowed to HTTPS-only (2026-09-14)
+
+Guillaume applied directly: rule 45 (`services2internet: HTTP/HTTPS from any services host`,
+`dst-port=80,443`) narrowed to `dst-port=443` only — comment now "services2internet: HTTPS
+from any services host". Matches the same HTTPS-only narrowing already applied to
+`octoprint`'s `iot2internet` exception (2026-09-11). **Confirmed via fresh dump** (`dumps/
+mikrotik1-main.txt`): rule 45 now reads `dst-port=443 protocol=tcp`. The IPv6 equivalent
+(`services2internet-v6`) was not touched and still allows `dst-port=80,443` — same kind of
+v4/v6 asymmetry as `octoprint`/`octoprint-v6`, not urgent.
+
+**Immediate fallout, found the same day reviewing the next log:** Home Assistant
+(`192.168.20.60`) has been continuously retrying plain HTTP (port 80) to three Cloudflare
+edge IPs (`104.26.4.238`, `104.26.5.238`, `172.67.68.90`) — roughly one SYN every 20-25s per
+destination, no backoff, unbroken across the entire ~4.5h capture (`09:22:03`-`13:52:09`,
+729 drops total). Whatever integration/add-on is doing this needs identifying on the HA side
+(check its own logs for connection errors to these IPs or their hostname) — see finding 29 in
+`config-review.md`. Directly relevant to Guillaume's stated goal of moving `services2internet`
+fully to HTTPS: this is the one known thing standing in the way right now.
