@@ -1942,3 +1942,51 @@ disconnected/transient device (phones with randomised MACs on the dynamic pools,
 particular) reclaims its address reasonably promptly. Matches common home-router defaults.
 
 **Verified:** `/ip/dhcp-server/print detail` on all three shows `lease-time=1d`.
+
+### Finding 29 closed — Home Assistant's Supervisor connectivity check identified and given a scoped HTTP exception (2026-09-14)
+
+Found the same day as the rule 45 narrowing: Home Assistant continuously retrying plain HTTP
+to three Cloudflare edge IPs, blocked by `services2internet`'s new HTTPS-only policy (729
+drops in one ~4.5h capture, no backoff, still going at capture end).
+
+**Identification.** `ha core logs` and `ha supervisor logs` (pulled via `sync.sh`, extended
+the same day to fetch both — see `home/home-assistant/changelog.md`) both came up completely
+clean — neither Core nor Supervisor's own Python-level logging mentions this traffic at all.
+`ha resolution info`'s checks/issues list also came up clean — no internet-connectivity issue
+registered there either. The real signal came from a live functional failure Guillaume hit
+independently: updating the Z-Wave JS add-on failed with `'AppManager.update' blocked from
+execution, no host internet connection` — proof Supervisor has its own internet-connectivity
+gate, entirely separate from the logging/resolution-center surfaces already checked, and that
+it currently believes there is none. `dig checkonline.home-assistant.io +short` from an
+unrestricted `vlan-users` client returned exactly the three IPs already seen blocked in the
+firewall log — confirms this is Home Assistant Supervisor's own built-in connectivity check
+(deliberately plain HTTP, by HA's own design, to reliably detect captive portals — HTTPS can't
+do that as cleanly), not a third-party integration or rogue add-on.
+
+**Fix, iterated once.** First draft was a `dst-address-list` scoped to the three known
+Cloudflare IPs — rejected by Guillaume as too fragile (those IPs aren't guaranteed stable,
+and an IP-list exception would need re-verifying every time Cloudflare's anycast addresses for
+that hostname rotate — the project already learned this lesson once with the abandoned
+TLS-SNI-allowlist attempt, 2026-09-11). Rewritten scoped to `src-address=192.168.20.60`
+instead, unrestricted by destination — matching the existing precedent on
+`services2iot`/`services2users`'s HA-specific rules (`firewall.md`: "any future \[need\] is
+reachable ... without a firewall change"). Applied directly by Guillaume, comment
+`services2internet: allow Home Assistant to connect on plain HTTP`.
+
+**A first application was missing `connection-state=new`** — every other rule in this chain
+has it, and README.md's hard-won lessons list its absence as a confirmed `I - INVALID` trigger.
+No `I` flag was visible on the initial `print`, but that's consistent with the lessons list's
+own caveat that the flag can be transient or not show on a basic query — fixed for consistency
+regardless (`/ip/firewall/filter/set ... connection-state=new`), re-verified clean.
+
+**Verified functionally, not just by print output:** the Z-Wave JS update that had failed with
+"no host internet connection" was retried and succeeded.
+
+**Firewall rule numbers shifted:** the new rule landed at real global position 49 (confirmed
+via a fresh `dump-configs.sh` after the fact, not guessed), pushing the catch-all to 50 and
+every rule in `iot2internet` through `internet2services` up by one (51-76, previously 50-72).
+`firewall.md` fully renumbered to match, including filling in two rows (`iot2internet`'s
+ceiling-fan-drop and iotawatt-NTP rules) that had carried a "—" placeholder since an earlier
+insertion left their exact position uncertain — now known precisely from this dump.
+
+IPv6 not given the equivalent exception — no log evidence yet that it's needed there.

@@ -115,26 +115,6 @@ for disconnects around those four timestamps, and, if this keeps recurring, mikr
 **Recurred 2026-09-14** (10:42:11, 10:42:46, both `ACK`, same shape) — consistent with the
 original description, no new information.
 
-### 29. Home Assistant needs plain HTTP for something — surfaced by narrowing `services2internet` to HTTPS-only (medium)
-
-Found 2026-09-14, the same day `services2internet` rule 45 was narrowed from
-`dst-port=80,443` to `443`-only (see `changelog.md`). Home Assistant (`192.168.20.60`) has been
-continuously retrying plain HTTP (port 80) to three Cloudflare edge IPs (`104.26.4.238`,
-`104.26.5.238`, `172.67.68.90`) — roughly one SYN every 20-25s per destination, no backoff,
-unbroken across the entire ~4.5h capture (`09:22:03`-`13:52:09`, 729 drops total, still going
-at the end of the capture window). All three IPs are generic Cloudflare anycast edges — could
-be any Cloudflare-fronted domain, not identifiable from the firewall log alone.
-
-**Needs identifying on the HA side**, not from mikrotik1: check Home Assistant's own logs
-(Settings → System → Logs, or `core.log`) for connection errors/retries around the same
-destinations or matching the retry cadence — most likely a specific integration or add-on
-doing an HTTP (not HTTPS) check. Directly relevant to Guillaume's goal of moving
-`services2internet` fully to HTTPS: the one remaining known blocker (finding 30, apt's mirror,
-closed 2026-09-14 — see `changelog.md`). Options once identified: fix the integration's own
-config to use HTTPS if it supports it, or, if it genuinely only speaks HTTP, decide whether
-that's acceptable to special-case (same shape as OctoPrint's connectivity-check retarget,
-finding closed 2026-09-11) or worth dropping/disabling the integration instead.
-
 ### mikrotik4 has never been reviewed
 
 `192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no
