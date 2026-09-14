@@ -1812,5 +1812,9 @@ further since the fix removes any consequence regardless of the trigger.
 
 **Generalizable lesson — added to `README.md`'s hard-won lessons:** verifying a `FallbackNTP=`
 fix requires `timedatectl show-timesync --all` (`FallbackNTPServers=`), not just
-`timesync-status`. **OctoPrint got the identical original (empty-`FallbackNTP=`) fix the same
-day finding 23 first closed and is exposed to the same gap — not yet re-applied there.**
+`timesync-status`.
+
+**OctoPrint reconfigured the same way (2026-09-14).** Guillaume confirmed it directly — not
+re-verified against device output in this session (no `show-timesync --all`/log evidence
+collected here), so treat as done on his word rather than independently confirmed the way
+Pi-hole's fix above was.

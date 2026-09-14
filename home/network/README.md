@@ -310,9 +310,9 @@ outstanding test is a host plugged directly into the Internet-Box.
   (`FallbackNTPServers=`) is the only way to actually confirm the fallback list is what you
   think it is.** The durable fix: don't rely on empty-clears-list semantics at all — point
   `FallbackNTP=` at the same real server as `NTP=` instead, so there's no path to the public
-  internet regardless of how this quirk behaves. Applied and verified on Pi-hole; OctoPrint got
-  the identical original (empty-`FallbackNTP=`) fix the same day and is exposed to the same
-  gap, not yet re-applied.
+  internet regardless of how this quirk behaves. Applied and verified on Pi-hole
+  (2026-09-14); OctoPrint reconfigured the same way the same day (Guillaume confirmed) —
+  both devices with a `FallbackNTP=` pin are now on the durable, same-server form.
 - **IPv6 privacy extensions (RFC 4941 temporary addresses) can't be assumed off on a "fixed
   appliance" host — verify against real traffic, not just the device's role.** A firewall rule
   scoped to a computed EUI-64 address can look completely correct on `print` while matching
