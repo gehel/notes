@@ -129,11 +129,29 @@ be any Cloudflare-fronted domain, not identifiable from the firewall log alone.
 (Settings → System → Logs, or `core.log`) for connection errors/retries around the same
 destinations or matching the retry cadence — most likely a specific integration or add-on
 doing an HTTP (not HTTPS) check. Directly relevant to Guillaume's goal of moving
-`services2internet` fully to HTTPS: this is the one known blocker right now. Options once
-identified: fix the integration's own config to use HTTPS if it supports it, or, if it
-genuinely only speaks HTTP, decide whether that's acceptable to special-case (same shape as
-OctoPrint's connectivity-check retarget, finding closed 2026-09-11) or worth dropping/disabling
-the integration instead.
+`services2internet` fully to HTTPS: one of two known blockers so far (see also finding 30).
+Options once identified: fix the integration's own config to use HTTPS if it supports it, or,
+if it genuinely only speaks HTTP, decide whether that's acceptable to special-case (same shape
+as OctoPrint's connectivity-check retarget, finding closed 2026-09-11) or worth
+dropping/disabling the integration instead.
+
+### 30. Raspbian's default apt mirror uses plain HTTP — blocked the same way (medium)
+
+Found 2026-09-14: `sudo apt install tcpdump` on Pi-hole failed —
+`Could not connect to raspbian.raspberrypi.com:80 ... connection timed out` — for both its
+IPv4 (`93.93.128.193`) and IPv6 (`2a00:1098:0:80:1000:75:0:3`) addresses. Same root cause as
+finding 29 (`services2internet` narrowed to HTTPS-only that day), different and unrelated
+traffic: Raspberry Pi OS's default `/etc/apt/sources.list` points at this mirror over plain
+HTTP by default, not HTTPS. Currently affects Pi-hole, the only Raspbian host on
+`vlan-services`; will affect any future one too.
+
+**Fix, in progress:** the mirror also serves HTTPS on the same hostname, so switching
+`sources.list`/`sources.list.d/*.list` from `http://` to `https://` should resolve this
+properly rather than needing a firewall exception — more in line with the "move to all HTTPS"
+goal than finding 29's case, since this one has an obvious, low-risk fix. Not yet confirmed
+working (`apt update` result pending). **OctoPrint is also Raspbian-based** (on `vlan-iot`,
+already HTTPS-only since 2026-09-11) and almost certainly has the identical gap, just never
+exercised since nobody's run `apt install` there since the narrowing — worth the same check.
 
 ### mikrotik4 has never been reviewed
 
