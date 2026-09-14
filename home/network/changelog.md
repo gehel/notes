@@ -1919,3 +1919,26 @@ narrowing (and `iot2internet`'s, already in place) hold with no known remaining 
 legacy trusted.gpg keyring (/etc/apt/trusted.gpg), see the DEPRECATION section in apt-key(8)`
 — pre-existing apt hygiene, unrelated to HTTP vs. HTTPS, not something either mirror change
 introduced.
+
+### DHCP lease time restored from 5m to 1d on all three servers (2026-09-14)
+
+`dhcp-home`/`dhcp-services`/`dhcp-iot` had all carried `lease-time=5m` since the VLAN
+renumbering — needed then so re-leases happened quickly during the transition, never restored
+afterward. Surfaced as a real symptom while chasing finding 29 (Home Assistant's HTTP traffic):
+its DHCP lease was renewing every ~2.5 minutes in `ha host logs`, exactly 50% of 5m — briefly
+suspected as related to the HTTP issue, then ruled out as an unrelated side effect of the
+leftover short lease time once Guillaume confirmed the timing.
+
+Applied via `scripts/restore-dhcp-lease-time.rsc` (deleted after verified, per convention).
+**First attempt failed harmlessly**: `lease-time=1d` was rejected outright —
+`invalid time value for argument lease-time` — RouterOS needs the fully-qualified `Nd00:00:00`
+form for a bare day value, not just `1d`, on `set` (oddly, `5m`, a single-unit form, was
+already valid and in place — RouterOS accepts single-unit shorthand but not `<n>d` alone).
+Corrected to `1d00:00:00` and re-run.
+
+1d chosen over RouterOS's factory default (3d) or the pre-project value: long enough to
+eliminate the lease-renewal churn/log noise seen at 5m, short enough that a
+disconnected/transient device (phones with randomised MACs on the dynamic pools, in
+particular) reclaims its address reasonably promptly. Matches common home-router defaults.
+
+**Verified:** `/ip/dhcp-server/print detail` on all three shows `lease-time=1d`.
