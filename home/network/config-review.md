@@ -94,16 +94,21 @@ accepts (`services`/`users`/`iot`) still present and unchanged, and DHCP option 
 (`ntp-services`) still decodes to `192.168.20.1`. Nothing on mikrotik1 has drifted — the gap is
 entirely on Pi-hole's own OS, exactly where finding 23 found it the first time.
 
-**Leading hypothesis for *why* it reverted, not yet confirmed:** the original fix (both here
-and for OctoPrint the same day) edited `/etc/systemd/timesyncd.conf` directly — a
-package-owned conffile. If Pi-hole's OS applies unattended upgrades with
-`--force-confnew`/`--force-confdef` (or any equivalent that keeps the packaged default over a
-locally-modified conffile), a routine `systemd`/`systemd-timesyncd` package upgrade would
-silently restore the stock file, deleting the pin and the empty `FallbackNTP=` with it — no
-error, no log entry pointing at the real cause, matching how this stayed invisible for three
-days. Needs confirming against Pi-hole's own `apt` history before treating this as settled;
-OctoPrint got the identical fix the same way and hasn't shown the same recurrence yet in this
-log, but is exposed to the same risk if this hypothesis holds.
+**First hypothesis (conffile reverted by a package upgrade) ruled out 2026-09-14.** Guillaume
+checked Pi-hole directly: `/etc/systemd/timesyncd.conf` still has exactly the right config
+(`NTP=192.168.20.1`, `FallbackNTP=` empty), no `timesyncd.conf.d/` drop-ins exist, no
+`systemd`-related entries in `/var/log/apt/history.log`, and `timedatectl timesync-status`
+shows a healthy live sync against `192.168.20.1` — `Stratum: 2`, `Packet count: 119`, clean
+offset/jitter. The fix never reverted.
+
+**That rules out `systemd-timesyncd` as the source of the blocked traffic entirely — its own
+poll interval is `34min 8s`, not hourly, and it only ever talks to `192.168.20.1`.** Something
+*else* on Pi-hole is making the hourly bursts to public NTP servers. Leading candidates, not
+yet checked: a second time-sync daemon also installed and enabled (`chrony`/`ntpd`, either a
+distro default or a leftover from before this project pinned `systemd-timesyncd`), an hourly
+cron/systemd-timer job, or — if Pi-hole itself runs in Docker — a container with its own
+independent time-sync process. Next step is identifying the second process before touching
+anything else.
 
 ### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
 
