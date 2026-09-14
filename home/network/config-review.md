@@ -86,9 +86,24 @@ burst per hour without a single gap). This is systemd-timesyncd's periodic poll 
 through to `FallbackNTP=`, the exact failure mode `README.md`'s hard-won lessons describe for
 finding 23. Finding 23 closed on the strength of pinning both `NTP=` and `FallbackNTP=` (set
 explicitly empty) in Pi-hole's `timesyncd.conf` — since the fallback traffic is back and
-completely regular, that configuration didn't hold (a Pi-hole OS update or reinstall is a
-plausible cause). Needs re-checking and re-applying on Pi-hole directly; no firewall change
-indicated — the design intent (Pi-hole never needs the internet for time) is still correct.
+completely regular, that configuration didn't hold.
+
+**Router side re-checked 2026-09-14, confirmed clean, not the cause:** the fresh dump shows
+mikrotik1's own NTP server still `enabled=yes`, all three `chain=input` "NTP from gateway"
+accepts (`services`/`users`/`iot`) still present and unchanged, and DHCP option 42
+(`ntp-services`) still decodes to `192.168.20.1`. Nothing on mikrotik1 has drifted — the gap is
+entirely on Pi-hole's own OS, exactly where finding 23 found it the first time.
+
+**Leading hypothesis for *why* it reverted, not yet confirmed:** the original fix (both here
+and for OctoPrint the same day) edited `/etc/systemd/timesyncd.conf` directly — a
+package-owned conffile. If Pi-hole's OS applies unattended upgrades with
+`--force-confnew`/`--force-confdef` (or any equivalent that keeps the packaged default over a
+locally-modified conffile), a routine `systemd`/`systemd-timesyncd` package upgrade would
+silently restore the stock file, deleting the pin and the empty `FallbackNTP=` with it — no
+error, no log entry pointing at the real cause, matching how this stayed invisible for three
+days. Needs confirming against Pi-hole's own `apt` history before treating this as settled;
+OctoPrint got the identical fix the same way and hasn't shown the same recurrence yet in this
+log, but is exposed to the same risk if this hypothesis holds.
 
 ### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
 

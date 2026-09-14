@@ -1752,6 +1752,7 @@ config, no router change.
 - The firewall log's last `users2services` deny for this device is 16:46:32, a couple of
   minutes before the SSID switch (registration uptime places the switch around 16:48); no
   further denies logged afterward, consistent with `iot2services`'s existing MQTT-to-HA accept
-  now covering it instead. Not independently confirmed via a live MQTT session or Home
-  Assistant's own device list — only the negative evidence (denies stopped) plus the correct
-  VLAN/address binding.
+  now covering it instead.
+
+**Guillaume confirmed directly (2026-09-14):** the light connects to MQTT and is visible in
+Home Assistant — full end-to-end confirmation, not just the negative log evidence above.
