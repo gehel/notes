@@ -1756,3 +1756,61 @@ config, no router change.
 
 **Guillaume confirmed directly (2026-09-14):** the light connects to MQTT and is visible in
 Home Assistant — full end-to-end confirmation, not just the negative log evidence above.
+
+### Finding 27 closed — Pi-hole's NTP fallback, root cause found: an empty `FallbackNTP=` doesn't actually clear the list (2026-09-14)
+
+Found 2026-09-13 (see the equivalent entry above for the initial log evidence — 157 blocked
+UDP/123 packets over ~19.5h, once an hour, to a rotating set of public NTP servers). This is
+finding 23's second recurrence, both times traced to the exact same `services2internet`
+catch-all in `logs/mikrotik1-main.txt`.
+
+**Router side checked first, ruled out cleanly:** mikrotik1's own NTP server, all three
+`chain=input` "NTP from gateway" accepts, and DHCP option 42 (`ntp-services` = `192.168.20.1`)
+were all unchanged and correct. The gap was entirely on Pi-hole's own OS.
+
+**First hypothesis (a package upgrade reverted the conffile) ruled out:** `/etc/systemd/
+timesyncd.conf` still had exactly the intended config (`NTP=192.168.20.1`, `FallbackNTP=`
+empty), no drop-ins anywhere, `systemd-analyze cat-config systemd/timesyncd.conf` confirmed
+the plain file was the only effective config, no relevant `apt` history, and `timedatectl
+timesync-status` showed a healthy live sync against `192.168.20.1`. No second time-sync daemon
+(`chrony`/`ntpd` not installed), no relevant cron/systemd-timer job, and Pi-hole isn't running
+in Docker.
+
+**Actual root cause, found via `timedatectl show-timesync --all`:** despite the config file's
+explicit empty `FallbackNTP=`, the live `FallbackNTPServers=` property still showed
+`0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org` — the
+compiled-in default, untouched by the "empty" assignment. `RuntimeNTPServers=` and
+`LinkNTPServers=` were both correctly empty, ruling out DHCP/`systemd-networkd`
+NTP-server injection as a separate mechanism. This systemd build
+(`252.33-1~deb12u1+rpi1`, Debian 12/Raspberry Pi OS) simply doesn't honor an empty
+`FallbackNTP=` as "clear the compiled default" the way finding 23's original fix assumed —
+and that fix's own verification never caught it, because it only ever checked
+`timedatectl timesync-status` (the *active* server), which can't show an unused-but-still-
+configured fallback list.
+
+**Fixed:** pointed `FallbackNTP=` at the same real server instead of leaving it empty —
+
+```
+[Time]
+NTP=192.168.20.1
+FallbackNTP=192.168.20.1
+```
+
+— sidestepping the empty-list ambiguity entirely: no configuration state now has a path to
+the public internet for time, regardless of how this quirk actually behaves internally.
+
+**Verified:** `timedatectl show-timesync --all` after `systemctl restart systemd-timesyncd`
+shows `FallbackNTPServers=192.168.20.1`, confirming a real value does override correctly
+(only the empty-clears-list case was broken) — `SystemNTPServers=192.168.20.1`,
+`ServerAddress=192.168.20.1`, clean sync (`Stratum=2`, fresh `PacketCount=1` after restart).
+
+**Not fully explained, not blocking:** why the fallback list was being exercised roughly
+hourly at all, given `192.168.20.1` was reachable throughout and `PollIntervalUSec` was
+`34min 8s` (not hourly) — `journalctl -u systemd-timesyncd` was essentially silent across the
+whole incident window, so no direct server-level correlation was available. Not investigated
+further since the fix removes any consequence regardless of the trigger.
+
+**Generalizable lesson — added to `README.md`'s hard-won lessons:** verifying a `FallbackNTP=`
+fix requires `timedatectl show-timesync --all` (`FallbackNTPServers=`), not just
+`timesync-status`. **OctoPrint got the identical original (empty-`FallbackNTP=`) fix the same
+day finding 23 first closed and is exposed to the same gap — not yet re-applied there.**

@@ -298,6 +298,21 @@ outstanding test is a host plugged directly into the Internet-Box.
   stops, with no error and no symptom short of reading the firewall log. Hit twice in one day
   on two different devices (Pi-hole, re-opening a previously "closed" finding 23; OctoPrint,
   the first time its NTP was ever configured) — always set both together, not just `NTP=`.
+  **Correction, found 2026-09-14 re-opening finding 23 a second time:** an empty `FallbackNTP=`
+  assignment does not reliably clear the compiled-in default on this systemd build
+  (`252.33-1~deb12u1+rpi1`, Raspberry Pi OS/Debian 12) — `timedatectl show-timesync --all`
+  showed `FallbackNTPServers=0.debian.pool.ntp.org ...` still active days after the empty
+  assignment had been applied and "verified," with no drop-in anywhere overriding it
+  (`systemd-analyze cat-config systemd/timesyncd.conf` confirmed the plain file was the only
+  effective config). The original verification only ever checked `timedatectl
+  timesync-status` (the *active* server only) — that can never catch this, since the fallback
+  list simply isn't exercised while the primary keeps answering. **`show-timesync --all`
+  (`FallbackNTPServers=`) is the only way to actually confirm the fallback list is what you
+  think it is.** The durable fix: don't rely on empty-clears-list semantics at all — point
+  `FallbackNTP=` at the same real server as `NTP=` instead, so there's no path to the public
+  internet regardless of how this quirk behaves. Applied and verified on Pi-hole; OctoPrint got
+  the identical original (empty-`FallbackNTP=`) fix the same day and is exposed to the same
+  gap, not yet re-applied.
 - **IPv6 privacy extensions (RFC 4941 temporary addresses) can't be assumed off on a "fixed
   appliance" host — verify against real traffic, not just the device's role.** A firewall rule
   scoped to a computed EUI-64 address can look completely correct on `print` while matching

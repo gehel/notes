@@ -76,40 +76,6 @@ job in the first place, a misconception this finding also corrects.
 - A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
   keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
 
-### 27. Pi-hole's hourly NTP fallback to the public internet is back (finding 23 recurrence) (medium)
-
-Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. `services2internet`'s catch-all (rule 49,
-logged) is dropping a burst of 6-8 UDP/123 packets from Pi-hole (`192.168.20.40`) to a
-different public NTP server almost exactly once an hour, every hour, for the entire ~19.5h
-capture window (21:15:43 on 2026-09-12 through 16:16:11 on 2026-09-13 — 157 drops total, one
-burst per hour without a single gap). This is systemd-timesyncd's periodic poll falling
-through to `FallbackNTP=`, the exact failure mode `README.md`'s hard-won lessons describe for
-finding 23. Finding 23 closed on the strength of pinning both `NTP=` and `FallbackNTP=` (set
-explicitly empty) in Pi-hole's `timesyncd.conf` — since the fallback traffic is back and
-completely regular, that configuration didn't hold.
-
-**Router side re-checked 2026-09-14, confirmed clean, not the cause:** the fresh dump shows
-mikrotik1's own NTP server still `enabled=yes`, all three `chain=input` "NTP from gateway"
-accepts (`services`/`users`/`iot`) still present and unchanged, and DHCP option 42
-(`ntp-services`) still decodes to `192.168.20.1`. Nothing on mikrotik1 has drifted — the gap is
-entirely on Pi-hole's own OS, exactly where finding 23 found it the first time.
-
-**First hypothesis (conffile reverted by a package upgrade) ruled out 2026-09-14.** Guillaume
-checked Pi-hole directly: `/etc/systemd/timesyncd.conf` still has exactly the right config
-(`NTP=192.168.20.1`, `FallbackNTP=` empty), no `timesyncd.conf.d/` drop-ins exist, no
-`systemd`-related entries in `/var/log/apt/history.log`, and `timedatectl timesync-status`
-shows a healthy live sync against `192.168.20.1` — `Stratum: 2`, `Packet count: 119`, clean
-offset/jitter. The fix never reverted.
-
-**That rules out `systemd-timesyncd` as the source of the blocked traffic entirely — its own
-poll interval is `34min 8s`, not hourly, and it only ever talks to `192.168.20.1`.** Something
-*else* on Pi-hole is making the hourly bursts to public NTP servers. Leading candidates, not
-yet checked: a second time-sync daemon also installed and enabled (`chrony`/`ntpd`, either a
-distro default or a leftover from before this project pinned `systemd-timesyncd`), an hourly
-cron/systemd-timer job, or — if Pi-hole itself runs in Docker — a container with its own
-independent time-sync process. Next step is identifying the second process before touching
-anything else.
-
 ### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
 
 Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. 11 packets from Home Assistant
