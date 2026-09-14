@@ -41,6 +41,14 @@
 # App-level events like "device interview failed" show up there, not in
 # HA Core's log. `ha host logs` is the equivalent for OS-level issues, not
 # fetched here — run by hand the same way if a problem points that way.
+#
+# Also pulls Supervisor's own log and the installed add-ons list. `ha core
+# logs` only covers HA Core's own process — traffic from a Supervisor-
+# managed add-on container (or Supervisor itself) never shows up there, so
+# these are the next place to look when something network-related doesn't
+# appear in the core log at all (confirmed 2026-09-14: a continuous plain-
+# HTTP retry loop to three Cloudflare IPs, port 80, showed nothing in a
+# core log pulled during an active burst).
 
 set -uo pipefail
 
@@ -81,3 +89,9 @@ ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha core logs"' \
 ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" \
   "bash -l -c \"ha apps logs $ZWAVE_JS_APP\"" \
   > "$OUTDIR/zwave-js-current.log"
+
+ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha supervisor logs"' \
+  > "$OUTDIR/supervisor-current.log"
+
+ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha addons list"' \
+  > "$OUTDIR/addons-list.txt"

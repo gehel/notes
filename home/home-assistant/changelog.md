@@ -346,3 +346,20 @@ reconciled with what's actually in `core.entity_registry`; worth checking whethe
 enabling explicitly (either on IotaWatt's own web UI or the integration's options) before
 concluding anything is actually broken, rather than rebuilding these as separate HA-side
 template sensors. Tracked as open in `config-review.md`.
+
+## `sync.sh` extended to pull Supervisor logs and add-ons list (2026-09-14)
+
+Investigating a mikrotik1 firewall finding from the network side (`home/network/config-review.md`
+finding 29 — Home Assistant continuously retrying plain HTTP to three Cloudflare edge IPs,
+blocked once `services2internet` was narrowed to HTTPS-only): a fresh `ha core logs` pulled
+during an active burst showed nothing related at all, only an unrelated Zigbee delivery issue.
+
+**Root cause of the gap:** `ha core logs` only covers HA Core's own process. A Supervisor-
+managed add-on's own traffic (or Supervisor's own connectivity checks) never appears there —
+same blind spot the script already worked around for the Z-Wave JS App by pulling its log
+separately (`ha apps logs core_zwave_js`).
+
+**Added to `sync.sh`:** `ha supervisor logs` → `supervisor-current.log`, and `ha addons list`
+→ `addons-list.txt`, same pattern as the existing Core/Z-Wave JS pulls. Not yet run against a
+live capture — next sync will show whether Supervisor's own log or the add-ons list points at
+the actual source of the HTTP traffic.

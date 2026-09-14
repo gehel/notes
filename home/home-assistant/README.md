@@ -40,8 +40,12 @@ wouldn't.
 
 ## Getting the config for review
 
-`scripts/sync.sh` pulls `/config` (via `rsync` over SSH) plus a fresh `ha core logs` capture
-into `config/` — see the script's own header for exact exclusions and why. Needs the
+`scripts/sync.sh` pulls `/config` (via `rsync` over SSH) plus fresh `ha core logs`,
+`ha apps logs core_zwave_js`, `ha supervisor logs`, and `ha addons list` captures into
+`config/` — see the script's own header for exact exclusions and why. **`ha core logs` only
+covers HA Core's own process** — a Supervisor-managed add-on container's traffic (or
+Supervisor's own) never shows up there; `supervisor-current.log`/`addons-list.txt` are the
+next place to look when that's the gap (confirmed 2026-09-14, see `changelog.md`). Needs the
 **Advanced SSH & Web Terminal** App configured with your SSH key
 (App's Configuration tab → `authorized_keys`); override host/user/port with
 `HA_HOST`/`HA_USER`/`HA_SSH_PORT` env vars if needed.
