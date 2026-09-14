@@ -1866,3 +1866,56 @@ destination, no backoff, unbroken across the entire ~4.5h capture (`09:22:03`-`1
 (check its own logs for connection errors to these IPs or their hostname) — see finding 29 in
 `config-review.md`. Directly relevant to Guillaume's stated goal of moving `services2internet`
 fully to HTTPS: this is the one known thing standing in the way right now.
+
+### Finding 30 closed — Raspbian's apt mirror switched to init7's HTTPS mirror, on both Pi-hole and OctoPrint (2026-09-14)
+
+Found the same day as the rule 45 narrowing: `apt install tcpdump` on Pi-hole failed against
+`raspbian.raspberrypi.com:80` — Raspberry Pi OS's default mirror, plain HTTP only. Checked
+whether it serves HTTPS at all: `curl -v https://raspbian.raspberrypi.com/raspbian` from an
+unrestricted `vlan-users` client got `Connection refused` on port 443 for both address
+families — the server genuinely doesn't listen there, not a firewall artifact. A same-host
+scheme swap wasn't an option.
+
+**Fixed differently: switched mirrors instead.** Guillaume found init7 (Switzerland) mirrors
+Raspbian over HTTPS (`https://www.raspbian.com/RaspbianMirrors`) and repointed
+`/etc/apt/sources.list` at it on both Pi-hole and OctoPrint:
+
+```
+deb [ arch=armhf ] https://mirror.init7.net/raspbian/raspbian/ bookworm main contrib non-free rpi
+```
+
+**A second source needed the same treatment on both hosts**, found while checking:
+`/etc/apt/sources.list.d/raspi.list` (Raspberry Pi Foundation's own repo — Pi-specific
+packages like firmware/`raspi-config`, not part of the Debian archive init7 mirrors) pointed
+at `http://archive.raspberrypi.com/debian/`. Unlike the main archive, this one *does* serve
+HTTPS directly (`curl -v https://archive.raspberrypi.com/debian/` — clean TLS 1.3 handshake,
+valid Let's Encrypt cert, HTTP/2 200) — no mirror hunt needed, just the scheme swapped in
+place:
+
+```
+deb https://archive.raspberrypi.com/debian/ bookworm main
+```
+
+**Verified on both hosts**, real `apt update` output, fully over HTTPS, no plain-HTTP fallback
+anywhere:
+
+```
+# OctoPrint (vlan-iot, already HTTPS-only since 2026-09-11):
+Get:1 https://mirror.init7.net/raspbian/raspbian bookworm InRelease [15.0 kB]
+Get:2 https://archive.raspberrypi.com/debian bookworm InRelease [55.0 kB]
+... (package indexes fetched cleanly over HTTPS)
+254 packages can be upgraded.
+
+# Pi-hole (vlan-services, HTTPS-only since today):
+Hit:1 https://mirror.init7.net/raspbian/raspbian bookworm InRelease
+Hit:2 https://archive.raspberrypi.com/debian bookworm InRelease
+188 packages can be upgraded.
+```
+
+Both hosts now update/install packages entirely over HTTPS — `services2internet`'s HTTPS-only
+narrowing (and `iot2internet`'s, already in place) hold with no known remaining apt gap.
+
+**Noted, not investigated, low priority:** both `apt update` runs warn `Key is stored in
+legacy trusted.gpg keyring (/etc/apt/trusted.gpg), see the DEPRECATION section in apt-key(8)`
+— pre-existing apt hygiene, unrelated to HTTP vs. HTTPS, not something either mirror change
+introduced.

@@ -129,47 +129,11 @@ be any Cloudflare-fronted domain, not identifiable from the firewall log alone.
 (Settings → System → Logs, or `core.log`) for connection errors/retries around the same
 destinations or matching the retry cadence — most likely a specific integration or add-on
 doing an HTTP (not HTTPS) check. Directly relevant to Guillaume's goal of moving
-`services2internet` fully to HTTPS: one of two known blockers so far (see also finding 30).
-Options once identified: fix the integration's own config to use HTTPS if it supports it, or,
-if it genuinely only speaks HTTP, decide whether that's acceptable to special-case (same shape
-as OctoPrint's connectivity-check retarget, finding closed 2026-09-11) or worth
-dropping/disabling the integration instead.
-
-### 30. Raspbian's default apt mirror uses plain HTTP — blocked the same way (medium)
-
-Found 2026-09-14: `sudo apt install tcpdump` on Pi-hole failed —
-`Could not connect to raspbian.raspberrypi.com:80 ... connection timed out` — for both its
-IPv4 (`93.93.128.193`) and IPv6 (`2a00:1098:0:80:1000:75:0:3`) addresses. Same root cause as
-finding 29 (`services2internet` narrowed to HTTPS-only that day), different and unrelated
-traffic: Raspberry Pi OS's default `/etc/apt/sources.list` points at this mirror over plain
-HTTP by default, not HTTPS. Currently affects Pi-hole, the only Raspbian host on
-`vlan-services`; will affect any future one too.
-
-**HTTPS is not available at all, confirmed 2026-09-14** — `curl -v
-https://raspbian.raspberrypi.com/raspbian` from a `vlan-users` client (`during`,
-`192.168.10.90`, unrestricted internet, so not a mikrotik block) got `Connection refused` on
-both `93.93.128.193:443` and `2a00:1098:0:80:1000:75:0:3:443` — the server actively isn't
-listening on 443, not a firewall/timeout artifact. Raspberry Pi OS's official mirror simply
-doesn't serve HTTPS, notable as that is in 2026. A `sources.list` scheme swap won't work here.
-
-**Real options, Guillaume's call, not yet decided:**
-- A narrow `services2internet` exception scoped to this one mirror (`dst-address-list` or
-  `dst-address=93.93.128.193` (+ its IPv6), `dst-port=80`) — same shape as the existing
-  `octoprint`/`iotawatt` named exceptions on `iot2internet`. apt's actual security doesn't
-  depend on transport encryption anyway — packages and `Release` files are GPG-signed and
-  verified regardless of HTTP vs. HTTPS; the only thing plain HTTP leaks here is *which*
-  packages get installed, not integrity.
-- Point Pi-hole's `sources.list` at a different mirror that does serve HTTPS (a generic Debian
-  mirror would work for regular packages, but might not carry Raspberry Pi-specific ones —
-  firmware, `rpi-*` packages — so needs checking what Pi-hole actually pulls from this archive
-  before switching wholesale).
-- Leave `services2internet` HTTPS-only and just accept `apt` breaks until a device-local fix
-  (proxy, alternate mirror) is in place — `apt update`/`install` failing loudly is arguably
-  fine, unlike finding 29's silent retry storm.
-
-**OctoPrint is also Raspbian-based** (on `vlan-iot`, already HTTPS-only since 2026-09-11) and
-almost certainly has the identical gap, just never exercised since nobody's run `apt install`
-there since the narrowing.
+`services2internet` fully to HTTPS: the one remaining known blocker (finding 30, apt's mirror,
+closed 2026-09-14 — see `changelog.md`). Options once identified: fix the integration's own
+config to use HTTPS if it supports it, or, if it genuinely only speaks HTTP, decide whether
+that's acceptable to special-case (same shape as OctoPrint's connectivity-check retarget,
+finding closed 2026-09-11) or worth dropping/disabling the integration instead.
 
 ### mikrotik4 has never been reviewed
 
