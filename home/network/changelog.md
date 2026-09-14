@@ -1854,8 +1854,9 @@ Guillaume applied directly: rule 45 (`services2internet: HTTP/HTTPS from any ser
 from any services host". Matches the same HTTPS-only narrowing already applied to
 `octoprint`'s `iot2internet` exception (2026-09-11). **Confirmed via fresh dump** (`dumps/
 mikrotik1-main.txt`): rule 45 now reads `dst-port=443 protocol=tcp`. The IPv6 equivalent
-(`services2internet-v6`) was not touched and still allows `dst-port=80,443` — same kind of
-v4/v6 asymmetry as `octoprint`/`octoprint-v6`, not urgent.
+(`services2internet-v6`) was narrowed to match the same day — confirmed in a later fresh dump,
+comment now "services2internet: HTTPS", `dst-port=443`. Both families are HTTPS-only, no
+remaining asymmetry here.
 
 **Immediate fallout, found the same day reviewing the next log:** Home Assistant
 (`192.168.20.60`) has been continuously retrying plain HTTP (port 80) to three Cloudflare

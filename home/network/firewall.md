@@ -146,9 +146,10 @@ design (`vlan-users` keeps unrestricted internet access).
 
 Rule 45 narrowed from `dst-port=80,443` to `443`-only 2026-09-14 (Guillaume, applied directly)
 — see `changelog.md` for the fallout this surfaced (finding 29: Home Assistant needed plain
-HTTP for something). **The IPv6 equivalent (`services2internet-v6`) was not narrowed and
-still allows `dst-port=80,443`** — the same kind of v4/v6 asymmetry already noted for
-`octoprint`/`octoprint-v6`, not urgent but worth closing eventually.
+HTTP for something). **The IPv6 equivalent (`services2internet-v6`) was narrowed to match the
+same day** — comment now `services2internet: HTTPS`, `dst-port=443` — confirmed in the fresh
+dump. Both address families are HTTPS-only now, no remaining v4/v6 asymmetry here (unlike
+`octoprint`/`octoprint-v6`, which still differs).
 
 Rule 47 (TCP/53) added 2026-09-10 — found via `dump-logs.sh`: Pi-hole falls back to DNS-over-TCP
 for large/DNSSEC-heavy responses, which only the UDP accept had covered until then. Pi-hole's
