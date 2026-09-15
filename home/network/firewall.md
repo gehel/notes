@@ -21,7 +21,7 @@ cell below corresponds to exactly one jump-chain, named the same way:
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, port 443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
+| **iot** | DROP by default; named exceptions `octoprint` (80,443)/`iotawatt` (443) lists; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
 `changelog.md`'s finding 23 closure; `vlan-iot`'s existed since Phase 3, `vlan-services`/
@@ -174,7 +174,7 @@ fix didn't actually hold).
 | # | Action | Match | Comment |
 |---|---|---|---|
 | 51 | drop | `src-address=192.168.30.63` | iot2internet: ceiling fan phone-home (silenced, expected) |
-| 52 | accept | `protocol=tcp src-address-list=octoprint dst-port=443` | iot2internet: octoprint updates exception |
+| 52 | accept | `protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
 | 53 | accept | `protocol=tcp src-address-list=iotawatt dst-port=443` | iot2internet: iotawatt firmware updates exception |
 | 54 | accept | `protocol=udp src-address-list=iotawatt dst-port=123` | iot2internet: iotawatt NTP exception |
 | 55 | drop, logged | *(catch-all)* | iot2internet: deny everything else |
@@ -199,10 +199,13 @@ unreliable for exactly the services these devices need most, independent of the 
 syntax question. Deprioritized — a proxy remains a possible future option if domain-level
 control becomes worth the complexity again, but isn't currently planned.
 
-`octoprint`'s exception narrowed from `dst-port=80,443` to `443` (HTTPS-only) as part of the
-same pass — kept even after reverting the SNI attempt, since nothing here should still need
-plain HTTP. **`octoprint-v6`'s IPv6 equivalent below still allows both ports** — not narrowed
-to match, a minor asymmetry worth closing but not urgent.
+`octoprint`'s exception was narrowed from `dst-port=80,443` to `443` (HTTPS-only) 2026-09-11,
+kept even after reverting the SNI attempt on the assumption nothing here still needed plain
+HTTP. **Reopened and widened back to `80,443` 2026-09-15** (Guillaume, applied directly) —
+OctoPrint was repeatedly retrying a plain-HTTP connection to `185.15.58.224:80` (service
+unidentified), continuously dropped by the catch-all until the rule was widened. Also closes
+the asymmetry noted below: `octoprint-v6`'s IPv6 equivalent already allowed both ports, so IPv4
+and IPv6 now match again.
 
 `iotawatt` is a new named exception, added 2026-09-11 — `192.168.30.50` (IPv4 only; no IPv6
 equivalent yet). IotaWatt previously had no internet access at all; this grants it the same

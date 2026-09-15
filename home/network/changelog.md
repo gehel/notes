@@ -2025,12 +2025,81 @@ show the new rule in position 4 (immediately before the deny-all at 5), no `I - 
 either.
 
 **Functional re-verification the same day found the IPv4 side working and the IPv6 side
-still broken** — see finding 31 in `config-review.md`: Home Assistant's real IPv6 traffic uses a
-temporary (privacy-extensions) address that doesn't match `http-outbound-v6`'s EUI-64 entry, so
-every plain-HTTP attempt still hits the catch-all. Not this fix's bug — the address list and
-rule are exactly as designed; the host's own IPv6 addressing was never actually confirmed
-correct for HA (unlike Pi-hole and OctoPrint, fixed 2026-09-11).
+still broken** (finding 31, opened and closed the same day — see below): Home Assistant's real
+IPv6 traffic used a temporary (privacy-extensions) address that didn't match
+`http-outbound-v6`'s EUI-64 entry, so every plain-HTTP attempt still hit the catch-all. Not this
+fix's bug — the address list and rule were exactly as designed; the host's own IPv6 addressing
+had never actually been confirmed correct for HA (unlike Pi-hole and OctoPrint, fixed
+2026-09-11).
 
 `firewall.md`'s tables, quick-reference row, and address-list section updated to match; IPv6
 firewall table gets the same exception added for the first time (previously had none for plain
 HTTP).
+
+### Finding 31 closed — Home Assistant's IPv6 privacy extensions disabled via HAOS's `ha network` CLI (2026-09-15)
+
+Found the same day, immediately after the `http-outbound-v6` change above surfaced it: every
+plain-HTTP SYN from Home Assistant kept hitting `services2internet-v6`'s catch-all, source
+`2a02:1210:7621:9a41:c988:6e5a:9958:c40f` — not the EUI-64 address (`...da3a:ddff:fe31:e059`)
+pinned in `ha-v6`/`http-outbound-v6`. `src-mac D8:3A:DD:31:E0:59` in the same log lines confirmed
+this really was Home Assistant, not misattribution.
+
+**Same failure mode as finding 21 (Pi-hole/OctoPrint, 2026-09-11), but never actually checked on
+HA at the time** — that entry explicitly says "(Home Assistant not checked or fixed ... whether
+`ha-v6` has the same problem is still unknown)". `firewall.md`'s IPv6 section had been wrongly
+asserting since then that all three hosts were fixed; corrected alongside this closure.
+
+**HAOS-specific fix, not the generic Debian recipe.** Home Assistant runs as HAOS, confirmed by
+checking the SSH & Web Terminal addon shell: no `nmcli`, no
+`/etc/NetworkManager/system-connections/` (the addon runs in its own sandboxed netns, not the
+host's). The durable, Supervisor-persisted equivalent is `ha network`, whose `network info`
+output already exposes `ipv6.addr_gen_mode`/`ipv6.ip6_privacy` per interface (both `default` on
+`end0` beforehand) — confirming this is a real, intentional Supervisor-modeled setting, not
+something to fight around.
+
+```
+ha network update end0 --ipv6-addr-gen-mode eui64 --ipv6-privacy disabled
+```
+
+**First attempt failed harmlessly**: `Error: Can't update config on end0: ipv6.method: method
+'manual' requires at least an address or a route` — the CLI does not merge unspecified fields
+with the existing config; omitting `--ipv6-method` let it default to `manual` internally, which
+then failed validation with no address supplied. Fixed by re-asserting the interface's existing
+method explicitly:
+
+```
+ha network update end0 --ipv6-method auto --ipv6-addr-gen-mode eui64 --ipv6-privacy disabled
+```
+
+Succeeded immediately, no reboot needed — `end0`'s IPv4 config (`192.168.20.60/24`, gateway
+`192.168.20.1`, nameserver `192.168.20.40`) confirmed unchanged in the same `ha network info`
+output. **Verified functionally**: `ip -6 addr show scope global dev end0` immediately showed
+the precomputed EUI-64 address in place of the temporary one — no waiting for a lease/RA cycle,
+unlike the sysctl+reboot approach finding 21 needed. A fresh `dump-logs.sh` afterward showed the
+`services2internet-v6` catch-all stopped logging Home Assistant's MAC entirely from that point
+on, while unrelated traffic (Pi-hole's NTP) kept being logged normally in the same window —
+confirms the fix, not a logging gap.
+
+`services2users`'s HA-specific IPv6 rules (printer CUPS/631, Samsung TV/8002, both scoped to
+`ha-v6`) were never separately retested — both already work over IPv4 regardless, so there was
+no independent way to trigger IPv6-only traffic on that path, but they should now also match
+real traffic given the same underlying address is fixed.
+
+### OctoPrint's `iot2internet` exception re-widened to `dst-port=80,443` (2026-09-15)
+
+Reopens the 2026-09-11 HTTPS-only narrowing (see above): OctoPrint was repeatedly retrying a
+plain-HTTP connection to `185.15.58.224:80` (service/purpose unidentified — not investigated
+further once the fix confirmed working), continuously hitting `iot2internet`'s catch-all.
+Applied directly by Guillaume (`/ip/firewall/filter/set [find comment="iot2internet: octoprint
+updates exception"] dst-port=80,443`).
+
+**Verification needed a second, later log dump** — the first fresh log still showed drops for
+`192.168.30.81` up to the same timestamp the dump was taken, making the fix look like it hadn't
+taken effect. A second dump taken ~8 minutes later showed the drops had stopped entirely (last
+one at `16:52:06`) while unrelated traffic kept logging normally in the same window — the first
+dump simply caught the tail of pre-fix retries, not a failed fix. `/ip/firewall/filter/print
+detail where chain=iot2internet` also confirmed no `I - INVALID` flag on the rule, and its
+counter had moved (37 packets) by the time of the second check.
+
+Also closes the standing IPv4/IPv6 asymmetry noted in `firewall.md`: `octoprint-v6` already
+allowed both ports, so both address families now match.
