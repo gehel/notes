@@ -20,7 +20,7 @@ cell below corresponds to exactly one jump-chain, named the same way:
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **services** | HTTP/HTTPS from any services host; Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
+| **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, port 443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
@@ -134,7 +134,7 @@ ends in a logged deny-all (`log-prefix` matches the chain name, for log review �
 No deny-all — nothing else needed since this chain has one rule that accepts everything, by
 design (`vlan-users` keeps unrestricted internet access).
 
-**`services2internet`** (# 45-49)
+**`services2internet`** (# 45-50)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
@@ -142,21 +142,25 @@ design (`vlan-users` keeps unrestricted internet access).
 | 46 | accept | `protocol=udp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS |
 | 47 | accept | `protocol=tcp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS (TCP) |
 | 48 | accept | `protocol=tcp src-address=192.168.20.40 dst-port=853` | services2internet: Pi-hole's own upstream DNS-over-TLS |
-| 49 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=80` | services2internet: allow Home Assistant to connect on plain HTTP |
+| 49 | accept | `protocol=tcp src-address-list=http-outbound dst-port=80` | services2internet: HTTP exception (http-outbound list) |
 | 50 | drop, logged | *(catch-all)* | services2internet: deny everything else |
 
 Rule 45 narrowed from `dst-port=80,443` to `443`-only 2026-09-14 (Guillaume, applied directly)
 — see `changelog.md` for the fallout this surfaced (finding 29: Home Assistant needed plain
 HTTP for something). **The IPv6 equivalent (`services2internet-v6`) was narrowed to match the
 same day** — comment now `services2internet: HTTPS`, `dst-port=443` — confirmed in the fresh
-dump. Both address families are HTTPS-only now except for rule 49 below (IPv4 only).
+dump.
 
-Rule 49 added the same day, closing finding 29: Home Assistant's own Supervisor does an
-internet-connectivity check over plain HTTP (`checkonline.home-assistant.io`) by design, to
-reliably detect captive portals. Scoped to `src-address=192.168.20.60`, not to that
-destination — same precedent as `services2iot`/`services2users`'s HA-specific rules, avoiding
-a dependency on Cloudflare's anycast IPs for that hostname staying stable. IPv6 not given the
-equivalent yet (not shown as needed by any log evidence so far).
+Rule 49 closed finding 29 the same day (Home Assistant's own Supervisor does an
+internet-connectivity check over plain HTTP, `checkonline.home-assistant.io`, by design, to
+reliably detect captive portals), originally scoped to `src-address=192.168.20.60` directly.
+**Replaced 2026-09-15** with the `http-outbound` address-list-scoped form shown above —
+anticipating more `vlan-services` hosts needing the same exception (pihole named as a likely
+future candidate) without a firewall-rule edit each time; adding a host is now just an
+address-list `add`. `http-outbound` holds only Home Assistant's address for now. **IPv6 given
+the equivalent exception for the first time the same day** — `http-outbound-v6`, seeded with
+the same EUI-64 address already pinned in `ha-v6`; see the IPv6 section below and
+`changelog.md`.
 
 Rule 47 (TCP/53) added 2026-09-10 — found via `dump-logs.sh`: Pi-hole falls back to DNS-over-TCP
 for large/DNSSEC-heavy responses, which only the UDP accept had covered until then. Pi-hole's
@@ -304,6 +308,7 @@ Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
 | `ha-mikrotik-targets` | mikrotik2, mikrotik3 | scopes HA's MikroTik integration to switch management IPs only |
 | `octoprint` | OctoPrint (wifi + wired) | named exception for both `iot`'s default internet deny and `users -> iot`'s default deny — consolidated from the former separate `iot-internet` list during the Phase 5 reorg |
 | `iotawatt` | IotaWatt (`192.168.30.50`) | named exception for `iot`'s default internet deny only (firmware updates), added 2026-09-11 |
+| `http-outbound` | Home Assistant (`192.168.20.60`) | named exception for `services2internet`'s HTTPS-only policy (plain HTTP), added 2026-09-15 — see `http-outbound-v6` below for the IPv6 twin |
 | `bogons` | RFC 1918/3330 ranges, defconf | unchanged since round 1/2, not VLAN-related |
 | `Syn_Flooder`, `Port_Scanner`, `spammers` | dynamic, populated at runtime | anti-abuse, unchanged since finding 7 |
 
@@ -357,6 +362,7 @@ is the first thing to check — not the prefix.
 | — | `services2internet` | accept | `protocol=udp dst-port=53 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS |
 | — | `services2internet` | accept | `protocol=tcp dst-port=53 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS (TCP) |
 | — | `services2internet` | accept | `protocol=tcp dst-port=853 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS-over-TLS |
+| — | `services2internet` | accept | `protocol=tcp dst-port=80 src-address-list=http-outbound-v6 connection-state=new` | services2internet: HTTP exception (http-outbound-v6 list) |
 | — | `services2internet` | drop, logged | *(catch-all)* | services2internet: deny everything else |
 | — | `services2users` | accept | `protocol=tcp dst-port=631 src-address-list=ha-v6 connection-state=new` | services2users: HA -> printer (CUPS) |
 | — | `services2users` | accept | `protocol=tcp dst-port=8002 src-address-list=ha-v6 connection-state=new` | services2users: HA -> Samsung TV |
@@ -379,8 +385,12 @@ IPv6 privacy extensions staying off on each host, and broke once already when th
 prefix changed — recomputed both times, same method, current prefix). `pihole-v6`'s DNS/DoT
 exceptions were added 2026-09-11 after the firewall log showed Pi-hole repeatedly (and
 silently) failing to reach public IPv6 resolvers for its own upstream queries — mirrors its
-existing IPv4 exception. `services2iot` doesn't exist — `vlan-iot`'s policy is deny-by-default
-(below), so there's nothing for services to reach there yet.
+existing IPv4 exception. `http-outbound-v6` was added 2026-09-15, seeded with the same EUI-64
+address already in `ha-v6` — same host, separate list, since the two lists serve different
+purposes (this one may grow to cover other hosts, like `pihole-v6`, without needing them added
+to `ha-v6` for something unrelated to HA) — see `changelog.md` and IPv4's `http-outbound` above.
+`services2iot` doesn't exist — `vlan-iot`'s policy is deny-by-default (below), so there's
+nothing for services to reach there yet.
 
 `iot2internet` is deny-by-default with one named exception, mirroring IPv4's `octoprint`
 address-list — `octoprint-v6` holds both of OctoPrint's known addresses (wifi + wired),

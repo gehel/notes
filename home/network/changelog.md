@@ -1990,3 +1990,42 @@ ceiling-fan-drop and iotawatt-NTP rules) that had carried a "—" placeholder si
 insertion left their exact position uncertain — now known precisely from this dump.
 
 IPv6 not given the equivalent exception — no log evidence yet that it's needed there.
+
+### Finding 29's HTTP exception generalized to an address list, IPv4 + IPv6 (2026-09-15)
+
+Rule 49 (`src-address=192.168.20.60`, HA-specific) replaced with an address-list-scoped
+exception on both IPv4 and IPv6, anticipating more `vlan-services` hosts needing the same plain
+HTTP exception (pihole named as a likely future candidate) without a firewall-rule edit each
+time.
+
+**A false start earlier the same day, caught before it did anything real:** an attempt to just
+widen rule 45's *comment* to "HTTP / HTTPS from any services host" landed without also widening
+its match criteria (still `dst-port=443` only) and without noticing rule 49 had been dropped —
+net effect would have been *more* restrictive than before (no plain HTTP at all, comment
+actively lying about what the rule did). Caught by re-diffing the fresh dump against
+`firewall.md` before applying anything further; reverted by Guillaume back to the original
+`services2internet: HTTPS from any services host` comment before this fix was drafted.
+
+**Applied via `scripts/http-outbound-exception.rsc`** (deleted after verified, per convention),
+idempotent (checked by `comment`/`address` before adding). Two new address lists,
+`http-outbound` (IPv4) and `http-outbound-v6` (IPv6), seeded with only Home Assistant's address
+for now — `192.168.20.60` and the same EUI-64 IPv6 address already pinned in `ha-v6`
+(`2a02:1210:7621:9a41:da3a:ddff:fe31:e059`, from MAC `D8:3A:DD:31:E0:59`; that pinning still
+depends on privacy extensions staying off on HA, see `README.md`'s hard-won lessons). Adding
+another host later (pihole, or anything else) is a single `address-list add`, no firewall change
+needed. One new accept rule per protocol family in `services2internet`
+(`protocol=tcp dst-port=80 src-address-list=<list> connection-state=new`), placed before each
+chain's catch-all deny via a freshly-evaluated `place-before=[find ...]` (not cached, per the
+existing `place-before` caching gotcha).
+
+**Verified:** `/ip/firewall/address-list/print where list=http-outbound` and the IPv6
+equivalent both show Home Assistant's address, correct creation time. `/ip/firewall/filter/print
+detail where chain=services2internet` and the IPv6 equivalent both show the new rule in position
+4 (immediately before the deny-all at 5), no `I - INVALID` flag on either. Not yet
+functionally re-verified against a real HA request (no fresh Z-Wave-JS-style trigger available
+this session) — worth a quick check next time HA's Supervisor connectivity check is observed in
+the log.
+
+`firewall.md`'s tables, quick-reference row, and address-list section updated to match; IPv6
+firewall table gets the same exception added for the first time (previously had none for plain
+HTTP).
