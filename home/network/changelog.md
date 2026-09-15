@@ -2018,13 +2018,18 @@ needed. One new accept rule per protocol family in `services2internet`
 chain's catch-all deny via a freshly-evaluated `place-before=[find ...]` (not cached, per the
 existing `place-before` caching gotcha).
 
-**Verified:** `/ip/firewall/address-list/print where list=http-outbound` and the IPv6
-equivalent both show Home Assistant's address, correct creation time. `/ip/firewall/filter/print
-detail where chain=services2internet` and the IPv6 equivalent both show the new rule in position
-4 (immediately before the deny-all at 5), no `I - INVALID` flag on either. Not yet
-functionally re-verified against a real HA request (no fresh Z-Wave-JS-style trigger available
-this session) — worth a quick check next time HA's Supervisor connectivity check is observed in
-the log.
+**Verified by `print` only:** `/ip/firewall/address-list/print where list=http-outbound` and the
+IPv6 equivalent both show Home Assistant's address, correct creation time.
+`/ip/firewall/filter/print detail where chain=services2internet` and the IPv6 equivalent both
+show the new rule in position 4 (immediately before the deny-all at 5), no `I - INVALID` flag on
+either.
+
+**Functional re-verification the same day found the IPv4 side working and the IPv6 side
+still broken** — see finding 31 in `config-review.md`: Home Assistant's real IPv6 traffic uses a
+temporary (privacy-extensions) address that doesn't match `http-outbound-v6`'s EUI-64 entry, so
+every plain-HTTP attempt still hits the catch-all. Not this fix's bug — the address list and
+rule are exactly as designed; the host's own IPv6 addressing was never actually confirmed
+correct for HA (unlike Pi-hole and OctoPrint, fixed 2026-09-11).
 
 `firewall.md`'s tables, quick-reference row, and address-list section updated to match; IPv6
 firewall table gets the same exception added for the first time (previously had none for plain

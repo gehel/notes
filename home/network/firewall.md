@@ -330,14 +330,17 @@ IPv6 — SLAAC gives no stable per-host address to scope an IPv4-style `mgmt` li
 "not exposed" is the deliberate equivalent rather than a leaky approximation. Full design and
 reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
 
-**The `ha-v6`/`pihole-v6`/`octoprint-v6` EUI-64 pinning only works because IPv6 privacy
-extensions were explicitly disabled on Home Assistant, Pi-hole, and OctoPrint** — discovered
-2026-09-11 when Pi-hole and OctoPrint's real traffic used temporary addresses that didn't match
-their computed EUI-64 entries at all, silently defeating the address-list scoping despite the
-rules looking correct on `print`. Fixed per-host (`net.ipv6.conf.*.use_tempaddr=0` and
-`addr_gen_mode=0`, plus the NetworkManager equivalent since it can override the sysctl on
-reconnect); see `changelog.md`. If either address-list stops matching real traffic again, this
-is the first thing to check — not the prefix.
+**The `ha-v6`/`pihole-v6`/`octoprint-v6` EUI-64 pinning only works if IPv6 privacy extensions
+are explicitly disabled on the host** — discovered 2026-09-11 when Pi-hole and OctoPrint's real
+traffic used temporary addresses that didn't match their computed EUI-64 entries at all,
+silently defeating the address-list scoping despite the rules looking correct on `print`. Fixed
+per-host on those two (`net.ipv6.conf.*.use_tempaddr=0` and `addr_gen_mode=0`, plus the
+NetworkManager equivalent since it can override the sysctl on reconnect); see `changelog.md`.
+**Home Assistant was never actually checked or fixed at the time** (no traffic had surfaced the
+gap yet) and, per finding 31 in `config-review.md`, confirmed 2026-09-15 to have the identical
+problem — `ha-v6`/`http-outbound-v6` currently do not match its real traffic. If any of these
+address-lists stops matching real traffic again, this is the first thing to check — not the
+prefix.
 
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|

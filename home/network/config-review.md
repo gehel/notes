@@ -115,6 +115,44 @@ for disconnects around those four timestamps, and, if this keeps recurring, mikr
 **Recurred 2026-09-14** (10:42:11, 10:42:46, both `ACK`, same shape) — consistent with the
 original description, no new information.
 
+### 31. Home Assistant's real IPv6 address doesn't match `ha-v6`/`http-outbound-v6` — privacy extensions never actually checked on this host (medium)
+
+Found 2026-09-15 reviewing a fresh `logs/mikrotik1-main.txt`, immediately after adding
+`http-outbound-v6`'s HTTP exception (see `changelog.md`). Every plain-HTTP SYN from Home
+Assistant is still hitting `services2internet-v6`'s catch-all: source
+`2a02:1210:7621:9a41:c988:6e5a:9958:c40f`, which doesn't match the computed EUI-64 address in
+either `ha-v6` or the new `http-outbound-v6` (`...da3a:ddff:fe31:e059`). `src-mac
+D8:3A:DD:31:E0:59` in the same log line confirms this really is Home Assistant, not another
+host — the mismatch is in the IPv6 address itself, not misattribution.
+
+**This is the same IPv6-privacy-extensions failure mode already found and fixed on Pi-hole and
+OctoPrint** (finding 21, 2026-09-11, see `changelog.md` and `README.md`'s hard-won lessons) —
+except, per that same changelog entry, **Home Assistant was explicitly never checked or fixed
+at the time**: "(Home Assistant not checked or fixed — no `services2users`-triggering traffic
+has been observed from it either way, so whether `ha-v6` has the same problem is still
+unknown)". `firewall.md`'s IPv6 section has been asserting since then that privacy extensions
+were disabled on all three hosts including HA — that claim was never actually true for HA,
+just never contradicted by observed traffic until today's new rule started logging its plain-HTTP
+attempts. (Corrected in `firewall.md` alongside this finding.)
+
+**Practical impact:** `http-outbound-v6`'s HTTP exception doesn't work for HA at all right now
+— every attempt still gets dropped, IPv6 side only (IPv4's `http-outbound` list uses HA's
+static `192.168.20.60` and is unaffected). `services2users` (HA -> printer CUPS/631, HA ->
+Samsung TV/8002 over IPv6, scoped to `ha-v6`) is likely broken the same way, but genuinely
+unconfirmed — no traffic on that path has ever been logged either way, and both those paths
+also work over IPv4 regardless, so nobody would have noticed a silent IPv6-only failure there.
+
+**Next step:** apply the same fix already used for Pi-hole and OctoPrint (`changelog.md`'s
+finding 21 entry has the exact commands: a `sysctl.d` drop-in for `use_tempaddr=0` and
+`addr_gen_mode=0`, plus the `nmcli ipv6.ip6-privacy 0 ipv6.addr-gen-mode eui64` belt-and-suspenders
+since NetworkManager can override the sysctl on reconnect, then reboot) — but that recipe
+assumes a generic Debian-like host with `nmcli`/`sysctl.d`, and it's not established anywhere in
+this repo whether Home Assistant runs as HAOS (which manages its own network stack differently,
+likely without direct `sysctl`/`nmcli` access) or Supervised-on-generic-Linux. Confirm which
+before drafting host-side commands. Verify the same way as the other two hosts: `ip -6 addr
+show scope global` (or the HAOS equivalent) shows the precomputed EUI-64 address, then a real
+functional retest (HTTP exception working, or a `services2users` port reachable over IPv6).
+
 ### mikrotik4 has never been reviewed
 
 `192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no
