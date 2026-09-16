@@ -76,27 +76,6 @@ job in the first place, a misconception this finding also corrects.
 - A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
   keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
 
-### 27. Pi-hole's hourly NTP-like traffic to public servers — real cause still unidentified (reopened 2026-09-14) (medium)
-
-Originally found 2026-09-13, closed 2026-09-14 on the strength of a `FallbackNTP=192.168.20.1`
-fix verified via `timedatectl show-timesync --all`. **Reopened the same day**: a log collected
-hours later shows the identical hourly burst pattern to rotating public NTP servers continuing
-*unchanged* after the fix and its restart (`11:52:37`) — bursts at `11:59:26` and `12:59:26`
-both landed on public IPs (`193.134.29.12`, `85.195.210.125`), not `192.168.20.1`. Full account
-in `changelog.md`'s "Correction" entry.
-
-**What this means:** `systemd-timesyncd` was never the source — the real culprit is still
-unidentified. The earlier investigation's cron/timer checks only grepped `/etc/crontab` and
-`/etc/cron.d/*`'s own text for "ntp", which would miss a `cron.hourly` script or a user
-crontab entry that doesn't mention "ntp" literally in the schedule line itself. `FallbackNTP=
-192.168.20.1` stays applied (harmless, closes a theoretical gap) but doesn't fix the live
-problem.
-
-**Next step:** catch it live. The pattern is precisely hourly at `:59`, minute-ish — a process
-or socket snapshot (`sudo ss -up`, `sudo lsof -i UDP:123`) taken right around the `:58`-`:00`
-window, or a short `sudo tcpdump -i eth0 udp port 123 -n` left running across one full hour
-boundary, should catch it directly instead of guessing from config again.
-
 ### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
 
 Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. 11 packets from Home Assistant
@@ -114,6 +93,20 @@ for disconnects around those four timestamps, and, if this keeps recurring, mikr
 
 **Recurred 2026-09-14** (10:42:11, 10:42:46, both `ACK`, same shape) — consistent with the
 original description, no new information.
+
+**Recurred repeatedly 2026-09-15/16** — same shape (`src-port=443`, `ACK`, `connection-state:new`,
+always 640 bytes), now against three destinations: `144.202.82.88:61234` six more times
+(03:53, 03:53, 03:54, 09:29, 09:29, 11:49, 11:50 — note some pairs only ~25-45s apart, tighter
+than the original 2-2.5h spacing), plus two new ones in a `216.180.246.x` range —
+`216.180.246.56:21707` (2026-09-15 18:18) and `216.180.246.54:21801` (2026-09-16 20:02, twice,
+43s apart). The new IPs support the working theory: a small pool of front-end addresses (Vultr
+range for one, a second /24-ish range for the others) is consistent with a relay service like
+Nabu Casa rotating endpoints, not a single fixed remote host. Still not enough to act on
+directly — the connection-tracking-timeout theory remains unconfirmed (RouterOS's default TCP
+established timeout is generous, on the order of a day, which sits oddly with drops recurring
+within tens of seconds to a few hours) — but the volume of evidence now makes it worth actually
+checking Home Assistant's own Nabu Casa/cloud connectivity log for disconnect/reconnect events
+at these exact timestamps, rather than continuing to only observe it from the firewall side.
 
 ### mikrotik4 has never been reviewed
 

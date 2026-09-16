@@ -2185,3 +2185,28 @@ troubleshooting (a wrong key path in the config flow, initially misdiagnosed as 
 verification problem) are Home Assistant-side, not network config — see
 `home/home-assistant/changelog.md` if a parallel entry exists there, otherwise this is the only
 record.
+
+### Finding 27 closed for real — Pi-hole's hourly NTP traffic was pihole-FTL's own built-in NTP client, not systemd-timesyncd (2026-09-16)
+
+Originally found 2026-09-13, closed 2026-09-14 on the strength of a `FallbackNTP=192.168.20.1`
+fix, reopened the same day when the identical hourly burst continued unchanged against public
+IPs. Real root cause found this session via a `/proc/net/udp` + PID-mapping probe (auditd's
+syscall-level tracing caught nothing at all for this traffic across a 5-hour window, despite
+catching unrelated `pihole-FTL` DNS traffic in the same minute — consistent with the sender
+using `io_uring`, which bypasses the `connect`/`sendto`/`sendmsg`/`sendmmsg` syscalls auditd
+hooks into, but still populates the same kernel socket table the `/proc/net/udp` probe reads):
+**`pihole-FTL` itself** (PID 530), not a hidden process, not `systemd-timesyncd`, not cron, not
+any systemd timer. Recent Pi-hole FTL versions (v6+) ship a built-in NTP client so the query
+log gets accurate timestamps on Raspberry Pi hardware with no battery-backed RTC — entirely
+independent of the OS's own time sync, which explains why every earlier `systemd-timesyncd` fix
+attempt (found on `/etc/pihole/pihole.toml`'s `[ntp]` section) had zero effect on the live
+problem.
+
+Disabled directly by Guillaume via FTL's own TOML config (`/etc/pihole/pihole.toml`'s `[ntp]`
+section). **Verified:** last hourly hit was 2026-09-16 15:00:21; a fresh `dump-logs.sh` taken
+~5 hours later (20:02) shows zero further hits despite multiple expected cycles in that window
+(16:00, 17:00, 18:00, 19:00, 20:00) — clean.
+
+`auditd` (installed for this investigation, not previously part of this project, on Pi-hole
+only) fully purged afterward, along with the temporary watch script and its log — nothing left
+running or installed as a result of the investigation.
