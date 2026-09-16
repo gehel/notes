@@ -2103,3 +2103,24 @@ counter had moved (37 packets) by the time of the second check.
 
 Also closes the standing IPv4/IPv6 asymmetry noted in `firewall.md`: `octoprint-v6` already
 allowed both ports, so both address families now match.
+
+### IotaWatt's `iot2internet` exception widened to `dst-port=80,443` (2026-09-15)
+
+Same shape as OctoPrint's re-widening above, found the same session: IotaWatt (`192.168.30.50`)
+was retrying an hourly, unencrypted connection to a fixed IP (`208.113.149.63:80`, purpose
+unidentified — a separate check-in distinct from its HTTPS firmware-update path), 6-7 quick
+retries then quiet for ~an hour, repeating — continuously hitting `iot2internet`'s catch-all.
+Applied directly by Guillaume, widening the existing firmware-update exception rather than
+adding a new one, since it's the same address-list/chain and there was no reason to keep them
+separate.
+
+**Verification took a full day, not a second dump.** Immediately after the change, the rule's
+counter was still `0/0` and the log's last entry was itself a pre-fix failure — indistinguishable
+from a broken fix at that point (same ambiguity as OctoPrint, worse here since IotaWatt's cycle
+is hourly rather than every few minutes). Confirmed the next day: `/ip/firewall/filter/print
+stats` showed the counter at 12 packets, and a fresh `dump-logs.sh` covering the intervening
+~12 hours showed zero further catch-all hits for `192.168.30.50` — 12 packets over ~12 hours
+matches one successful check-in per hour almost exactly, and rules out a fluke.
+
+No `I - INVALID` flag observed on the rule at any point. `firewall.md`'s table, quick-reference
+row, and prose updated to match.

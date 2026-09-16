@@ -21,7 +21,7 @@ cell below corresponds to exactly one jump-chain, named the same way:
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **iot** | DROP by default; named exceptions `octoprint` (80,443)/`iotawatt` (443) lists; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
+| **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, both 80,443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
 `changelog.md`'s finding 23 closure; `vlan-iot`'s existed since Phase 3, `vlan-services`/
@@ -175,7 +175,7 @@ fix didn't actually hold).
 |---|---|---|---|
 | 51 | drop | `src-address=192.168.30.63` | iot2internet: ceiling fan phone-home (silenced, expected) |
 | 52 | accept | `protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
-| 53 | accept | `protocol=tcp src-address-list=iotawatt dst-port=443` | iot2internet: iotawatt firmware updates exception |
+| 53 | accept | `protocol=tcp src-address-list=iotawatt dst-port=80,443` | iot2internet: iotawatt firmware updates exception |
 | 54 | accept | `protocol=udp src-address-list=iotawatt dst-port=123` | iot2internet: iotawatt NTP exception |
 | 55 | drop, logged | *(catch-all)* | iot2internet: deny everything else |
 
@@ -184,6 +184,13 @@ one) — unlike Pi-hole and OctoPrint, its firmware exposes no way to point it a
 own NTP server (`192.168.30.1`, the normal fix for IoT devices per `README.md`'s hard-won
 lessons), so it needs the internet for time the same way it needs the internet for firmware.
 Verified: IotaWatt's own clock reads correctly after applying.
+
+**Widened to `dst-port=80,443` 2026-09-15** (Guillaume, applied directly) — IotaWatt makes a
+separate, unencrypted hourly check-in to a fixed IP (`208.113.149.63:80`, purpose unidentified,
+distinct from the HTTPS firmware-update path), previously hitting the catch-all every cycle.
+Verified over ~12 hours: zero further catch-all hits for `192.168.30.50`, and the rule's own
+counter incremented roughly once per hour (12 packets over ~12 hours) matching the check-in
+cadence exactly.
 
 **A TLS SNI domain-allowlist attempt (2026-09-11) was tried and abandoned.** `tls-host=` in
 RouterOS firewall rules reads the plaintext SNI field from a TLS `ClientHello`, in principle
