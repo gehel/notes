@@ -323,3 +323,21 @@ outstanding test is a host plugged directly into the Internet-Box.
   alone isn't enough either: modern NetworkManager/systemd-networkd defaults often use RFC 7217
   "stable-privacy" addressing for the *permanent* address too, so `addr_gen_mode` needs forcing
   to EUI-64 explicitly, not just `use_tempaddr=0`.
+- **A `/ip firewall filter add ... place-before=[find ...]` command can silently create two
+  copies of the rule when run via `import` of a `.rsc` file, but not when typed directly at the
+  CLI.** Found adding HA's `linux-monitor` SSH exceptions (2026-09-16): from a verified-empty
+  starting state, a single `import` run produced two identical accept rules every time, one
+  correctly commented and one with no comment at all — reproduced across four attempts, ruling
+  out file corruption (`/file print detail` showed correct single-copy contents each time),
+  slash- vs space-separated menu paths, inline vs precomputed `place-before`, and a `:foreach`
+  loop earlier in the same script (moved to a separate prior `import` — still duplicated). Typing
+  the exact same single-line command directly at the CLI prompt worked correctly, both times, on
+  the first try. Root cause not identified. If an idempotent `.rsc` script's `/add` with
+  `place-before=[find ...]` produces an unexplained duplicate, don't keep varying the script —
+  try the same command typed directly instead.
+- **An unset `comment` isn't stored as an empty string.** `/ip/firewall/filter/remove [find
+  where comment=""]` was a silent no-op against a rule with genuinely no comment set — same
+  "empty `find` result" failure class already catalogued above, new trigger. When isolating a
+  rule by "no comment," match by every *other* distinguishing property instead (or remove every
+  rule sharing some other unique property, like a newly-added address-list, and re-add the one
+  you want to keep) rather than testing for comment absence directly.

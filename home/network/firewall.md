@@ -20,7 +20,7 @@ cell below corresponds to exactly one jump-chain, named the same way:
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
+| **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002), HA -> `ssh-hosts` SSH (22) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668), HA -> `ssh-hosts` SSH (22) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, both 80,443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
@@ -243,56 +243,64 @@ else hitting the catch-all still is.
 | 61 | accept | `protocol=tcp dst-address-list=octoprint dst-port=80` | users2iot: everyone -> octoprint web UI |
 | 62 | drop, logged | *(catch-all)* | users2iot: deny everything else |
 
-**`services2users`** (# 63-66)
+**`services2users`** (# 63-67)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
 | 63 | accept | `protocol=tcp src-address=192.168.20.60 dst-address-list=ha-mikrotik-targets dst-port=8728` | services2users: HA MikroTik integration API |
 | 64 | accept | `protocol=tcp src-address=192.168.20.60 dst-address=192.168.10.110 dst-port=631` | services2users: HA -> printer (CUPS) |
 | 65 | accept | `protocol=tcp src-address=192.168.20.60 dst-address=192.168.10.195 dst-port=8002` | services2users: HA -> Samsung TV |
-| 66 | drop, logged | *(catch-all)* | services2users: deny everything else |
+| 66 | accept | `protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2users: HA SSH (ssh-hosts list) |
+| 67 | drop, logged | *(catch-all)* | services2users: deny everything else |
 
-All three accepts here are scoped to `src-address=192.168.20.60` (Home Assistant) — verified
-deliberately, since these are meant to be HA-specific, not general to any services host.
+The first three accepts here are scoped to `src-address=192.168.20.60` (Home Assistant) —
+verified deliberately, since these are meant to be HA-specific, not general to any services
+host. Rule 66 added 2026-09-16 for the `linux-monitor` HACS integration (Settings & Devices ->
+Home Assistant's own package/kernel-update tracking over SSH) — scoped per-destination via the
+new `ssh-hosts` address list rather than port-only like `services2iot`'s exceptions below, since
+SSH is full shell access, not a single-purpose device protocol. See `changelog.md`.
 
-**`services2iot`** (# 67-70)
-
-| # | Action | Match | Comment |
-|---|---|---|---|
-| 67 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=6668` | services2iot: HA -> Tuya local (fan) |
-| 68 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=80` | services2iot: HA -> Tasmota/IotaWatt |
-| 69 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=6053` | services2iot: HA -> ESPHome (IotaWatt) |
-| 70 | drop, logged | *(catch-all)* | services2iot: deny everything else |
-
-Scoped to `src-address=192.168.20.60` but **not** to a specific destination — deliberate
-(Guillaume's call): any future IoT device on these ports is reachable from HA without a
-firewall change.
-
-**`iot2users`** (# 71)
+**`services2iot`** (# 68-72)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 71 | drop, logged | *(catch-all)* | iot2users: deny everything else |
+| 68 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=6668` | services2iot: HA -> Tuya local (fan) |
+| 69 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=80` | services2iot: HA -> Tasmota/IotaWatt |
+| 70 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=6053` | services2iot: HA -> ESPHome (IotaWatt) |
+| 71 | accept | `protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2iot: HA SSH (ssh-hosts list) |
+| 72 | drop, logged | *(catch-all)* | services2iot: deny everything else |
+
+Rules 68-70 are scoped to `src-address=192.168.20.60` but **not** to a specific destination —
+deliberate (Guillaume's call): any future IoT device on these ports is reachable from HA without
+a firewall change. Rule 71 (added alongside services2users' 66, same day, same purpose)
+deliberately breaks from that pattern — destination-scoped via `ssh-hosts` instead, for the same
+full-shell-access reason noted above.
+
+**`iot2users`** (# 73)
+
+| # | Action | Match | Comment |
+|---|---|---|---|
+| 73 | drop, logged | *(catch-all)* | iot2users: deny everything else |
 
 No exceptions — `iot` has no legitimate reason to initiate anything toward `users`.
 
-**`iot2services`** (# 72-75)
+**`iot2services`** (# 74-77)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 72 | drop | `protocol=udp src-address=192.168.30.63 dst-address=192.168.20.40 port=53` | iot2services: ceiling fan drop DNS (udp) |
-| 73 | accept | `protocol=udp dst-address=192.168.20.40 port=53` | iot2services: DNS to pi-hole (udp) |
-| 74 | accept | `protocol=tcp dst-address=192.168.20.60 dst-port=1883` | iot2services: MQTT to HA |
-| 75 | drop, logged | *(catch-all)* | iot2services: deny everything else |
+| 74 | drop | `protocol=udp src-address=192.168.30.63 dst-address=192.168.20.40 port=53` | iot2services: ceiling fan drop DNS (udp) |
+| 75 | accept | `protocol=udp dst-address=192.168.20.40 port=53` | iot2services: DNS to pi-hole (udp) |
+| 76 | accept | `protocol=tcp dst-address=192.168.20.60 dst-port=1883` | iot2services: MQTT to HA |
+| 77 | drop, logged | *(catch-all)* | iot2services: deny everything else |
 
 TCP DNS-to-Pi-hole was removed in the Phase 5 reorg (never needed) — UDP only now, and the
 ceiling fan's TCP DNS-drop override went with it as redundant.
 
-**`internet2services`** (# 76)
+**`internet2services`** (# 78)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 76 | accept | `connection-state=new connection-nat-state=dstnat protocol=tcp dst-address=192.168.20.60 dst-port=443` | internet2services: Home Assistant HTTPS |
+| 78 | accept | `connection-state=new connection-nat-state=dstnat protocol=tcp dst-address=192.168.20.60 dst-port=443` | internet2services: Home Assistant HTTPS |
 
 No deny-all — the dispatch jump itself (# 35) is already scoped to `connection-nat-state=dstnat`
 plus `WAN`/`vlan-services`, so nothing else can reach this chain.
@@ -305,7 +313,7 @@ plus `WAN`/`vlan-services`, so nothing else can reach this chain.
 | 1 | dstnat | dst-nat -> `192.168.20.60:443` | `protocol=tcp dst-port=443 in-interface-list=WAN` | Home Assistant - HTTPS |
 
 Rule 1 pairs with `chain=forward`'s `internet2services` jump (# 35) and its sub-chain rule
-(# 76) above — all three consistent. **No `dst-address=` on rule 1** — deliberately, since
+(# 78) above — all three consistent. **No `dst-address=` on rule 1** — deliberately, since
 2026-09-11: previously hardcoded to mikrotik1's then-current WAN DHCP lease, which broke
 outright when a Swisscom box swap changed the whole WAN-side subnet (see `changelog.md`).
 Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
@@ -319,6 +327,7 @@ Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
 | `octoprint` | OctoPrint (wifi + wired) | named exception for both `iot`'s default internet deny and `users -> iot`'s default deny — consolidated from the former separate `iot-internet` list during the Phase 5 reorg |
 | `iotawatt` | IotaWatt (`192.168.30.50`) | named exception for `iot`'s default internet deny only (firmware updates), added 2026-09-11 |
 | `http-outbound` | Home Assistant (`192.168.20.60`) | named exception for `services2internet`'s HTTPS-only policy (plain HTTP), added 2026-09-15 — see `http-outbound-v6` below for the IPv6 twin |
+| `ssh-hosts` | OctoPrint (wired + wifi), desktop | named exception for HA's `linux-monitor` SSH access, spans `vlan-iot` and `vlan-users` — referenced from both `services2iot` and `services2users`; each chain's own dispatch already restricts it to that VLAN's traffic. Added 2026-09-16, expected to grow |
 | `bogons` | RFC 1918/3330 ranges, defconf | unchanged since round 1/2, not VLAN-related |
 | `Syn_Flooder`, `Port_Scanner`, `spammers` | dynamic, populated at runtime | anti-abuse, unchanged since finding 7 |
 

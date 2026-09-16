@@ -2124,3 +2124,64 @@ matches one successful check-in per hour almost exactly, and rules out a fluke.
 
 No `I - INVALID` flag observed on the rule at any point. `firewall.md`'s table, quick-reference
 row, and prose updated to match.
+
+### HA's `linux-monitor` HACS integration given SSH access to OctoPrint and the desktop, and a new `ssh-hosts` address list (2026-09-16)
+
+Home Assistant's newly-added `linux-monitor` integration (jrackerby/linux-monitor, tracks
+package/kernel updates over SSH) needs to reach OctoPrint (`vlan-iot`) and the desktop
+(`vlan-users`) — both cross-VLAN from HA's own `vlan-services`, so both needed new
+`chain=forward` jump-chain accept rules. Pi-hole needed none — same VLAN as HA, never reaches
+mikrotik1's IP firewall at all (`use-ip-firewall=no`, confirmed on the bridge).
+
+A new `ssh-hosts` address list (not the existing `octoprint` list, deliberately — Guillaume's
+call, expecting more hosts to be added over time regardless of VLAN) holds every SSH-monitored
+host: OctoPrint's wired + wifi addresses and the desktop's. One accept rule added to each of
+`services2iot` (# 71) and `services2users` (# 66), both `src-address=192.168.20.60 (HA)
+dst-address-list=ssh-hosts dst-port=22`. Destination-scoped via the list rather than port-only
+like `services2iot`'s existing HA exceptions (Tuya/Tasmota/ESPHome) — SSH is full shell access,
+not a single-purpose device protocol, so it gets the same per-device scoping precedent as
+`services2users`' printer/TV rules instead. A single list spanning two VLANs is safe because
+each chain's own dispatch rule already restricts it to that VLAN's traffic before the
+address-list match is even evaluated — adding a future host on either already-covered VLAN is
+then just an address-list entry, no rule change; a genuinely new VLAN still needs its own
+one-line rule.
+
+**A new, real RouterOS `import` bug found and worked around, not just a repeat of already-known
+quirks.** The two accept-rule `/add` commands, every time they were run via `import` of a
+`.rsc` file — regardless of path notation (`/ip/firewall/filter/...` vs `/ip firewall filter
+...`), regardless of whether `place-before=[find ...]` was inline or precomputed into a local
+variable first, regardless of whether a `:foreach` loop populating the address list ran earlier
+in the same script or as a separate prior `import` entirely — created **two** copies of the
+rule instead of one, from a verified-empty starting state each time (confirmed via
+`/ip/firewall/filter/print detail where dst-address-list=ssh-hosts` showing nothing
+immediately before each test). The address-list-population `:foreach` loop itself never
+duplicated its own adds, across every single test — only these two specific `/add` commands did,
+and only when run via `import`. **Typing the exact same single-line command directly at the CLI
+prompt worked correctly first time, both times** — one clean rule, right position, no
+`I - INVALID`. Root cause not identified (not file corruption — verified via `/file print
+detail` showing correct single-copy contents at the exact moment of a duplicating run); worked
+around by abandoning `import` entirely for these two specific commands and typing them by hand.
+Added to `README.md`'s hard-won lessons.
+
+Two rounds of cleanup were needed after each `import` attempt, since neither
+`comment=""` nor `numbers=<n>` reliably isolated just the bad copy on the first try (an unset
+comment isn't stored as literal empty string, so `find where comment=""` was a silent no-op
+matching nothing; global rule numbers shift when removed out of order) — the working approach
+was `/ip/firewall/filter/remove [find where dst-address-list=ssh-hosts]` (single condition,
+removes every rule using the list at once, safe here since nothing else legitimately uses it
+yet) followed by a clean re-add.
+
+**Verified:** `/ip/firewall/address-list/print where list=ssh-hosts` shows exactly 3 entries
+(`192.168.30.80`, `192.168.30.81`, `192.168.10.90`), no duplicates, across every test — this
+part never had a problem. `/ip/firewall/filter/print detail` on both chains shows exactly one
+`ssh-hosts` rule each, correctly placed before their catch-all, no `I - INVALID`. Real global
+rule numbers confirmed via a fresh `dump-configs.sh` after the fact (63-67 for `services2users`,
+68-72 for `services2iot`), not guessed — `iot2users` through `internet2services` all shifted up
+by 2 as a result (73, 74-77, 78) and `firewall.md` fully renumbered to match.
+
+HA-side setup (HACS install, dedicated `ha-monitor` unprivileged system accounts on all three
+hosts with a fresh dedicated SSH keypair under `/config/ssh_keys/`, no sudo granted) and its own
+troubleshooting (a wrong key path in the config flow, initially misdiagnosed as a host-key
+verification problem) are Home Assistant-side, not network config — see
+`home/home-assistant/changelog.md` if a parallel entry exists there, otherwise this is the only
+record.
