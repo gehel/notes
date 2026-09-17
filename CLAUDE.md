@@ -28,6 +28,58 @@ The planning files are processed by [TaskJuggler](https://taskjuggler.org/) (`tj
 
 `.puml` files are rendered with the `plantuml` CLI (not installed via the apt list in `home/install.md` — install separately if needed). There is no build script; render ad-hoc, e.g. `plantuml path/to/diagram.puml`. Multiple `@startuml`/`@enduml` blocks in one file (see `maven-ci.puml`) produce multiple output images.
 
+## Working with `home/`
+
+`home/` holds Guillaume's personal home-infrastructure notes, split into two independent,
+self-contained areas — each with its own `README.md`; **read that first** before touching
+anything in its directory, since it names the currently active work and links every other
+document in the area:
+
+- `home/network/` — a MikroTik-based home network (VLANs, firewall, wifi, IPv6, QoS).
+- `home/home-assistant/` — review and maintenance of a Home Assistant instance.
+
+These documents exist so work can resume from the files alone, with no memory of prior
+sessions, which drives their conventions:
+
+- **A finding leaves an area's open-findings doc (`config-review.md`) only when fixed *and*
+  verified** against real output/device state — never when merely reported done. Closed items
+  move to that area's `changelog.md` with the verifying evidence attached. Finding numbers are
+  stable and never reused (`<n>` for `home/network`'s main router, `S<n>` for its switches).
+- **Every change, in any session, gets logged to the area's `changelog.md` as it happens**, not
+  batched at the end. For `home/network`, RouterOS's own logs can't distinguish one session
+  from another (both show up as the same `admin@<ip>/terminal` client), so the changelog is the
+  only record that survives a session boundary.
+- Each area's README ends with a running list of hard-won lessons/gotchas specific to that
+  system — check it before debugging something that looks like a known quirk.
+
+Both areas pull live device/config state for review and gitignore the raw copy, keeping only
+the derived, reviewed markdown in git: `home/network/dumps/`, `home/network/backups/`,
+`home/network/logs/` (via `scripts/dump-configs.sh`, `scripts/dump-logs.sh`,
+`scripts/fetch-backups.sh`), and `home/home-assistant/config/` (via `scripts/sync.sh`, rsync
+over SSH — see that area's README for the required HA add-on and env vars). Regenerate before
+any review; these are snapshots, not sources of truth, and none of it belongs in git (secrets,
+tokens, location history).
+
+`home/network/diagrams/` has two complementary diagrams, regenerated after any change to the
+trunk/port plan or device inventory, sources committed alongside rendered output:
+
+```
+cd home/network/diagrams
+dot -Tsvg network.dot -o network.svg              # physical topology (Graphviz)
+./render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg   # VLAN/address plan
+```
+
+Use `render-nwdiag.py`, not plain `nwdiag3` — it works around an upstream nwdiag crash on any
+node belonging to two networks (which a router always does); see `network.md`. Edge/fill style
+in these diagrams is meaningful (solid=verified, dashed=inferred, dotted=planned) — see
+`network.md`'s "Reading it" section before editing `network.dot`.
+
+In `home/network/scripts/`, one-shot `.rsc` scripts (used for a single migration step) are
+deleted once run and verified — the changelog entry is the durable record, not the file. For
+RouterOS `.rsc` scripting itself (idempotency, safe-mode pitfalls, `find`/`print where`
+reliability quirks), use the `mikrotik-routeros-rsc` skill and `home/network/README.md`'s
+"Hard-won lessons" rather than re-deriving these from scratch.
+
 ## Conventions
 
 - Notes are intentionally informal and often link to Phabricator tickets (`https://phabricator.wikimedia.org/T...`). Preserve those links when editing.
