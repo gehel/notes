@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "home-assistant-best-practices": {
+      "source": "homeassistant-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/home-assistant-best-practices/SKILL.md",
+      "computedHash": "8c43a852026807a36463bd5af7ae21e426ad4d5a70a6b04c5bd74d7ab338487d"
+    },
+    "mikrotik-routeros-rsc": {
+      "source": "alexandre-machado/ai-stuffs",
+      "sourceType": "github",
+      "skillPath": "skills/mikrotik-routeros-rsc/SKILL.md",
+      "computedHash": "5e176e7f678b3774a60903c7e700eff99c8b949f4c75db8ed1af4ff3aa963aa8"
+    }
+  }
+}
