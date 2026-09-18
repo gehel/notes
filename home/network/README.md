@@ -120,6 +120,21 @@ Likely shape — a second `/ip/dhcp-client` on whatever interface reaches the ph
 distance/route metrics so mikrotik1 prefers the primary WAN and only fails over when it's
 actually down. Not scoped further than this — revisit before starting.
 
+**DNS-over-TLS from clients to Pi-hole (future idea, not yet designed).** Noted 2026-09-18:
+firewall logs show `users`/`iot` clients (most likely Android's "Private DNS: Automatic"
+opportunistic probe) attempting TCP/853 to Pi-hole (`192.168.20.40`), currently dropped by
+`users2services`/`iot2services`'s catch-all. **Checked same day: Pi-hole doesn't serve DoT** —
+its FTL resolver only speaks plain DNS; the existing 853 firewall exceptions
+(`services2internet`'s Pi-hole rule, `pihole-v6`) are for Pi-hole's own *outbound* upstream
+queries only, unrelated to this. Opening the firewall alone would do nothing but let the TCP
+SYN through to a closed TLS handshake. Needed first: a TLS-terminating layer in front of FTL
+(`stunnel`, `dnsdist`, or `cloudflared`, handing plaintext to FTL's `53`) on the Pi-hole host —
+not yet designed or scoped. Once that exists, the firewall side is a small, well-understood
+addition (`users2services`/`iot2services` each get one `dst-address=192.168.20.40 dst-port=853`
+accept, mirroring `services2internet`'s existing Pi-hole DoT rule) — IPv6 has no
+`users2services`/`iot2services` chains at all yet, so DoT over IPv6 would be new scope on top
+of that, not just extending an existing rule.
+
 **Throughput** — [performance.md](performance.md). Download runs at roughly 30% of upload
 (169.6 vs 565.3 Mbps, measured back-to-back) and is not caused by the MikroTik. The
 outstanding test is a host plugged directly into the Internet-Box.
