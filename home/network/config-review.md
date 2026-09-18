@@ -108,6 +108,20 @@ within tens of seconds to a few hours) — but the volume of evidence now makes 
 checking Home Assistant's own Nabu Casa/cloud connectivity log for disconnect/reconnect events
 at these exact timestamps, rather than continuing to only observe it from the firewall side.
 
+### 32. `users2services`/`iot2services` don't allow DNS-over-TCP to Pi-hole (low, deferred — not yet applied)
+
+Found 2026-09-18 via firewall log review: TCP/53 connection attempts from `users`/`iot` clients
+to Pi-hole (`192.168.20.40`) are hitting each chain's catch-all and being dropped — only UDP/53
+is allowed (`firewall.md` rules 57 and 75). Mirrors the same gap Pi-hole's own upstream DNS had
+until rule 47 closed it 2026-09-10 (TCP fallback for large/DNSSEC-heavy responses that don't fit
+in a UDP response), but that fix was never extended to inbound client traffic. Any client query
+whose UDP response is truncated will fail to complete the TCP retry as a result.
+
+**Fix, not yet applied — deferred by Guillaume's own choice, revisit later:** one accept per
+chain, `protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new`, in
+`users2services` and `iot2services`, positioned before each chain's catch-all — same shape as
+the existing UDP/53 accepts.
+
 ### mikrotik4 has never been reviewed
 
 `192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no
