@@ -289,6 +289,14 @@ outstanding test is a host plugged directly into the Internet-Box.
     (`nc`/counter-verified) confirmed it was enforced the whole time. Don't assume either
     protocol is immune — keep verifying functionally against a real client, and re-print rather
     than trust the flag state from immediately after an `/add`.
+  - **`iot2services` specifically has now shown this same transient `I - INVALID` twice in a
+    row, on two unrelated scripts, while an identically-shaped sibling rule added to
+    `users2services` in the same run printed clean both times** (finding 32's TCP/53 accept,
+    2026-09-22; the DoT-probe `reject` rule, same day). Two-for-two is no longer obviously
+    coincidence, but the cause still isn't identified — not a cached `find`, not
+    `disabled=yes`, `connection-state=new` present where applicable. If `iot2services` is
+    touched again and shows this, it's expected, not a new problem — re-print and verify
+    functionally as always, but don't spend time chasing it as if it were novel.
 - **Clearing a property back to default/empty is trickier than it looks — three distinct
   failure modes found in one session.** `property=""` on an interface-typed field
   (`in-interface=`/`out-interface=`) is treated as an ambiguous wildcard match against every

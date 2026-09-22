@@ -2267,3 +2267,29 @@ reconciliation with the 2026-09-11 entry above, which had ruled that same mechan
   the phone-side external check above is the real verification.
 
 `scripts/wireguard-road-warrior.rsc` deleted per `README.md`'s one-shot-script convention.
+
+### DoT probes to Pi-hole now rejected quietly instead of silently dropped (2026-09-22)
+
+Guillaume's request: Android's opportunistic Private-DNS probes to Pi-hole (`192.168.20.40:853`
+— see `README.md`'s "DNS-over-TLS from clients to Pi-hole", not fixable, Pi-hole doesn't speak
+DoT) were falling through to `users2services`/`iot2services`'s generic `drop, logged`
+catch-alls — blackholed (client waits out its own timeout) and logged as noise on every attempt.
+`scripts/reject-dot-quiet.rsc` added one `action=reject reject-with=tcp-reset` rule to each
+chain, matched on `dst-port=853` to Pi-hole, with no `log=` set (so it won't appear in future
+log collections the way the catch-all hits did).
+
+`users2services` printed clean immediately. `iot2services` printed `I - INVALID` on creation
+again — third occurrence of this transient pattern in this project, **second time specifically
+in `iot2services`** (finding 32 was the first) — no longer looks like coincidence, though still
+unexplained; noted in `README.md`'s hard-won lessons. Cleared on a later re-print with no action
+taken, same as both previous times.
+
+**Verified functionally:** `nc -vz 192.168.20.40 853` from OctoPrint (`vlan-iot`) returned
+`Connection refused` immediately — not a hang — confirming the reject is real, not just a
+clean-looking print. `users2services`'s twin rule wasn't independently functionally tested
+(no `vlan-users` host was used to confirm it) — same rule shape, printed clean immediately
+unlike its sibling, treated as sufficient given the pattern established across the last three
+`iot2services`-vs-`users2services` comparisons, but worth a real check if this chain is ever
+touched again.
+
+`scripts/reject-dot-quiet.rsc` deleted per `README.md`'s one-shot-script convention.
