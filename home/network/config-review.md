@@ -49,7 +49,16 @@ already on 7.24.2. Stale integration-side cached state, not a real gap; still wo
 why HA hasn't refreshed it, and whether the integration's upgrade-trigger feature actually works
 (test on a device/moment where an unexpected reboot is low-risk).
 
-### 25. No mechanism updates `home.ledcom.fr`'s DNS record when the public IP changes (medium)
+### 25. No mechanism updates `home.ledcom.fr`'s DNS record when the public IP changes (medium, reported fixed 2026-09-22 — not yet verified/documented in full)
+
+**Guillaume reports (2026-09-22):** the Let's Encrypt add-on's Gandi integration does update
+this record, and was already configured — the record had gone stale because the API key it
+uses had expired; renewed the same day, and DNS resolution is now confirmed correct externally.
+This directly contradicts the "ruled out, not confirmed working" conclusion below from
+2026-09-11 (that investigation found the add-on's Gandi token only used for DNS-01 ACME
+domain-ownership proof, never for updating the A record) — not yet reconciled. Leaving this
+finding open, and the section below as originally written, until the actual mechanism is
+confirmed and documented properly; don't treat this as closed in the meantime.
 
 Found 2026-09-11, during the Internet-Box replacement (see `changelog.md`). The record is a
 plain A record at Gandi, manually maintained — nothing watches for the ISP-assigned public IP

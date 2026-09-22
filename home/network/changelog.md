@@ -2237,3 +2237,33 @@ there.
   clean-looking print.
 
 `scripts/dns-tcp-pihole.rsc` deleted per `README.md`'s one-shot-script convention.
+
+### WireGuard road-warrior VPN applied and verified — `wireguard1` on mikrotik1 (2026-09-22)
+
+Design in [vpn.md](vpn.md). `scripts/wireguard-road-warrior.rsc` created the interface
+(`192.168.50.1/24`), the peer (`MrG Galaxy S24`, `192.168.50.2/32`), a `chain=input` accept for
+UDP/51820 from `WAN`, and three `chain=forward` dispatch rules treating `wireguard1` exactly
+like `vlan-users` (`users2internet`/`users2services`/`users2iot`, reused as-is). All four new
+rules printed clean, no `I - INVALID` this run.
+
+Endpoint ended up `home.ledcom.fr`, not the originally-designed MikroTik Cloud DDNS hostname —
+`/ip/cloud`'s `dns-name` came back empty when the script ran, so that hostname wasn't usable
+as-is anyway. Guillaume separately reported (same day) that `home.ledcom.fr` is kept current by
+the Home Assistant Let's Encrypt add-on's Gandi integration, previously broken by an expired
+API key that's now renewed — see `config-review.md` finding 25, left open pending full
+reconciliation with the 2026-09-11 entry above, which had ruled that same mechanism out.
+
+**Verified end-to-end from the phone, over mobile data (not home wifi):**
+- `/interface/wireguard/peers/print detail`: `last-handshake=2m`,
+  `rx=309.9KiB`/`tx=2330.5KiB` — real bidirectional traffic, not just a configured-looking
+  peer. `current-endpoint-address=178.197.196.50:39400` — the phone's actual mobile-carrier
+  egress, confirming the session came in over the real internet.
+- A "what's my IP" check from the phone, made *through* the tunnel, reported `178.192.223.49`
+  — matching the home's known real public IP from the 2026-09-11 box-swap entry above, and
+  obtained independently of the router's own self-report.
+- **`/ip/cloud/print`'s `public-address` was checked and explicitly distrusted** (Guillaume) —
+  it read the old `188.61.18.91`, over a week stale, consistent with finding 25's own note that
+  `ddns-update-interval: none` means this field doesn't reliably refresh. Not used as evidence;
+  the phone-side external check above is the real verification.
+
+`scripts/wireguard-road-warrior.rsc` deleted per `README.md`'s one-shot-script convention.

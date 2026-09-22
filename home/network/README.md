@@ -61,6 +61,7 @@ this regularly rather than only once something's already suspected.
 | [performance.md](performance.md) | Throughput investigation — the MikroTik is not the cause |
 | [qos.md](qos.md) | Closed by measurement: there is no bufferbloat to fix |
 | [ipv6.md](ipv6.md) | IPv6 via DHCPv6-PD and the NAT66 workaround |
+| [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone — applied and verified 2026-09-22 |
 
 Diagrams live in [diagrams/](diagrams/): [network.svg](diagrams/network.svg) is physical
 topology (Graphviz), [network-addressing.svg](diagrams/network-addressing.svg) is the VLAN
@@ -100,9 +101,11 @@ unidentified.
 
 **Main router** — [config-review.md](config-review.md). Open findings: a minor
 `connection-state=new` inconsistency on `chain=input` (22, informational, no known impact),
-and no mechanism to update `home.ledcom.fr`'s DNS record when the public IP changes (25,
-medium — found 2026-09-11, bit us twice in one day during the Internet-Box replacement).
-mikrotik4 has never been reviewed; needs the full S1-S16 pass when it returns.
+and finding 25 (`home.ledcom.fr` DNS staleness) — reported fixed 2026-09-22 via the Home
+Assistant Let's Encrypt add-on's Gandi DDNS (an expired API key, renewed), but this directly
+contradicts a 2026-09-11 investigation that ruled that exact mechanism out; not yet
+reconciled, see `config-review.md`. mikrotik4 has never been reviewed; needs the full S1-S16
+pass when it returns.
 
 **Hardware.**
 - Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
