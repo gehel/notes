@@ -117,19 +117,41 @@ within tens of seconds to a few hours) — but the volume of evidence now makes 
 checking Home Assistant's own Nabu Casa/cloud connectivity log for disconnect/reconnect events
 at these exact timestamps, rather than continuing to only observe it from the firewall side.
 
-### 32. `users2services`/`iot2services` don't allow DNS-over-TCP to Pi-hole (low, deferred — not yet applied)
+**Recurred again, 2026-09-18/19/20** (from `logs/mikrotik1-main.txt`, collected 2026-09-22 —
+same shape throughout, `src-port=443`, `ACK`/`ACK,PSH`, `connection-state:new`, 640 bytes):
+`144.202.82.88:61234` five more times (2026-09-18 01:00:48, 01:01:16, 01:02:09, 03:40:56,
+03:41:25) and three more times 2026-09-20 (19:24:24, 19:24:46, 19:25:29); three more
+`216.180.246.x` destinations — `216.180.246.31:21050` (2026-09-18 18:15:47, 18:16:07,
+18:16:48), `216.180.246.176:21764` (2026-09-19 19:37:52, 19:38:16), `216.180.246.179:21824`
+(2026-09-20 18:16:58, 18:17:08, 18:17:29, 18:18:10). Same rotating-front-end pattern within the
+`216.180.246.0/24` range, now five distinct addresses in it across three recurrences. This has
+now recurred in every single log collection since 2026-09-13 (five separate windows) with no
+exception — **this is no longer a "maybe" pattern, it's a standing one.** The one
+recommended-but-not-yet-done action from the original write-up is still outstanding: check Home
+Assistant's own Nabu Casa/cloud-connectivity log for disconnect/reconnect events at the
+timestamps above. This session has no access to Home Assistant to do that directly — needs
+doing from a session/device that does.
 
-Found 2026-09-18 via firewall log review: TCP/53 connection attempts from `users`/`iot` clients
-to Pi-hole (`192.168.20.40`) are hitting each chain's catch-all and being dropped — only UDP/53
-is allowed (`firewall.md` rules 57 and 75). Mirrors the same gap Pi-hole's own upstream DNS had
-until rule 47 closed it 2026-09-10 (TCP fallback for large/DNSSEC-heavy responses that don't fit
-in a UDP response), but that fix was never extended to inbound client traffic. Any client query
-whose UDP response is truncated will fail to complete the TCP retry as a result.
+### 33. Samsung TV → Home Assistant return traffic occasionally not recognized as established (informational, needs more data)
 
-**Fix, not yet applied — deferred by Guillaume's own choice, revisit later:** one accept per
-chain, `protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new`, in
-`users2services` and `iot2services`, positioned before each chain's catch-all — same shape as
-the existing UDP/53 accepts.
+Found 2026-09-22 reviewing `logs/mikrotik1-main.txt` (collected same day). Six packets from
+the Samsung TV (`192.168.10.195`, MAC `F4:DD:06:2A:FB:AF`) — all `192.168.10.195:8002 ->
+192.168.20.60:57906`, `ACK,PSH` (carrying real payload, 1500 bytes — near-MTU, not a bare ACK),
+`connection-state:new` — hit `users2services`'s catch-all and were dropped, all within 6
+seconds (2026-09-21 23:59:16 through 23:59:22).
+
+Same shape as finding 28: established-looking traffic (not a `SYN`) logged as `new` and
+dropped, on a path that should already be tracked. `services2users` rule 65 accepts exactly the
+forward direction of this (`HA -> Samsung TV, dst-port 8002`) — port 8002 as the *source* here,
+toward Home Assistant's own high ephemeral port, is consistent with this being the TV's side of
+that same integration's traffic, not a new connection attempt. If conntrack isn't recognizing
+this as part of the already-accepted flow, `users2services` (which only allows `mgmt`/DNS/HA-web)
+has no reason to let it through — correctly enforcing the policy as written, but possibly
+breaking the HA/Samsung TV integration if this repeats and Home Assistant needed that return
+traffic. One episode so far, not enough to diagnose the cause (conntrack timeout, NAT/asymmetric
+path, or something in how the TV re-uses port 8002 as both a server and client port). Worth
+checking Home Assistant's own Samsung TV integration log for errors/retries around 23:59:16 on
+2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 ### mikrotik4 has never been reviewed
 

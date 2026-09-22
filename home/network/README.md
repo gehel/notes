@@ -79,11 +79,14 @@ unidentified.
 **Routine reviews, no urgency — good places to start a fresh session, not things that broke:**
 - Re-run `dump-logs.sh` and read through the mikrotik firewall log for anything else worth
   tuning (silencing expected noise, like the ceiling fan 2026-09-11, or catching a real gap,
-  like Pi-hole's IPv6 DNS the same day). Last full pass: 2026-09-13 — found three things:
-  Kids Light stranded on the wrong VLAN/SSID (fixed same day, reconnected to `LEDCOM-IoT`,
-  see `changelog.md`), and two still open in [config-review.md](config-review.md) as findings
-  27-28: Pi-hole's NTP fallback (finding 23) recurring, and an unexplained connection-tracking
-  drop on a Home Assistant outbound connection.
+  like Pi-hole's IPv6 DNS the same day). Last full pass: **2026-09-22** — covered
+  2026-09-17 through 2026-09-22, found three things: the finding-32 TCP/53-to-Pi-hole gap
+  (already fixed and closed the same day, see `changelog.md`), finding 28's connection-tracking
+  drop recurring for a third time (now in every log collection since 2026-09-13 — see
+  `config-review.md`, still needs someone with Home Assistant access to check its Nabu Casa
+  log), and a new one, finding 33: a short burst of Samsung-TV-to-Home-Assistant return traffic
+  also dropped as `connection-state:new`, same shape as finding 28 but a different path —
+  one episode so far, watch for recurrence.
 - Review Pi-hole's own query log to confirm DNS is working well for every device generally —
   not chasing a specific known problem, just a health check. Not yet done.
 - Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had
