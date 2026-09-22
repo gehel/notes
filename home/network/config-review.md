@@ -187,6 +187,24 @@ Reasoning, in the order the constraints actually bind:
 than 2.5 Gbps is ever wanted, this caps it. That would mean CCR2004 class — roughly double
 the price plus fan noise. Judged a good trade given current usage is under 1 Gbps.
 
+**Two-box plan confirmed over consolidation (2026-09-22).** Considered replacing mikrotik1 and
+mikrotik2 (currently co-located, both provide 2.4 GHz wifi) with a single ~16-port router+switch
+box, on the reasoning that mikrotik2 only has 8 of its 24 ports actually in use. No clean
+MikroTik SKU was found for this: high port count with a real switch chip (CRS family) and real
+routing CPU with wifi (nothing above the low-port "hAP" tier) don't show up together: the
+closest fit for port count plus a 10G-capable SFP+, something like a CCR2004-16G-2S+, is the
+same CCR2004 class already rejected above for fan noise, and still has no onboard wifi either
+way. mikrotik2 (CRS125) is already owned and already does the job wanted of it (real hardware
+VLAN offload) — the two-box plan needs no additional switch purchase, consolidation would need
+a new switch-capable router *and* a new home (or retirement) for CRS125. Guillaume's call:
+stay with the two-box plan below. Wifi for either box's onboard radios is unaffected by this —
+already covered by target B3 in `wifi.md` (RB5009 as CAPsMAN manager only, cAP XL ac as the
+actual radio) regardless of how many boxes carry the router/switch role.
+
+A future 10G-capable SFP+ for a possible direct-fiber-into-the-router setup, if the Swisscom
+handoff is ever fibre, is already satisfied by the RB5009's SFP+ cage (reasoning point 3 above)
+— no additional requirement.
+
 ### Redeployment: nothing is retired
 
 | Device | New role |
