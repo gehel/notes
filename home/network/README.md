@@ -269,17 +269,20 @@ outstanding test is a host plugged directly into the Internet-Box.
     across nine `/add`s produced `I - INVALID` on the last one, despite it being structurally
     identical to an earlier, valid rule. Fix: re-evaluate `find` fresh at every `/add` — never
     cache and reuse a `place-before=`/`place-after=` target across multiple inserts.
-  - **This whole catalog is IPv4-derived (`/ip/firewall/filter`) and doesn't transfer cleanly to
-    `/ipv6/firewall/filter`.** A `jump` dispatch rule and its target chain's `accept
-    connection-state=new` rule, identically shaped to a long-working IPv4 `users2internet`
-    pair, both showed `I - INVALID` immediately after creation the first time this was tried on
-    IPv6 (`vlan-users` hardening, finding 21 phase 1) — but the flag was gone on a later print
-    with no action taken, and the rules were functionally confirmed enforced throughout
-    (internet access worked, the blocked management port actually timed out). Looks like a
-    transient artifact right after rule creation, not a permanent false positive or a real
-    gap — but don't assume that either: keep verifying functionally against a real client for
-    new IPv6 rules, and re-print rather than trust the flag state from immediately after an
-    `/add`.
+  - **A transient `I - INVALID` right after creation, clearing on its own with no action taken,
+    isn't unique to IPv6 — confirmed on plain `/ip/firewall/filter` too (finding 32,
+    `iot2services: DNS to pi-hole (tcp)`, 2026-09-22).** First seen on IPv6: a `jump` dispatch
+    rule and its target chain's `accept connection-state=new` rule, identically shaped to a
+    long-working IPv4 `users2internet` pair, both showed `I - INVALID` immediately after
+    creation the first time this was tried on IPv6 (`vlan-users` hardening, finding 21 phase 1)
+    — but the flag was gone on a later print with no action taken, and the rules were
+    functionally confirmed enforced throughout (internet access worked, the blocked management
+    port actually timed out). Finding 32 hit the same thing on IPv4: an `accept` rule added by
+    an idempotent script (no cached/reused `find`, not `disabled=yes`, `connection-state=new`
+    present) printed `I - INVALID` once, cleared on a later print, and a real client
+    (`nc`/counter-verified) confirmed it was enforced the whole time. Don't assume either
+    protocol is immune — keep verifying functionally against a real client, and re-print rather
+    than trust the flag state from immediately after an `/add`.
 - **Clearing a property back to default/empty is trickier than it looks — three distinct
   failure modes found in one session.** `property=""` on an interface-typed field
   (`in-interface=`/`out-interface=`) is treated as an ambiguous wildcard match against every

@@ -2210,3 +2210,30 @@ section). **Verified:** last hourly hit was 2026-09-16 15:00:21; a fresh `dump-l
 `auditd` (installed for this investigation, not previously part of this project, on Pi-hole
 only) fully purged afterward, along with the temporary watch script and its log — nothing left
 running or installed as a result of the investigation.
+
+### Finding 32 closed — `users2services`/`iot2services` now allow DNS-over-TCP to Pi-hole (2026-09-22)
+
+Found 2026-09-18 via firewall log review: only UDP/53 to Pi-hole (`192.168.20.40`) was allowed
+from `users`/`iot`, so any client whose DNS response needed a TCP retry (large/DNSSEC-heavy
+answers) would silently fail. Fixed by running `scripts/dns-tcp-pihole.rsc`, which added one
+`protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new` accept to each of
+`users2services` and `iot2services`, positioned before each chain's catch-all.
+
+`users2services: DNS (TCP)` printed clean immediately. `iot2services: DNS to pi-hole (tcp)`
+printed with `I - INVALID` immediately after creation despite being structurally identical to
+its sibling rule — not one of the already-catalogued triggers (see `README.md`'s hard-won
+lessons), and not caused by a cached/reused `find` result, since the script evaluates each
+`place-before=[find ...]` fresh at its own `/add`. A later re-print showed the flag gone with no
+action taken. **This is the same transient-then-clears behavior finding 21 saw on
+`/ipv6/firewall/filter`, now confirmed on `/ip/firewall/filter` (IPv4) too** — `README.md`'s
+existing note that the pattern "doesn't transfer cleanly" to IPv4 no longer holds; updated
+there.
+
+**Verified functionally, not just by print**, per the same standard finding 21 used:
+- `nc -vz 192.168.20.40 53` from OctoPrint (a real `vlan-iot` host): `Connection to
+  192.168.20.40 53 port [tcp/domain] succeeded!`
+- `/ip/firewall/filter/print stats where comment="iot2services: DNS to pi-hole (tcp)"` on
+  mikrotik1, taken right after: `60` bytes, `1` packet — real traffic hit the rule, not just a
+  clean-looking print.
+
+`scripts/dns-tcp-pihole.rsc` deleted per `README.md`'s one-shot-script convention.

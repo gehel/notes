@@ -7,6 +7,12 @@ and log-review fixes on top of that. This is the actual ruleset, in the actual o
 evaluated in — not the design intent. For the intended policy and the reasoning behind it, see
 [vlan.md](vlan.md)'s policy matrix; for open issues, see [config-review.md](config-review.md).
 
+**Not fully renumbered since finding 32 (2026-09-22, see `changelog.md`) added two rules** —
+`users2services: DNS (TCP)` and `iot2services: DNS to pi-hole (tcp)`, both shown below in their
+correct chain position but without a `#`, since inserting them would shift every downstream
+global number (`#` 56 onward) and that hasn't been redone by hand against a fresh dump yet.
+Find by comment, not number, until the next full `dump-configs.sh` regeneration.
+
 RouterOS evaluates each chain top to bottom and stops at the first match, so **position is
 part of the rule** — a correct-looking rule in the wrong place is a bug. That's why this is a
 table in rule order, not a summary.
@@ -19,9 +25,9 @@ cell below corresponds to exactly one jump-chain, named the same way:
 
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
-| **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
+| **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53, UDP+TCP as of 2026-09-22, finding 32); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002), HA -> `ssh-hosts` SSH (22) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668), HA -> `ssh-hosts` SSH (22) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, both 80,443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP only), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
+| **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, both 80,443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP+TCP as of 2026-09-22, finding 32), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
 
 Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
 `changelog.md`'s finding 23 closure; `vlan-iot`'s existed since Phase 3, `vlan-services`/
@@ -226,13 +232,14 @@ the default deny, correctly blocked but dominating the log buffer (`README.md` a
 this as a risk on RouterOS's small, rotating log). Still dropped, just not logged; anything
 else hitting the catch-all still is.
 
-**`users2services`** (# 56-59)
+**`users2services`** (# 56-59, plus one unnumbered — see the renumbering note above)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
 | 56 | accept | `src-address-list=mgmt` | users2services: mgmt hosts full |
 | 57 | accept | `protocol=udp dst-address=192.168.20.40 port=53` | users2services: DNS |
 | 58 | accept | `protocol=tcp dst-address=192.168.20.60 dst-port=443` | users2services: HA web |
+| — | accept | `protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new` | users2services: DNS (TCP) — added 2026-09-22, finding 32, landed last (script places new rules directly before each chain's catch-all) |
 | 59 | drop, logged | *(catch-all)* | users2services: deny everything else |
 
 **`users2iot`** (# 60-62)
@@ -284,13 +291,14 @@ full-shell-access reason noted above.
 
 No exceptions — `iot` has no legitimate reason to initiate anything toward `users`.
 
-**`iot2services`** (# 74-77)
+**`iot2services`** (# 74-77, plus one unnumbered — see the renumbering note above)
 
 | # | Action | Match | Comment |
 |---|---|---|---|
 | 74 | drop | `protocol=udp src-address=192.168.30.63 dst-address=192.168.20.40 port=53` | iot2services: ceiling fan drop DNS (udp) |
 | 75 | accept | `protocol=udp dst-address=192.168.20.40 port=53` | iot2services: DNS to pi-hole (udp) |
 | 76 | accept | `protocol=tcp dst-address=192.168.20.60 dst-port=1883` | iot2services: MQTT to HA |
+| — | accept | `protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new` | iot2services: DNS to pi-hole (tcp) — added 2026-09-22, finding 32; confirmed at this exact position via `/ip/firewall/filter/print where chain=iot2services` |
 | 77 | drop, logged | *(catch-all)* | iot2services: deny everything else |
 
 TCP DNS-to-Pi-hole was removed in the Phase 5 reorg (never needed) — UDP only now, and the
