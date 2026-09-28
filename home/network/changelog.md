@@ -2293,3 +2293,44 @@ unlike its sibling, treated as sufficient given the pattern established across t
 touched again.
 
 `scripts/reject-dot-quiet.rsc` deleted per `README.md`'s one-shot-script convention.
+
+### `mgmt` access extended to gimli (work laptop) and the phone (via `wireguard1`) (2026-09-28)
+
+Guillaume's request: add the work laptop and the phone (over the road-warrior VPN, see
+`vpn.md`) to the set of clients that can reach router management. Three scripts, run against
+all three reachable devices:
+
+- `scripts/add-mgmt-hosts.rsc` added `192.168.10.92` (gimli, already a static DHCP reservation
+  — see `vlan.md`'s device inventory) and `192.168.50.2` (the phone's `wireguard1` tunnel
+  address) to the `mgmt` address-list, identically on mikrotik1, mikrotik2 and mikrotik3 — kept
+  in sync per `firewall.md`'s convention. Printed clean on all three.
+- `scripts/wireguard2users.rsc` (mikrotik1 only) added a new `wireguard2users` forward-chain
+  relationship — mirroring every other VLAN-pair jump chain's shape (mgmt-only accept, then a
+  logged deny-all) — plus the `in-interface=wireguard1 out-interface=vlan-users` dispatch jump,
+  placed before the forward chain's final catch-all. This didn't exist before: the existing
+  `wireguard1` dispatch (from the VPN's own rollout) only reached
+  `users2internet`/`users2services`/`users2iot`, never `vlan-users` itself, so the phone had no
+  forwarded path to mikrotik2/mikrotik3 at all (mikrotik1's own management already worked over
+  the tunnel via `chain=input`, which doesn't care which interface a `mgmt`-listed source
+  arrives on). The dispatch jump printed `I - INVALID` immediately after creation — consistent
+  with this project's established transient-flag pattern (see `README.md`'s hard-won lessons)
+  — and cleared on a later print with no action taken.
+
+**A second, unrelated gate surfaced during verification:** the phone could load mikrotik1's and
+mikrotik2's login pages (firewall accepted the connection) but authentication was refused on
+both. The `admin` user account carries its own `address=` restriction, entirely separate from
+the firewall — confirmed `address=192.168.10.0/24` on all three devices via `dumps/`, never
+widened for the VPN's tunnel subnet. `scripts/widen-admin-address.rsc` set it to
+`192.168.10.0/24,192.168.50.0/24` on all three (purely additive, no existing access removed).
+This is the same class of gotcha `README.md` already documented from the VLAN renumber (a user
+account's `address=` restriction locking out management independently of any firewall rule) —
+now confirmed to recur on *onboarding a new mgmt source*, not just on a renumber. Added as its
+own hard-won lesson rather than folded into the existing one, since the trigger is different.
+
+**Verified functionally, not just by print:** real logins from the phone, over the actual VPN
+tunnel, succeeded on all three devices — mikrotik1 and mikrotik2 first, mikrotik3 confirmed
+after. mikrotik2 and mikrotik3's logins are the strongest evidence available that the new
+`wireguard2users` dispatch is genuinely enforced despite its transient `I - INVALID` flag: a
+real authenticated session, not a synthetic `nc` probe.
+
+All three scripts deleted per `README.md`'s one-shot-script convention.

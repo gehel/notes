@@ -73,6 +73,12 @@ low priority): rule 1's established/related accept already intercepts non-new tr
 any of these could ever see it, so there's no known live impact. Rules 13-15 (all three added
 with `connection-state=new` from the start) are consistent with the forward chain's standard.
 
+**Login also requires clearing the `admin` user account's own `address=` restriction** —
+`192.168.10.0/24,192.168.50.0/24` as of 2026-09-28 (widened to add the WireGuard tunnel subnet
+when the phone was added to `mgmt`, see `changelog.md`) — entirely separate from this chain and
+from the `mgmt` address-list. A source can pass every rule above and still be refused at login
+if it isn't inside this range.
+
 ## mikrotik1 — `chain=forward`
 
 | # | Action | Match | Comment |
@@ -304,6 +310,21 @@ No exceptions — `iot` has no legitimate reason to initiate anything toward `us
 TCP DNS-to-Pi-hole was removed in the Phase 5 reorg (never needed) — UDP only now, and the
 ceiling fan's TCP DNS-drop override went with it as redundant.
 
+**`wireguard2users`** (added 2026-09-28, see `changelog.md`)
+
+| # | Action | Match | Comment |
+|---|---|---|---|
+| — | accept | `connection-state=new src-address-list=mgmt` | wireguard2users: mgmt hosts full |
+| — | drop, logged | *(catch-all)* | wireguard2users: deny everything else |
+
+Dispatched into from `chain=forward` via `in-interface=wireguard1 out-interface=vlan-users`
+(placed before the final catch-all, alongside the VPN's other three `wireguard1` dispatches —
+see `vpn.md`). Added so `mgmt`-listed VPN clients (the phone) can reach mikrotik2/mikrotik3's
+own management, not just mikrotik1's own (already covered by `chain=input` rule 9,
+interface-blind). Printed `I - INVALID` immediately after creation, cleared on a later print —
+the established transient pattern (see `README.md`'s hard-won lessons) — and confirmed
+functionally enforced by real logins from the phone to both mikrotik2 and mikrotik3.
+
 **`internet2services`** (# 78)
 
 | # | Action | Match | Comment |
@@ -330,7 +351,7 @@ Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
 
 | List | Members | Purpose |
 |---|---|---|
-| `mgmt` | mikrotik1/2/3/4, desktop (5 hosts) | full router-management access, all three devices |
+| `mgmt` | mikrotik1/2/3/4, desktop, gimli (work laptop), phone (via `wireguard1`) (7 hosts) | full router-management access, all three reachable devices — see the `admin` user's own `address=` restriction below, a separate gate from this list |
 | `ha-mikrotik-targets` | mikrotik2, mikrotik3 | scopes HA's MikroTik integration to switch management IPs only |
 | `octoprint` | OctoPrint (wifi + wired) | named exception for both `iot`'s default internet deny and `users -> iot`'s default deny — consolidated from the former separate `iot-internet` list during the Phase 5 reorg |
 | `iotawatt` | IotaWatt (`192.168.30.50`) | named exception for `iot`'s default internet deny only (firmware updates), added 2026-09-11 |

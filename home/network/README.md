@@ -367,6 +367,18 @@ outstanding test is a host plugged directly into the Internet-Box.
   the first try. Root cause not identified. If an idempotent `.rsc` script's `/add` with
   `place-before=[find ...]` produces an unexplained duplicate, don't keep varying the script —
   try the same command typed directly instead.
+- **Adding a source to the `mgmt` firewall address-list is not enough on its own to grant
+  login** — the `admin` user account carries its own `address=` restriction, entirely separate
+  from the firewall. A source outside it can pass every firewall rule (the login page loads)
+  and still be refused at authentication. Already known from the VLAN renumber (a user
+  account's `address=` restriction locked out management then too — see the "grep the config
+  for its literal old IP" lesson above), but that was triggered by *changing* an existing
+  host's address; this is the same gate blocking a *new* mgmt source that was never in the
+  restriction to begin with. Confirmed 2026-09-28 adding the phone's WireGuard tunnel address
+  to `mgmt`: firewall accepted the connection on all three devices, login still failed on all
+  three, until `/user set [find name=admin] address=...` was widened to include the tunnel
+  subnet. **Whenever a new source is added to `mgmt`, check `/user print detail` too** — the
+  firewall list and the user's own restriction are two independent things to update, not one.
 - **An unset `comment` isn't stored as an empty string.** `/ip/firewall/filter/remove [find
   where comment=""]` was a silent no-op against a rule with genuinely no comment set — same
   "empty `find` result" failure class already catalogued above, new trigger. When isolating a
