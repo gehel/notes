@@ -31,8 +31,10 @@ fixed, only Parent's Bedroom remains. IotaWatt's back online and its stale-addre
 is closed, but that surfaced a new one: the Energy dashboard references four aggregate sensors
 that don't exist anywhere in the config (finding 15). Open: the un-ignored `dlna_dmr` entries
 (watching), fragile ZHA `device_id` usage in three automations (finding 11), a broken
-"All cold" scene wired to a physical remote button (finding 12), and a fully-explained,
-safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave thermostats (finding 14).
+"All cold" scene wired to a physical remote button (finding 12), a fully-explained,
+safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave thermostats (finding 14),
+and, newest, the east irrigation valve gone unreachable over Zigbee with a possible independent
+water-shortage fault underneath it (finding 16) — needs physical access to progress further.
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP

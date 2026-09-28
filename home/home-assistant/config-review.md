@@ -148,6 +148,56 @@ The matching `binary_sensor.*_low_battery_level` duplicates follow the identical
 pattern, same fix if wanted. Purely cosmetic — not chasing this further as its own task unless
 asked.
 
+### 16. East irrigation valve (`switch.garden_water_east_switch_2`) unreachable over Zigbee — manual `switch.turn_on` fails with "failed to deliver packet" (medium, needs physical check)
+
+Reported 2026-09-24: the "Irrigation" automation's east-side output
+(`switch.garden_water_east_switch_2`, device `a4:c1:38:97:f6:03:d0:d7`) isn't turning the valve
+on, and a manual `switch.turn_on` fails in the UI with "failed to deliver packet." Investigated
+against a fresh `config/` sync from the same day.
+
+**Confirmed radio-level failure, not an automation logic bug.** `automations.yaml`'s
+"Irrigation" automation (`1778147581285`) is wired correctly — `schedule.block_started`/
+`timer.started` both fire `switch.turn_on` on `switch.water_west` and
+`switch.garden_water_east_switch_2` together, no condition gates it. `home-assistant-current.log`
+(2026-09-24 15:45, a live DEBUG capture) shows repeated
+`zigpy.exceptions.DeliveryError: Failed to deliver packet: <TXStatus.APS_NO_ACK: 167>` —
+the coordinator sends but never gets a link-layer acknowledgment — alongside a large and slowly
+growing per-device request backlog ("Device concurrency (1) reached, delaying request (96
+enqueued)", delayed ~440-450s and rising), consistent with one device being persistently
+unreachable while HA keeps queueing its routine polls. The log snippet available doesn't tag
+device identity on the failure lines themselves, but the east valve is by far the most
+entity-heavy Zigbee device in this config (~70 entities — schedule/number/select/button per
+channel), making it the most likely source of that backlog; not yet 100% confirmed against a
+longer log capture.
+
+**The valve's only known Zigbee route is stale.** `zigbee.db`'s neighbor/route tables (last
+updated 2026-09-08, 16 days before this report) show the valve as a **child** of `Switch
+Buanderie` (`00:17:88:01:0f:03:44:0a`, Philips LOM006 smart plug, laundry room) with LQI 216 —
+good at the time — and a second device routing to the valve via that same plug as next hop. The
+laundry-room plug itself is clearly still alive and chatty in the live log (`[0x568b] Filtering
+duplicate packet` recurs throughout), so the parent hop itself isn't dark; the break looks like
+it's specifically between that parent and the valve. Not yet confirmed live, since this session
+has no way to trigger a fresh ZHA topology scan or see current LQI.
+
+**A second, independent fault is also visible and may block the valve even once radio comms are
+restored:** `binary_sensor.garden_water_east_water_shortage` reads `on` (last set 2026-09-23
+23:25:52) — the device's own no-water-flow protection flag. `binary_sensor.garden_water_east_water_leak`
+is `off` and `sensor.garden_water_east_battery` was 78% as of the same timestamp, ruling out a
+dead battery as of yesterday. The water-shortage flag is a device-reported fault, not something
+the "Irrigation" automation checks or clears — worth ruling out as a real supply-side problem
+(hose disconnected, inlet valve closed, kinked line) independently of the Zigbee issue.
+
+**Needs physical access to make progress — not resolvable from config/logs alone:**
+- Check the valve unit itself: powered/battery seated correctly, nothing moved that would
+  increase distance/obstruction from `Switch Buanderie` in the laundry room.
+- Check `Switch Buanderie` (the plug) is still plugged in and hasn't been relocated — it's the
+  valve's sole known repeater hop.
+- Check the actual water supply at the east valve (the water-shortage flag may be entirely
+  accurate and unrelated to Zigbee).
+- If comms are confirmed restored, HA's live LQI/route data can be spot-checked via
+  **Settings → Devices & Services → ZHA → \<device\> → Zigbee device signal** rather than
+  relying on the 2026-09-08 `zigbee.db` snapshot used above.
+
 ## Not yet reviewed
 
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is

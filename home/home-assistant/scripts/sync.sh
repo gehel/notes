@@ -93,5 +93,5 @@ ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" \
 ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha supervisor logs"' \
   > "$OUTDIR/supervisor-current.log"
 
-ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha addons list"' \
-  > "$OUTDIR/addons-list.txt"
+ssh -p "$HA_SSH_PORT" "${HA_USER}@${HA_HOST}" 'bash -l -c "ha apps list"' \
+  > "$OUTDIR/apps-list.txt"
