@@ -18,7 +18,7 @@ reorg (see [changelog.md](changelog.md)) — a dump refresh, not a new full revi
 | mikrotik1 | RB2011UiAS-2HnD — 128 MB, 600 MHz single-core MIPS | `192.168.10.1/24`; `ether1` dynamic from the Internet-Box | edge router, CAPsMAN manager |
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2/24` static on `bridge-local` | L2 bridge, 24 ports + SFP; CAPsMAN CAP (wlan1) |
 | mikrotik3 | RB750Gr3 (hEX) — 256 MB, 880 MHz quad-core | `192.168.10.3/24` static on `bridge` | L2 bridge, 5 ports |
-| mikrotik4 | — | `192.168.10.4` reserved, offline | being returned to service |
+| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; not yet reviewed (see below) |
 
 All three reachable devices run RouterOS 7.24.2, current as of 2026-09-08 (RouterBOOT current
 on mikrotik1 too — re-checked this round). `bridge-fon` (`192.168.2.0/24`) no longer exists —
@@ -155,14 +155,18 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 
 ### mikrotik4 has never been reviewed
 
-`192.168.10.4` has been unreachable on port 22 on every dump run through 2026-09-08, so no
-finding in this document or in the changelog says anything about its configuration.
+`192.168.10.4` is now the cAP XL ac, built 2026-10-06 (see `wifi.md` for the full account,
+including an unplanned `netinstall` recovery) — it's reachable and functional (both wireless
+bands up under CAPsMAN), but hasn't had the baseline hardening pass yet.
 
-When it returns to service it needs the full pass the switches got — input-chain firewall,
-FTP/Telnet off, `admin` bound to the LAN, resolver closed, defconf debris cleared, static
-address, SSH hardened, and a proven MAC-Telnet recovery path. It is already in the `mgmt`
-address list on every device and holds a `.4` reservation on mikrotik1, so it will come up
-reachable.
+It still needs the full pass the switches got — input-chain firewall, FTP/Telnet off, `admin`
+bound to the LAN, resolver closed, defconf debris cleared, static address, SSH hardened, and a
+proven MAC-Telnet recovery path (this one matters more than usual here — MAC-Telnet access was
+genuinely difficult to get working during today's build, see `wifi.md`). It is already in the
+`mgmt` address list on every device and holds its `.4` reservation on mikrotik1, correctly keyed
+to its real MAC (`48:A9:8A:2E:10:0C`) — this document and `wifi.md` previously, incorrectly,
+attributed that same reservation to the SXTsq Lite2; that was a documentation error, not a
+config change, so nothing on-device needed fixing for it.
 
 Nothing else is open. mikrotik2 and mikrotik3 are clear; mikrotik1 has findings 21-22 above
 (19, 20, 23, 24 all closed — see [changelog.md](changelog.md)).
@@ -252,18 +256,22 @@ Worth revisiting once the edge role moves to the RB5009 and mikrotik2 becomes th
 switch chip with hardware VLAN offload, not on which one happens to be reachable from the
 patch panel today.
 
-### Office switch: PoE requirements
+### Office switch: PoE requirements — dropped, no purchase needed
 
-Recorded 2026-09-05. mikrotik3 (RB750Gr3) has no PoE-out, and both planned access points —
-the cAP XL ac and the SXTsq Lite2 — will hang off it. Injectors work in the interim; the
-replacement should remove them.
+Recorded 2026-09-05, **dropped 2026-10-06**. mikrotik3 (RB750Gr3) has no PoE-out, and both
+planned access points — the cAP XL ac and the SXTsq Lite2 — hang off it. The original plan was
+to replace mikrotik3 with a PoE-capable switch so injectors wouldn't be needed. Guillaume has a
+PoE injector that covers the SXTsq from the office, so the injector-in-the-interim case is now
+just the permanent case — no replacement switch is needed here, and mikrotik3 stays in the
+office unchanged. This also means mikrotik3 does **not** free up to move to the living room
+(see the living room switch item below, and `vlan.md`'s "Living room and workshop" section).
 
-Requirements, in order of how badly getting them wrong hurts:
+Requirements record kept for reference, in case this is revisited (e.g. if a second PoE device
+shows up in the office):
 
 1. **Passive PoE-out, not only 802.3af/at.** The SXTsq Lite2 is passive-only, 10-30 V, with
    no 802.3af/at support. A switch that negotiates 802.3at and nothing else will not power
    it, which defeats the purpose. This rules out the otherwise attractive CSS610-8P-2S+IN.
-   **Verify against the SXTsq label before ordering** — the whole choice hangs on it.
 2. **It must not put voltage on ports serving non-PoE devices.** A desktop and two laptops
    share this switch with two APs. Passive PoE energises the pairs unconditionally — there is
    no negotiation and no detection — so a laptop in a passive-PoE port can have its NIC
@@ -280,12 +288,21 @@ Requirements, in order of how badly getting them wrong hurts:
    laptops, two APs. A switch with no spare ports acquires an unmanaged switch hanging off it
    within a year.
 
-**Candidate: CRS112-8P-4S-IN** — 8×GE with PoE-out on every port, 4×SFP, own PSU, fanless,
-RouterOS, and it supports passive as well as 802.3af/at. Cheaper alternative: hEX PoE
-(RB960PGS), definitely passive, but only 5 copper ports, so the uplink would have to move to
-SFP and there would be no spares.
+Candidate that was under consideration: CRS112-8P-4S-IN (8×GE with PoE-out on every port,
+4×SFP, own PSU, fanless, RouterOS, passive as well as 802.3af/at). No longer needed.
 
-Power draw is not a constraint either way: the SXTsq is around 4 W and the cAP maybe 7-11 W.
+### Living room switch
+
+Recorded 2026-10-06. TV, Nintendo Switch and amplifier are all wireless today and all live on
+`users` (see `vlan.md`) — no VLAN-awareness or PoE needed, just a handful of wired ports to get
+them off wifi. Port count: uplink + 3 devices + a spare = 5.
+
+**Recommendation: a second RB750Gr3 (hEX)** — same model as mikrotik3, full RouterOS, exactly
+the port count needed. Keeps the fleet uniform (one management model, one set of known
+quirks/lessons already documented in `README.md`) rather than introducing CSS610-8G-2S+IN,
+which was the earlier candidate for this role but runs **SwOS**, not RouterOS — a different,
+lighter management model (web/WinBox-lite only, no scripting, no CAPsMAN) than everything else
+on this network. The SFP+ headroom CSS610 offers isn't needed for three gigabit media devices.
 
 ### Probably a bigger constraint than the router: the wireless
 
@@ -296,7 +313,8 @@ very likely a larger day-to-day limitation than anything about the router.
 A cAP XL ac is already available and unused, which supersedes the earlier suggestion here to
 buy cAP ax or hAP ax³ units.
 
-Full analysis, the channel plan, and the mikrotik4 garden-AP build are in [wifi.md](wifi.md).
+Full analysis, the channel plan, the cAP XL ac build (now mikrotik4), and the still-unbuilt
+garden AP (SXTsq Lite2, no device number assigned yet) are all in [wifi.md](wifi.md).
 
 ### Replacement Swisscom box — arrived and installed 2026-09-11
 

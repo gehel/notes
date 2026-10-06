@@ -84,13 +84,13 @@ radios are `Atheros AR9300`). The cAP XL ac is IPQ-4018/4019 ARM hardware — th
 MikroTik moved to the new driver. If it needs `wifi-qcom-ac`, **mikrotik1 cannot manage it**:
 the package does not exist for mipsbe, so the RB2011 cannot run the new manager at all.
 
-**Still unanswered.** Check on the device:
-
-```
-/system/package/print       # "wireless" or "wifi-qcom-ac"?
-/interface/wifi/print       # exists only on the new stack
-/interface/wireless/print   # exists only on legacy
-```
+**Resolved 2026-10-06: it runs `wireless`, confirmed on hardware.** The table above implied
+Qualcomm IPQ4019 needs `wifi-qcom-ac` — that turned out to be wrong, or at least incomplete, for
+this RouterOS version. After a `netinstall` recovery (see below) the `wireless` package was
+installed manually and `/interface/wireless/print` came up with two live radios,
+`interface-type=IPQ4019`, both fully functional. `/interface/wifi/print` returns nothing (that
+package was never installed). So: legacy stack works on this hardware after all. Branch A below
+applied, not B.
 
 **Decision 2026-09-05: target B3 — consolidate both managers onto the RB5009.**
 
@@ -131,6 +131,90 @@ check:
 
 Either way 5 GHz is available as soon as the AP is mounted and powered. The driver answer
 decides only whether it is centrally managed.
+
+### Built 2026-10-06: this is now mikrotik4, joined to `/caps-man` (Branch A)
+
+**This device is mikrotik4** — `192.168.10.4`. That address was always held by a static DHCP
+reservation keyed to MAC `48:A9:8A:2E:10:0C`; this document previously, incorrectly, attributed
+that reservation to the SXTsq (see the renamed section below). It's actually always been the cAP
+XL ac's own `ether1` MAC. The reservation itself was correct and needed no change — only the
+documentation describing it was wrong. The SXTsq still has no device number; its real MAC needs
+checking against its own label before it gets one (see below).
+
+**MACs, now confirmed from the physical label and cross-checked against the board:**
+`ether1`/management = `...0C`, `ether2` (unused, this board has two) = `...0D`, `wlan1`
+(2.4 GHz) = `...0E`, `wlan2` (5 GHz) = `...0F`.
+
+**Getting here needed an unplanned recovery.** First boot (over its own default WiFi, HTTP
+quick-set) triggered a RouterOS package/firmware update that left the device unable to fully
+boot — solid, non-blinking power/user LEDs, no response to MNDP or MAC-Telnet despite a live
+Ethernet link (confirmed via `/interface/bridge/host/print` on mikrotik1 — its MAC was learned
+on `ether10` the whole time, so the link layer was fine; nothing above it was running). Recovered
+via `netinstall-cli` (the Linux build, not the Windows GUI tool) over a direct point-to-point
+Ethernet link, reflashing RouterOS `7.24.5` (arm) with an empty config. **Lesson for next time:**
+if a MikroTik stops responding to every management protocol right after a firmware/package
+update, while still showing a live link and solid (non-blinking) LEDs, suspect a bad flash before
+anything else — Netinstall is the fix, not more config troubleshooting.
+
+After the reflash: `/system/package/print` showed only `routeros`, no wireless driver at all —
+the empty-config netinstall doesn't bundle one. Installed `wireless-7.24.5-arm.npk` via SCP to
+the device's root file list (after bringing it up with a DHCP client on `ether1`, which landed it
+back on its own `.4` reservation) and a reboot. Also needed a separate explicit
+`/system/routerboard/upgrade` — a plain `/system/reboot` does not apply a pending RouterBOARD
+firmware upgrade (`current-firmware` stayed behind `upgrade-firmware` through several reboots
+until this was run explicitly).
+
+**CAPsMAN scaffolding added on mikrotik1** — neither existed before today:
+
+```
+/caps-man/configuration/add name=caps_ch6 channel=ch6 country=switzerland guard-interval=long \
+    ssid=LEDCOM datapath.bridge=bridge-main .vlan-mode=use-tag .vlan-id=10 \
+    security.authentication-types=wpa2-psk security.passphrase="<LEDCOM passphrase>"
+
+/caps-man/channel/add name=ch5g-42 band=5ghz-a/n/ac frequency=5210
+/caps-man/configuration/add name=caps_5g channel=ch5g-42 country=switzerland guard-interval=long \
+    ssid=LEDCOM datapath.bridge=bridge-main .vlan-mode=use-tag .vlan-id=10 \
+    security.authentication-types=wpa2-psk security.passphrase="<LEDCOM passphrase>"
+
+/caps-man/provisioning/add action=create-dynamic-enabled radio-mac=48:A9:8A:2E:10:0E \
+    master-configuration=caps_ch6 slave-configurations=caps_iot place-before=0
+/caps-man/provisioning/add action=create-dynamic-enabled radio-mac=48:A9:8A:2E:10:0F \
+    master-configuration=caps_5g slave-configurations=caps_iot place-before=0
+```
+
+`/caps-man/channel/add` has no `width` property (unlike `/interface/wireless`) — only
+`extension-channel` for 2.4 GHz; the 5 GHz channel above uses defaults (20 MHz) rather than
+guessing at the right property name a second time after getting it wrong once already.
+
+**Note on `/caps-man/remote-cap/provision`:** its `numbers=` parameter needs an ID from
+`/caps-man/remote-cap/print`, not a bare `[find ...]` as a positional argument — pass the find
+expression as the value: `numbers=[find identity=RBcAPGi]`. Also: provisioning a radio that's
+already bound tears down and **recreates** its dynamic `/caps-man/interface` entries under new
+names (`cap8`/`cap9` became `cap11`/`cap12` etc. here) — don't treat those names as stable, and
+expect a fresh DFS Channel Availability Check on 5 GHz every time a 5 GHz radio gets reprovisioned
+(~60s in `detecting-radar` before `running-ap`; this is required under `country=switzerland`
+across the entire 5150-5350 MHz range, unlike the US where low UNII-1 channels skip it).
+
+**Verified working**, both bands, both SSIDs — `/caps-man/interface/print detail` on mikrotik1
+showed all four as `running-ap`: 2.4 GHz `LEDCOM` on `ch6` (2437 MHz, avoiding the existing
+ch1/ch11 radios) plus a `LEDCOM-IoT` slave, and 5 GHz `LEDCOM` on channel 42 (5210 MHz) plus its
+own `LEDCOM-IoT` slave, VHT rates confirmed (2 spatial streams). A real client associated on
+2.4 GHz and roamed correctly between this radio and the existing ones. 5 GHz association from a
+real client still needs a deliberate test (client band preference defaults to 2.4 GHz; proving
+5 GHz needs forcing a client to it, e.g. via `nmcli dev wifi connect ... bssid 48:A9:8A:2E:10:0F`
+from a Linux machine, which can target a specific BSSID — Samsung's One UI has no equivalent
+manual band/BSSID selection).
+
+**Still open:**
+- Confirm real client association on 5 GHz specifically (not just the radio being `running-ap`).
+- Physical location: confirmed final 2026-10-06 — mikrotik1's `ether10` (same port used
+  throughout this build), not mikrotik3. See "Powering the cAP XL ac" below.
+- Baseline hardening to match every other device — `mgmt` address-list plus the separate
+  `admin` user `address=` restriction, ftp/telnet/www-ssl disabled, `ha` account, SSH hardening,
+  MAC-Telnet reachability confirmed. Not yet done; `config-review.md`'s "mikrotik4 has never been
+  reviewed" section has the full checklist.
+- RouterOS package version drifted from the rest of the fleet during recovery (`7.24.5` vs the
+  fleet's `7.24.2`) — not urgent, just a known inconsistency.
 
 ## Recommended order of work
 
@@ -226,19 +310,19 @@ itself a problem — clients choose, and these had all reassociated seconds earl
 
 ## Powering the cAP XL ac
 
-**Decided 2026-09-05: the cAP plugs into mikrotik3, via a passive PoE injector.** Cabling
-dictates the location, and mikrotik3 is an RB750Gr3 with no PoE-out. Accepted as workable
-rather than ideal.
+**Superseded 2026-10-06: final location is mikrotik1's `ether10`, not mikrotik3.** The
+2026-09-05 reasoning below (mikrotik3 via injector; `ether10` is "the wrong end of the house")
+no longer holds — confirmed with Guillaume that `ether10` is this AP's real, final location,
+not a bench/test setup. It already has what it needs: `poe-out=auto-on`, and it's the same port
+used throughout the 2026-10-06 build (see above). Nothing left to do on the power/location
+front for this device.
 
-This supersedes an earlier suggestion to power it from mikrotik1. That would have worked
-electrically — `ether10` on the RB2011 has `poe-out=auto-on`, it is unused, and the cAP
-accepts passive 18-57 V — but it is the wrong end of the house. **Placement is decided by
-coverage, not by which port happens to have power.** Recorded because it is the sort of
-convenient-but-wrong idea that gets re-suggested.
-
-Both planned access points therefore need injectors from mikrotik3: the cAP XL ac and the
-SXTsq. That is the concrete case for the office PoE switch — see the requirement recorded in
-[config-review.md](config-review.md).
+Kept below for history, since it no longer applies to the cAP: the original plan was to power
+it from mikrotik3 via a passive PoE injector, on the reasoning that placement should be decided
+by coverage, not by which port happens to have power. **That reasoning still applies to the
+SXTsq** (garden AP, device number not yet assigned) — it's the one still planned to go through
+mikrotik3 via injector, in the office location, eventually. The now-dropped office PoE switch
+requirement in [config-review.md](config-review.md) was about this same injector need.
 
 ### Where to mount it: ceiling, not wall
 
@@ -269,11 +353,20 @@ Practical placement:
   compromise — the stairwell is the one path with no floor slab in it.
 - If a wall mount is unavoidable, mount high, near the ceiling. Acceptable, measurably worse.
 
-## mikrotik4 — SXTsq Lite2 as the garden AP
+## SXTsq Lite2 as the garden AP — device number not yet assigned
 
 `RBSXTsq2nD`. 2.4 GHz 802.11b/g/n, integrated **directional** panel antenna, single 10/100
 Ethernet port, PoE-in only, QCA9531 MIPSBE, 64 MB RAM. To be plugged into mikrotik3 and
 aimed at the garden.
+
+**This device is not mikrotik4.** Everything below originally called it that and gave it the
+`.4` reservation and MAC `48:A9:8A:2E:10:0C` — both wrong. That MAC and address belong to the
+cAP XL ac (see above; confirmed from its physical label 2026-10-06). This section's build
+procedure was never actually run, so nothing on-device needs correcting, but the plan below
+does: **check the SXTsq's own label for its real MAC before building it**, don't reuse anything
+recorded here, and it'll need its own fresh device number and reservation (likely mikrotik5,
+next in sequence) once that's done. The `192.168.1.x` addressing throughout this section also
+predates the VLAN migration — translate to `192.168.10.x` (`users`) when actually building this.
 
 Four things worth knowing before mounting it:
 
@@ -309,10 +402,11 @@ bridged, wireless handed to CAPsMAN, DHCP client for management:
 
 If it is unreachable, hold the reset button through boot instead, then use MAC-Telnet.
 
-It should come up as `192.168.1.4` from the existing reservation on mikrotik1
-(`mac-address=48:A9:8A:2E:10:0C`). Then apply the same baseline every other device now has —
-static address, locked-down input chain, services off, HA account — plus the explicit CAP
-configuration.
+It will come up on a DHCP lease on `vlan-users` — check `/ip/dhcp-server/lease/print` on
+mikrotik1 for its actual address once connected; **don't reuse `.4` or
+`mac-address=48:A9:8A:2E:10:0C`**, both belong to the cAP XL ac (mikrotik4, see above). Then
+apply the same baseline every other device now has — static address, locked-down input chain,
+services off, HA account — plus the explicit CAP configuration.
 
 Build the `mgmt` list **before** the input rules. That ordering caused a lockout on the main
 router once already.

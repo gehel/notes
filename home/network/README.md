@@ -22,7 +22,7 @@ firmware updates. Read `vlan.md`'s **Status** section first.
 | mikrotik1 | RB2011UiAS-2HnD | `192.168.10.1` | edge router, CAPsMAN manager, NAT44 + NAT66 |
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2` | L2 switch, 24×GE + SFP, CAPsMAN CAP |
 | mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
-| mikrotik4 | SXTsq Lite2 | `192.168.10.4` (reserved) | offline; to become the garden AP |
+| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; hardening still pending |
 
 All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
@@ -94,30 +94,37 @@ unidentified.
   `services2users`-triggering traffic from HA has been observed in a log yet.
 
 **Wireless** — [wifi.md](wifi.md).
-- The cAP XL ac is unused and is the only 5 GHz on the network. Blocked on one question:
-  which driver it needs (`/system/package/print`, and whether `/interface/wifi` or
-  `/interface/wireless` exists). Decided target is **B3** — both CAPsMAN managers on the
-  RB5009 when it arrives; standalone in the interim if it needs `wifi-qcom-ac`.
-- mikrotik4 (SXTsq Lite2) build procedure is written but not executed. Needs a PoE injector.
-- Both existing APs are 2.4 GHz only. TX power rose 16 -> 20 dBm as a side effect of the
-  channel fix; deliberately not adjusted yet.
+- **The cAP XL ac is now mikrotik4, built 2026-10-06.** Driver question resolved — it runs
+  legacy `wireless` (not `wifi-qcom-ac` as the architecture table implied), joined to mikrotik1's
+  `/caps-man` directly (Branch A). Both bands verified `running-ap` with both SSIDs
+  (`LEDCOM`/`LEDCOM-IoT`). Needed an unplanned `netinstall` recovery along the way — see
+  `wifi.md` for the full account and the lesson about what that failure looked like. Final location confirmed 2026-10-06: mikrotik1 `ether10` (not mikrotik3 -
+  that plan was superseded; it still applies to the SXTsq). Still open: confirm a real client on
+  5 GHz specifically, and baseline hardening (see `config-review.md`'s mikrotik4 section).
+- The SXTsq Lite2 (garden AP) has **no device number yet** — it was previously, incorrectly,
+  recorded as mikrotik4 with the cAP's MAC. Check its own label for its real MAC before building
+  it; see `wifi.md`.
+- Both 2.4 GHz-only original APs' TX power rose 16 -> 20 dBm as a side effect of the channel fix;
+  deliberately not adjusted yet.
 
 **Main router** — [config-review.md](config-review.md). Open findings: a minor
 `connection-state=new` inconsistency on `chain=input` (22, informational, no known impact),
 and finding 25 (`home.ledcom.fr` DNS staleness) — reported fixed 2026-09-22 via the Home
 Assistant Let's Encrypt add-on's Gandi DDNS (an expired API key, renewed), but this directly
 contradicts a 2026-09-11 investigation that ruled that exact mechanism out; not yet
-reconciled, see `config-review.md`. mikrotik4 has never been reviewed; needs the full S1-S16
-pass when it returns.
+reconciled, see `config-review.md`. mikrotik4 (now the cAP XL ac, built 2026-10-06) still needs
+the full S1-S16-style pass — see `config-review.md`'s mikrotik4 section for the checklist.
 
 **Hardware.**
 - Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
   host) — broke the HA HTTPS NAT rule and IPv6 delegation, both fixed same day, see
   `changelog.md`. RB5009UG+S+IN for the edge role is still a separate, not-yet-started step —
   see `config-review.md`'s hardware section for what the box swap did and didn't resolve.
-- Office PoE switch — must do **passive** PoE (the SXTsq needs it) and must not energise
-  ports serving laptops. Candidate: CRS112-8P-4S-IN.
-- Living room and workshop both need switches. Moving mikrotik3 to the living room covers one.
+- Office PoE switch — **dropped 2026-10-06**, a PoE injector covers the SXTsq permanently, no
+  purchase needed. mikrotik3 stays in the office; see `config-review.md`'s hardware section.
+- Living room needs its own switch (TV, Nintendo Switch, amp — all wireless today, all on
+  `users`). Recommendation: a second RB750Gr3 (hEX), see `config-review.md`. Workshop still
+  needs a switch too, VLAN-aware if it carries more than just `iot`.
 
 **Backup internet (future idea, not yet designed).** Noted 2026-09-08: use a phone in
 access-point/tethering mode as a failover WAN on mikrotik1 if the Swisscom line goes down.

@@ -121,7 +121,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | mikrotik1 | `.10.1` | gateway on all three VLANs | |
 | mikrotik2 | `.10.2` | mikrotik1 `ether2-master` | |
 | mikrotik3 | `.10.3` | mikrotik2 `ether16` | |
-| mikrotik4 | `.10.4` | to be deployed | offline |
+| mikrotik4 (cAP XL ac) | `.10.4` | mikrotik1 `ether10` (final location) | CAPsMAN CAP, built 2026-10-06, see `wifi.md` |
 
 ### services — VLAN 20, 192.168.20.0/24
 
@@ -156,10 +156,12 @@ spend effort on reservations that will decay.
 
 ## Living room and workshop
 
-The Amp, TV and Nintendo Switch all live on `users`, so the living room needs no managed
-switch — one access port with `pvid=10` covers it. If buying the office PoE switch anyway,
-consider moving mikrotik3 to the living room instead (5 ports covers uplink + 3 devices +
-spare) and putting the new switch in the office; this also gets the TV off wireless.
+The Amp, TV and Nintendo Switch all live on `users`, so the living room needs no VLAN-aware
+switch — one access port with `pvid=10` covers it. **2026-10-06: the office PoE switch purchase
+is dropped** — a PoE injector covers the SXTsq Lite2 from the office, so mikrotik3 stays there
+and does not free up for the living room after all. The living room now needs its own, separate
+switch purchase; see `config-review.md`'s hardware section for the candidate (plain hEX,
+RB750Gr3, matching mikrotik3 — no VLAN-aware or PoE features needed for this room).
 
 OctoPrint's wired link is down (bad cable); it runs on `LEDCOM-IoT` wireless until fixed. The
 workshop switch, when bought, needs to be VLAN-aware unless it ends up carrying only `iot`

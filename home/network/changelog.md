@@ -2334,3 +2334,105 @@ after. mikrotik2 and mikrotik3's logins are the strongest evidence available tha
 real authenticated session, not a synthetic `nc` probe.
 
 All three scripts deleted per `README.md`'s one-shot-script convention.
+
+## cAP XL ac build — now mikrotik4 (2026-10-06)
+
+The previously-unused cAP XL ac (`RBcAPGi-5acD2nD`, serial `HDM08XPMC7M`) was brought up as a
+CAPsMAN-managed access point, joined to mikrotik1's existing `/caps-man`. See `wifi.md` for the
+full build narrative and the still-open follow-ups (physical relocation, baseline hardening, a
+real 5 GHz client test); this entry is the verification record.
+
+**Initial access was the hardest part.** Connecting to a device with no known IP or confirmed
+password, over mac-telnet, from mikrotik1's own CLI, repeatedly looked like it was succeeding
+(login prompt, "Welcome back!" banner) but actually wasn't — `/system/routerboard/print`
+afterward kept reporting mikrotik1's *own* model and serial number, proving the session never
+left mikrotik1. Root cause was never nailed down for certain (most likely a silent auth failure
+dropping back to the local session with no clear error), but the fix was to stop chaining
+through mikrotik1's CLI entirely and use the Linux `mactelnet-client` package (`mndp` and
+`mactelnet`) directly from the desktop, on the same `vlan-users` L2 segment as mikrotik1's
+`ether10` — which gave an honest "Connection failed" instead of a misleading fake success.
+
+**That honest failure led to the real problem: a bad firmware update.** The device had been
+reached once already, over its own default WiFi, via the HTTP quick-set interface, and a
+firmware/package update was installed from there. After the reboot, the WiFi disappeared
+entirely and the device stopped responding to MNDP, mac-telnet, and DHCP alike — while still
+showing a live Ethernet link (its MAC was learned correctly on mikrotik1's `ether10` throughout,
+confirmed via `/interface/bridge/host/print`) and solid, non-blinking power/user LEDs. That
+combination — live link, no response to anything above it, non-blinking LEDs — pointed at a
+device stuck at the RouterBOOT loader rather than a configuration problem.
+
+**Fixed via Netinstall.** Using `netinstall-cli` (the Linux build) over a direct point-to-point
+Ethernet cable from the desktop:
+```
+sudo ./netinstall-cli -i eno2 -v -e routeros-7.24.5-arm.npk
+```
+Completed cleanly — "Successfully finished installing device 48:A9:8A:2E:10:0C" — and booted
+with RouterOS 7.24.5, empty config (no bridge, no addresses, no wireless package).
+
+**Wireless driver installed and confirmed working.** This also settled `wifi.md`'s long-open
+question of whether this hardware (`firmware-type: ipq4000L`, Qualcomm IPQ4019) needs the new
+`wifi-qcom-ac` stack: it doesn't, at least not exclusively — `/system/package/print` showed no
+wireless driver at all post-netinstall (`/interface/wireless/print` returned a syntax error,
+package absent; `/interface/wifi/print` returned cleanly but empty). Installed
+`wireless-7.24.5-arm.npk` via SCP to the device's root file list (reached over DHCP on `ether1`,
+pool/reservation address `192.168.10.4`) and a reboot. `/interface/wireless/print` then showed
+two live radios, `interface-type=IPQ4019`: `wlan1` (2.4 GHz, MAC `48:A9:8A:2E:10:0E`) and `wlan2`
+(5 GHz, MAC `48:A9:8A:2E:10:0F`). A separate explicit `/system/routerboard/upgrade` was also
+needed — plain reboots alone never applied the pending RouterBOARD firmware update
+(`current-firmware` stayed at `7.12.1` against `upgrade-firmware: 7.24.5` through several
+reboots until this command was run).
+
+**Joined to mikrotik1's CAPsMAN (Branch A from `wifi.md`).** Gave the device a local bridge
+(`ether1` as a member) and handed both radios over:
+```
+/interface/bridge/add name=bridge
+/interface/bridge/port/add bridge=bridge interface=ether1
+/interface/wireless/cap/set enabled=yes interfaces=wlan1,wlan2 discovery-interfaces=bridge \
+    bridge=bridge caps-man-addresses=192.168.10.1
+```
+On mikrotik1, added a 2.4 GHz configuration on the previously-reserved-but-unused `ch6` channel
+and a new 5 GHz channel/configuration (channel 42, 5210 MHz — see `wifi.md` for why `width=`
+isn't a valid `/caps-man/channel` property), then provisioned both radios by MAC, each with
+`caps_iot` as a slave for `LEDCOM-IoT`. The first provisioning attempt bound both radios under
+the pre-existing catch-all rule (created before the specific rules existed) — `cap8` came up on
+the wrong 2.4 GHz channel (`ch1`, duplicating mikrotik1's own) and `cap10`'s 5 GHz radio got a
+2.4 GHz-only config, landing on `current-state="no-channel"`. Fixed by forcing re-provisioning:
+`/caps-man/remote-cap/provision numbers=[find identity=RBcAPGi]` (the `numbers=` parameter needs
+an ID from `/caps-man/remote-cap/print`, not a bare `[find ...]`). This recreated the dynamic
+interfaces under new names (`cap11`-`cap14`) with the correct configs.
+
+**Verified** — `/caps-man/interface/print detail` on mikrotik1, all four `current-state`
+`running-ap`:
+```
+cap11  48:A9:8A:2E:10:0E  caps_ch6  2437/20/gn(20dBm)        — LEDCOM, 2.4 GHz
+cap12  (slave of cap11)   caps_iot                            — LEDCOM-IoT, 2.4 GHz
+cap13  48:A9:8A:2E:10:0F  caps_5g   5210/20-Ceee/ac/DP(20dBm) — LEDCOM, 5 GHz
+cap14  (slave of cap13)   caps_iot                            — LEDCOM-IoT, 5 GHz
+```
+5 GHz (`cap13`) went through a `detecting-radar` state first both times it was provisioned —
+expected, not a fault: `country=switzerland` requires a DFS Channel Availability Check across
+the entire 5150-5350 MHz range (unlike the US, where low UNII-1 channels skip it), and it
+cleared both times within about a minute. A real client (phone) associated and roamed correctly
+between `cap11` and the two pre-existing 2.4 GHz radios during the reprovisioning bounce,
+confirming real client handoff works. A real client on 5 GHz specifically was not yet confirmed
+— still open, see `wifi.md`.
+
+**Documentation error found and corrected, not a config change.** `wifi.md` and
+`config-review.md` had both attributed the `192.168.10.4` DHCP reservation and MAC
+`48:A9:8A:2E:10:0C` to the still-unbuilt SXTsq Lite2 (intended as mikrotik4). That MAC is
+actually, confirmed from its physical label, the cAP XL ac's own `ether1` — meaning this device
+has effectively always been mikrotik4 by address, the documentation just named the wrong
+hardware. The reservation itself needed no change. The SXTsq Lite2 now has no device number
+assigned and will need its own, once its real MAC is checked from its own label — not reused
+from here.
+
+**Physical location confirmed 2026-10-06: mikrotik1's `ether10` is final, not a bench setup.**
+The `wifi.md` plan to power this device from mikrotik3 via injector (recorded 2026-09-05) is
+superseded for the cAP — it stays on `ether10`. That plan still applies, unchanged, to the
+SXTsq, which will go through mikrotik3 via injector in the office once built.
+
+**Still open, tracked in `wifi.md` and `config-review.md`:**
+- Confirm a real client association on 5 GHz specifically (not just `running-ap` state).
+- Baseline hardening to match every other device (`mgmt` list + `admin` address restriction,
+  services off, `ha` account, SSH hardening, proven MAC-Telnet recovery).
+- RouterOS version drifted from the fleet (`7.24.5` vs `7.24.2`) during recovery — not urgent.
