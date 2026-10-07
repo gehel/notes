@@ -105,7 +105,7 @@ unidentified.
   **`LEDCOM-IoT` is not offered on this AP** — VLAN tagging for multi-SSID virtual interfaces is
   confirmed unsupported on this hardware/driver combination, every documented mechanism
   exhausted (see `wifi.md`); only plain `LEDCOM` is served, on both bands. SSH key auth added
-  for `admin`. Still open: baseline hardening (see `config-review.md`'s mikrotik4 section).
+  for `admin`. **Baseline hardening (S17) closed 2026-10-07** — see `changelog.md`.
 - The SXTsq Lite2 (garden AP) has **no device number yet** — it was previously, incorrectly,
   recorded as mikrotik4 with the cAP's MAC. Check its own label for its real MAC before building
   it; see `wifi.md`.
@@ -117,8 +117,8 @@ unidentified.
 and finding 25 (`home.ledcom.fr` DNS staleness) — reported fixed 2026-09-22 via the Home
 Assistant Let's Encrypt add-on's Gandi DDNS (an expired API key, renewed), but this directly
 contradicts a 2026-09-11 investigation that ruled that exact mechanism out; not yet
-reconciled, see `config-review.md`. mikrotik4 (now the cAP XL ac, built 2026-10-06) still needs
-the full S1-S16-style pass — see `config-review.md`'s mikrotik4 section for the checklist.
+reconciled, see `config-review.md`. mikrotik4's full baseline pass (S17) closed 2026-10-07 —
+see `changelog.md`. mikrotik2/mikrotik3 have no open findings either as of the same review.
 
 **Hardware.**
 - Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
