@@ -475,6 +475,32 @@ Unverified — couldn't confirm the app's exact menu path (the one review coveri
 blocked by the proxy) — but worth five minutes with the phone before investing more session time
 in the byte-layout reverse-engineering below.
 
+### 17. Hourly full-subnet reverse-DNS sweep of `services`, overloading Pi-hole's concurrent-query cap (low, source not yet identified)
+
+Found 2026-10-07 from the `home/network` side: Pi-hole's diagnostics showed a recurring
+`DNSMASQ_WARN`, "Maximum number of concurrent DNS queries to 168.192.in-addr.arpa reached (max:
+150)". A full day's `pihole.log` (per-query log, pulled via `home/network`'s new
+`dump-pihole-logs.sh`) showed Home Assistant (`192.168.20.60`) issuing a complete, sequential
+PTR sweep of all 254 addresses on the `services` subnet (`1.20.168.192.in-addr.arpa` through
+`254.20.168.192.in-addr.arpa`) once per hour, every hour — 4502 of ~5197 total PTR queries that
+day. The warning's timestamp (11:50:26) lines up exactly with that hour's query count spiking to
+887 (vs. ~254 every other hour) — the sweep running fast enough to hit the cap. Full evidence in
+`home/network/changelog.md`'s "Pi-hole PTR-lookup warning traced to Home Assistant's hourly
+full-subnet reverse sweep" entry.
+
+**Not yet found: which HA-side mechanism does this.** Checked the synced `config/` for an
+obvious cause — `core.config_entries` (no `nmap_tracker`, no `device_tracker`-style domain),
+`configuration.yaml` (just `default_config`, `zha`, frontend/automation includes — no explicit
+scan config), `custom_components/` (`better_thermostat`, `linux_monitor`, `smart_thermostat`,
+`tuya_local`, `watchman` — none of these obviously do active network scanning). Candidates not
+yet ruled in or out: a core component enabled by `default_config` that does more than its
+manifest suggests, an add-on/Supervisor-level network health check invisible to this config
+sync, or something in `mikrotik`/`iotawatt`/`tasmota`'s own polling that happens to resolve the
+whole subnet rather than just its configured host. Not urgent (doesn't break anything, Pi-hole
+just logs the warning), but worth a live check — e.g. watch `ha core logs` across the top of an
+hour, or check Settings → Devices & Services for anything scan-interval-configured against the
+whole subnet rather than a single host.
+
 ## Not yet reviewed
 
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is

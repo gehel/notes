@@ -2648,7 +2648,7 @@ nothing to apply to. Genuinely inert, not a finding. Left alone.
 account, SSH hardening, DNS, NTP, IPv6 disabled, and build debris cleared. mikrotik1,
 mikrotik2, mikrotik3, and mikrotik4 all confirmed clean against the 2026-10-07 review.
 
-## Pi-hole PTR-lookup warning traced to the desktop, not Home Assistant (2026-10-07)
+## Pi-hole PTR-lookup warning traced to Home Assistant's hourly full-subnet reverse sweep (2026-10-07)
 
 Pi-hole's web UI diagnostics showed a recurring `DNSMASQ_WARN`: "Maximum number of concurrent
 DNS queries to 168.192.in-addr.arpa reached (max: 150)" — i.e. something flooding reverse
@@ -2657,21 +2657,42 @@ discovery.
 
 No API token is configured on this Pi-hole, so pulled the on-disk logs directly instead (see
 `dump-pihole-logs.sh`, added this session). `FTL.log` (Pi-hole v6's consolidated log, matches
-the web UI) has the same warning but no client field. The actual per-query log,
-`pihole.log` (dnsmasq-style, one line per query including `from <client-ip>`), did:
-```
-Oct  7 13:28:22 dnsmasq[11997]: query[PTR] 90.10.168.192.in-addr.arpa from 192.168.10.90
-Oct  7 13:28:22 dnsmasq[11997]: forwarded 90.10.168.192.in-addr.arpa to 192.168.10.1
-Oct  7 13:28:22 dnsmasq[11997]: validation 90.10.168.192.in-addr.arpa is BOGUS
-```
-repeated rapidly. `90.10.168.192.in-addr.arpa` is the PTR for `192.168.10.90` itself —
-Guillaume's desktop (confirmed via `ip addr`, matches its `eno2` address) — and other matching
-lines PTR-queried `1.0.17.172.in-addr.arpa`, the reverse of `172.17.0.1`, Docker's default
-bridge gateway. So the source is the desktop itself, not Home Assistant: something running in
-a container there is reverse-resolving its own network stack, including its own address and
-the Docker bridge gateway. Wrong subnet for the HA theory too — Home Assistant is on `services`
-(`192.168.20.0/24`), this traffic is all `users` (`192.168.10.0/24`).
+the web UI) has the same warning but no client field, so used the actual per-query log,
+`pihole.log` (dnsmasq-style, one line per query including `from <client-ip>`), instead.
 
-Not a network-side problem — no firewall/DNS change made. Left as a closed investigation;
-if it's worth quieting down, that's a desktop-side (Docker container) question, out of scope
-for this repo.
+**First pass was wrong.** A narrow sample (`grep ... | tail -20`) happened to catch a short
+burst of `192.168.10.90` (Guillaume's desktop) reverse-resolving its own address and
+`172.17.0.1` (Docker's default bridge gateway) — real traffic, but a small, one-off
+contributor (142 PTR queries across the whole day), not the cause of the warning. Aggregating
+a full day's log (`pihole.log`, ~133k lines) instead shows the actual dominant source:
+```
+$ grep 'query\[PTR\]' pihole.log | awk '{print $NF}' | sort | uniq -c | sort -rn
+   4502 192.168.20.60
+    219 127.0.0.1
+    196 192.168.20.1
+    142 192.168.10.90
+    138 192.168.10.200
+```
+`192.168.20.60` is Home Assistant (see `firewall.md`). Its PTR queries are a complete,
+sequential sweep of the entire `services` subnet, once per hour, every hour:
+```
+$ grep '192\.168\.20\.60' pihole.log | grep -oP '\d+\.20\.168\.192\.in-addr\.arpa' | sort -u | wc -l
+254
+$ grep '192\.168\.20\.60' pihole.log | grep 'in-addr.arpa' | awk '{print $1,$2,$3}' | cut -d: -f1 | uniq -c
+    255 Oct 7 00
+    254 Oct 7 01
+    ...(254-ish every hour)...
+    887 Oct 7 11
+    254 Oct 7 12
+```
+The 11:00 hour's spike to 887 lines up exactly with the warning's timestamp
+(`11:50:26`, both `FTL.log` and `pihole.log` agree) — the hourly sweep firing fast enough to
+hit the 150-concurrent-query cap. So Guillaume's original theory was right; the first
+(corrected) write-up of this entry was the one that got it wrong.
+
+No static HA config found in `home/home-assistant/config/` (`core.config_entries`,
+`configuration.yaml`, `custom_components/`) that obviously does active subnet-wide reverse-DNS
+scanning — no `nmap_tracker`, no `device_tracker` platform, nothing scan-interval-configured
+for the `services` subnet. The responsible mechanism isn't identified yet. Tracked as
+`home/home-assistant`'s finding 17 for that follow-up — this repo's job (confirming the
+source and the pattern) is done; narrowing which HA component causes it belongs over there.

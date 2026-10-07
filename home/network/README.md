@@ -99,10 +99,11 @@ unidentified.
   not chasing a specific known problem, just a health check. Not yet done as a general pass;
   `dump-pihole-logs.sh` now exists for pulling `pihole.log`/`FTL.log` offline for this. One
   specific thing already checked this way (2026-10-07): the `DNSMASQ_WARN` about hitting the
-  150-concurrent-query cap for `168.192.in-addr.arpa` PTR lookups — traced to Guillaume's own
-  desktop (`192.168.10.90`), reverse-resolving its own address plus `172.17.0.1` (Docker's
-  default bridge gateway), not Home Assistant as first suspected. Not a network-side problem;
-  no action taken.
+  150-concurrent-query cap for `168.192.in-addr.arpa` PTR lookups — traced to Home Assistant
+  (`192.168.20.60`) doing a complete, sequential reverse-DNS sweep of its own `services`
+  subnet every hour (confirmed from a full day's `pihole.log`; see `changelog.md` — a first,
+  narrower sample pointed at the desktop instead and was wrong). Which HA-side mechanism
+  causes the sweep isn't identified yet — see `home/home-assistant`'s finding 17.
 - Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had
   (finding 21's `ha-v6` address-list) — never checked either way, since no
   `services2users`-triggering traffic from HA has been observed in a log yet.

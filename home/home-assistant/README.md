@@ -35,6 +35,9 @@ that don't exist anywhere in the config (finding 15). Open: the un-ignored `dlna
 safe-to-clean-up battery-entity duplication affecting 6 of 7 Z-Wave thermostats (finding 14),
 and, newest, the east irrigation valve gone unreachable over Zigbee with a possible independent
 water-shortage fault underneath it (finding 16) — needs physical access to progress further.
+Also newly open: HA sweeping the entire `services` subnet with reverse-DNS lookups once an
+hour, found from the `home/network` side (finding 17) — the source mechanism isn't identified
+yet.
 
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP
