@@ -198,6 +198,283 @@ the "Irrigation" automation checks or clears — worth ruling out as a real supp
   **Settings → Devices & Services → ZHA → \<device\> → Zigbee device signal** rather than
   relying on the 2026-09-08 `zigbee.db` snapshot used above.
 
+**2026-09-29 update — auto-close switch exists in the quirk but never got created; frontend
+crash blocking "Reconfigure":** the valve was reconnected to external power and Guillaume
+confirms it responds correctly now — consistent with the "failed to deliver packet"/backlog
+symptoms above being a reachability issue, not a config bug. Separately, the deployed quirk
+(`config/zha_quirks/sonoff_swv.py`) already defines a `switch` entity for
+`auto_close_water_shortage` (cluster attribute `0x5011`, `off_value=0`/`on_value=30`,
+`fallback_name="Water shortage auto-close"`) — the control for finding 16's water-shortage
+fault, toggling the valve's own auto-close reaction rather than the shortage detection itself.
+It's absent from the last-synced `.storage/core.entity_registry` (2026-09-28 22:56, 74 entities
+for this device, none tied to `0x5011`). `home-assistant-current.log` shows why: ten identical
+frontend crashes on the ZHA "Reconfigure device" dialog at 18:36:14–19 that evening
+(`TypeError: Cannot read properties of undefined (reading 'get')` in
+`dialog-zha-reconfigure-device.ts:383`, from a Chrome/Android client) — almost certainly an
+attempt to make ZHA pick up the new quirk attribute, which never completed.
+
+**Tried a full HA Core restart (2026-09-29 09:43) — didn't help.** Fresh sync afterwards: still
+81 entities on this device, none created today, no errors anywhere near ZHA/quirk setup in the
+log (`zhaquirks: Loaded custom quirks` logged cleanly at 09:42:59, and the module's `.pyc` was
+freshly compiled from the current source on 2026-09-24). But a naming check shows the live
+entities weren't actually rebuilt from the current file: the current source's shortage-bit
+`binary_sensor` uses `unique_id_suffix="water_supply_status"` / `translation_key="water_supply"`,
+while the entity actually registered (created 2026-09-08) is
+`unique_id: ...-water_shortage_status_v2` / `translation_key: water_shortage` — a scheme that
+doesn't exist anywhere in the current file. So the quirk module loads without error, but *this
+device's* quirked cluster instance isn't being rebuilt against it — a plain Core restart isn't
+sufficient here, unlike the usual ZHA custom-quirk iteration workflow.
+
+**Tried `homeassistant.reload_config_entry` on the ZHA entry (2026-09-29 09:53) — also didn't
+help, but confirmed the reload mechanism itself works.** Fresh sync afterwards: `zhaquirks:
+Loaded custom quirks` logged again cleanly, the same two pre-existing volume-sensor unit
+warnings re-fired (proof entity setup actually re-ran for this integration), but still zero new
+entities and `core.entity_registry`'s `deleted_entities` list (488 entries) has nothing for this
+device's IEEE or unique_id — ruling out HA's "don't recreate a manually-removed entity"
+blacklist as the cause.
+
+**Likely root cause found by comparing code patterns, not yet verified against a live
+traceback:** the `auto_close_water_shortage` `.switch()` block is the only writable entity
+definition in the whole file missing two kwargs that every other one sets —
+`attribute_initialized_from_cache=False` and an explicit `unique_id_suffix`. Without the former,
+ZHA seeds the entity's initial state from zigpy's attribute cache at setup, which has nothing
+for `0x5011` since it's never been read from this device before — a plausible silent-drop cause,
+though not confirmed by a captured exception (only INFO/WARNING-level log was available, no
+`zhaquirks`/`zha` DEBUG capture). Suggested fix, matching the file's own pattern (e.g.
+`valve_work_state`'s binary_sensor block):
+
+```python
+.switch(
+    SonoffWaterValveCluster.AttributeDefs.auto_close_water_shortage.name,
+    SonoffWaterValveCluster.cluster_id,
+    off_value=0,
+    on_value=30,
+    attribute_initialized_from_cache=False,
+    unique_id_suffix="auto_close_water_shortage",
+    translation_key="water_shortage_auto_close",
+    fallback_name="Water shortage auto-close",
+)
+```
+
+**Applied that edit and restarted (2026-09-29 10:00) — still no switch.** Third clean reload
+cycle confirmed (`zhaquirks: Loaded custom quirks` at 09:42:59 → 09:53:02 → 10:00:27, `.pyc`
+recompiled fresh each time, same two benign volume-sensor warnings re-firing, zero errors), so
+the reload mechanism, the file edit taking effect, and the two added kwargs are all ruled out —
+still 81 entities, no `0x5011`/`auto_close`-anything. Whatever's blocking this one entity is
+failing below the log level `ha core logs` captures (INFO+); a per-attribute read failure from
+zigpy would normally only show at DEBUG.
+
+**Root cause found (2026-09-29, via `homeassistant.components.zha.entity`/`zhaquirks` DEBUG
+capture): the quirk was never applied to the east valve at all.** `sonoff_swv.py` registers only
+for the exact model string `"SONOFF"`/`"SWV"` (`QuirkBuilder("SONOFF", "SWV")`, line 479 — no
+`.also_applies_to()` anywhere in the file). The **west** valve's device record
+(`40:38:02:ff:fe:19:71:26`) has `model: "SWV"` — an exact match — and its
+`switch.water_west_water_shortage_auto_close` has existed since **2026-05-05**, entirely
+unrelated to any of today's work; seeing it fire in the DEBUG log during a reload is what
+surfaced this. The **east** valve's device record has `model: "SWV-ZF2"` (the dual-channel
+variant — also confirmed via its OTA metadata's sibling-model list
+`('SWV-ZF2', 'SWV-ZF2E', 'SWV-ZF2U')`), which this quirk's registration never matches. Every
+restart/reload/edit this session tried was reloading a quirk that was never being matched to
+this device — hence zero effect each time, with no error anywhere to explain it.
+
+East's other ~81 entities (the CH1/CH2 schedule/Tuya-DP ones, stylistically similar to this
+quirk's own) are therefore **not** from this file — almost certainly from the quirk bundled with
+zigpy's own `zha-device-handlers` package, which already supports `SWV-ZF2`. The "5.x/6.x/7.x"
+DP-numbering convention matching between the two is coincidental — both are transcribing the
+same Tuya DP catalog, not sharing code.
+
+**Correction — that `.also_applies_to` fix would have been a regression, not a fix.** Checking
+the *other* file already sitting in `config/zha_quirks/`, `"Hydro DUO ZHA script.py"` (2695
+lines, initially assumed unrelated), turned out to be what actually governs east:
+`QuirkBuilder("SONOFF", "SWV-ZF2E").also_applies_to("SONOFF", "SWV-ZF2")...` — an exact model
+match — and its `water_shortage_status_v2`/`water_shortage` binary-sensor definition is
+byte-for-byte what's live on `binary_sensor.garden_water_east_water_shortage`. It implements the
+full CH1/CH2 schedule/seasonal-adjustment/weekday-switch/child-lock feature set (confirmed:
+**west has 26 entities**, exactly matching `sonoff_swv.py`'s ~20-entity chain — no CH2 features,
+correctly, since west is single-channel — while **east's 81** come entirely from this second
+file). Widening `sonoff_swv.py` to also claim `SWV-ZF2` would have replaced east's 81-entity
+quirk with `sonoff_swv.py`'s 26-entity one — losing all CH1/CH2 scheduling, not adding to it.
+Caught before applying.
+
+**Conclusive negative result: `0x5011` does not exist on the east valve's firmware, on either
+channel.** `Hydro DUO ZHA script.py`'s own `SonoffWaterValveCluster.AttributeDefs` never defined
+`0x5011` (confirmed by reading the file) — that's why it doesn't show in the "Manage Zigbee
+Device" attribute picker, which only lists attributes the matched quirk declares. Added the bare
+attribute definition (no entity) to test live: **read attribute `0x5011` on cluster `0xFC11`,
+endpoints 1 and 2 — both explicitly rejected by the device**, confirmed via the raw ZCL response
+in a targeted `zigpy.zcl: debug` capture, not just the UI's ambiguous "value=None" summary:
+```
+ReadAttributesResponse(status_records=[ReadAttributeRecord(attrid=20497, status=<Status.UNSUPPORTED_ATTRIBUTE: 134>, value=None)])
+```
+`status=UNSUPPORTED_ATTRIBUTE`, on both endpoints — an explicit device-side rejection, not a
+timeout or a quirk-code bug. The single-channel SWV's auto-close control at this attribute ID
+simply isn't implemented on the dual-channel SWV-ZF2's firmware.
+
+**`0x5011` itself is a dead end — but turned out not to be the whole story.** If SONOFF exposes
+single-channel-style auto-close at all for this SKU, it's likely only through the eWeLink app's
+Bluetooth connection (the device's OTA release notes mention improved Bluetooth reliability,
+implying a BLE config path separate from Zigbee). **Cleanup done:** the exploratory `0x5011`
+attribute declaration was removed from `Hydro DUO ZHA script.py` and confirmed synced
+(2026-09-29 evening).
+
+**Context that reopened the question:** Guillaume reports the valve actually stops mid-cycle
+when this triggers (confirmed real functional impact, not just a dashboard/diagnostic nuisance),
+and recalls that before the firmware update to 1.0.9 this either didn't trigger or was
+disableable. The underlying cause is a deliberately restrictive flow rate on this zone's drip
+system — a real design choice, not a fault — so the goal became finding *any* Zigbee-reachable
+control for this on the current firmware, not just re-testing `0x5011`.
+
+**Exhaustive attribute-surface review of `Hydro DUO ZHA script.py`:** every real device
+attribute in `SonoffWaterValveCluster.AttributeDefs`, plus every `LocalDataCluster` the quirk
+adds (schedule/seasonal-adjustment/rain-delay/manual-irrigation configs) — nothing beyond
+`unit_of_water_flow` (L/gal/US-gal) relates to flow at all. `valve_abnormal_state` (`0x500C`) is
+the only shortage-related attribute, and it's read-only.
+
+**GitHub/web research (session got `WebFetch`/`WebSearch` access mid-session — both confirmed
+working, `gh` CLI is not usable here, permission-denied on its config) turned up the real
+picture:** `0x5011` (`lackWaterCloseValveTimeout`, exposed by Zigbee2MQTT as
+`auto_close_when_water_shortage`) is specific to the **single-channel SWV** — matches west
+exactly, explains why west has had this working since May. The **dual-channel SWV-ZF2 uses an
+entirely different, newer attribute scheme**: `enable_alarm_water_leak`,
+`enable_alarm_water_shortage`, `alarm_water_leak_duration`, `alarm_water_shortage_duration`
+(1–10 min), `enable_water_shortage_auto_close` — packed together into one composite attribute,
+**`0x5020` (`valve_alarm_settings`)**, per Zigbee2MQTT's own converter and related GitHub issues
+(Koenkk/zigbee-herdsman-converters #12599, #12891, PR #13223 — upstream has been actively
+reworking this exact feature; it briefly regressed from individually-writable fields to a
+read-only blob and back). Checking `Hydro DUO ZHA script.py`'s attribute list confirmed the gap:
+it maps `...0x501E (quarterly_adjustment) → 0x5021 (unit_of_water_flow)`, **skipping `0x5020`
+entirely** — a real, evidenced gap, not a guess.
+
+**Live test of `0x5020` (2026-09-29 21:06–21:08): real progress, not another rejection.** Added
+a bare declaration (`type=foundation.Array`, matching `quarterly_adjustment`'s existing pattern)
+to `Hydro DUO ZHA script.py`, reloaded ZHA, read endpoint 1 via Manage Zigbee Device. Raw ZCL
+response captured via `zigpy.zcl: debug`:
+```
+18 02 01 20 50 00 48 48 04 00 00 00 00 00
+```
+Decoded: attrid `0x5020` (`20 50` LE) ✓, **status = `00` = SUCCESS** — the attribute is real and
+the device answered, unlike `0x5011`. But the UI read errored (`ValueError: Data is too short to
+contain 2 bytes`, `zigpy.exceptions.ParsingError`): zigpy's generic ZCL parser read the type
+byte (`0x48` = Array, matches), then tried to recurse into the payload as a standard nested
+Array (element_type + LE count + elements) and ran out of bytes partway through the 7 remaining
+bytes (`48 04 00 00 00 00 00`). This is the same class of problem `sonoff_swv.py`'s
+`CyclicIrrigation(t.LVBytes)` class already solves for a different mistagged attribute
+(`0x42`/CharacterString there, `0x48`/Array here) — Tuya/eWeLink-family devices commonly tag a
+raw packed-byte blob with a ZCL type that doesn't match how they actually encode it. Because
+zigpy resolves an attribute's deserialization type from the cluster's own `AttributeDefs` schema
+(not blindly from the wire tag) when a matching attrid is declared — confirmed by precedent:
+that's exactly how `CyclicIrrigation` already overrides parsing for its own mistagged attribute
+in the sibling file — declaring `0x5020` with a custom raw-bytes-capturing type instead of
+`foundation.Array` should let us pull the undecoded payload out cleanly.
+
+---
+**2026-10-01 correction — the planned Step 1/2 fix was based on a wrong assumption about
+zigpy, caught before implementing it.** Re-declaring `valve_alarm_settings` with a custom
+Python `type=` (the `CyclicIrrigation` trick) does *not* fix the crash, because
+`ReadAttributeRecord.deserialize()` dispatches `array`/`set`/`bag` wire types straight to
+`Array.deserialize()` (verified against zigpy's own `zigpy/zcl/foundation.py` on GitHub, since
+zigpy isn't installed locally) — it never consults the cluster's declared attribute schema for
+incoming reads at all. `CyclicIrrigation` only works because `0x5008`/`0x5009`'s wire tag
+genuinely is `CharacterString`, which parses correctly; `0x5020`'s wire tag genuinely is `Array`,
+and the bytes after it aren't a well-formed array (confirmed by hand-decoding the captured
+`48 04 00 00 00 00 00` against `Array.deserialize`'s real logic: nested element-type byte, 2-byte
+count, then not enough bytes left for that many elements — the exact "Data is too short" crash
+already seen live). Declaring a different `type=` changes nothing about how the generic parser
+handles the wire-level `Array` tag.
+
+**Implemented instead (not yet pushed to the device or tested live):** a `deserialize()` override
+on `SonoffWaterValveCluster` in `Hydro DUO ZHA script.py`, which lets the normal parser run first,
+and on failure hand-parses the raw frame bytes to pull out `0x5020`'s payload directly — only for
+the single-attribute-read case "Manage Zigbee Device" actually exercises (a frame containing just
+this one attribute record); anything else falls through to the original error, unchanged. Added
+`ValveAlarmSettings(bytes)` to hold the recovered raw bytes, and `valve_alarm_settings` is now
+declared as `type=ValveAlarmSettings, zcl_type=foundation.DataTypeId.array` (the explicit
+`zcl_type=` is required — without it, `ZCLAttributeDef` tries to reverse-map our custom type to a
+wire `DataTypeId` at class-definition time and would fail since `ValveAlarmSettings` isn't a
+registered type, same reason `CyclicIrrigation` needs it).
+
+This is unverified against the real device — reasoned from zigpy's source, not from a live test.
+**Next session, in order:**
+
+1. Copy the updated `Hydro DUO ZHA script.py` to the HA host's custom quirks directory (this repo
+   only pulls `/config` down via `scripts/sync.sh`; pushing the edited file up is a manual step —
+   not something to script/automate here per this repo's "don't execute host-touching scripts"
+   convention) and restart/reload ZHA.
+2. Re-read `0x5020` on endpoint 1 via Manage Zigbee Device, confirm it now returns successfully
+   instead of erroring, and inspect the raw bytes — should still be the same `48 04 00 00 00 00
+   00` shape unless the device's state changed. If it still errors, capture the new traceback;
+   the hand-parse's frame-shape assumptions (single-attribute response) may not hold.
+3. Work out the byte layout (5 known fields against 7 bytes of payload — there may be a small
+   header, or per-channel duplication given this is dual-channel; channel 2 hasn't been read yet
+   either). Zigbee2MQTT's own `sonoff.ts` converter has the authoritative byte-packing logic but
+   was too large for a prior session's `WebFetch` to reach in one pass — worth another attempt,
+   or reverse-engineering from the raw bytes directly now that there's a real live sample.
+4. Once decoded, add proper `.number()`/`.switch()` entities for at least
+   `enable_water_shortage_auto_close` (and ideally `alarm_water_shortage_duration`, to raise the
+   threshold instead of disabling detection outright, given the drip system's restrictive flow is
+   intentional), following the `LocalDataCluster` unpacking pattern already used for
+   `single_irrigation_set`/`quarterly_adjustment` in this same file. Writes will need their own
+   wire-format investigation (the `deserialize()` override only covers reads) before this entity
+   can be made to actually write through to the device.
+5. Verify, then close this sub-thread and fold it into finding 16's remaining physical-check
+   items (or close finding 16 entirely if the physical supply checks are also done by then).
+
+Also still untried, unrelated to this thread: "Reconfigure device" now that the valve is
+reachable on external power (the 2026-09-28 frontend crashes there may have been caused by the
+device being unreachable at that moment, not a pure frontend bug).
+
+---
+**2026-10-01 — upstream research: no drop-in newer quirk file exists, but confirms the firmware
+did change and gives a faster non-Zigbee workaround to try first.** `Hydro DUO ZHA script.py` is
+our own hand-built quirk, not a copy of any upstream package, so there's no single "latest
+version" to diff against — but `WebSearch`/`WebFetch` turned up three live upstream threads and
+one concrete lead:
+
+- [zigpy/zha-device-handlers PR #5110](https://github.com/zigpy/zha-device-handlers/pull/5110)
+  (yezi289) adds official `SWV-ZF2E`/variant support, still **open** as of 2026-07-30. Doesn't
+  decode `valve_alarm_settings` (0x5020) — passes it as raw bytes, blocked on an upstream
+  `ZhaJsonEncoder` bytes-serialization limitation unrelated to our problem.
+- [PR #4927](https://github.com/zigpy/zha-device-handlers/pull/4927) (FraserKillip, bench data
+  from nglessner) — the single-channel SWV-ZFU/ZFE PR our `manual_default_settings` pattern was
+  adapted from. Still **open**, last activity 2026-07-02. Touches `0x5020` but only to expose it
+  via switches, not to document its byte layout. Confirms firmware-dependent behavior differences
+  between ZFE (fw `0x1004`/`0x1007`) and ZFU (fw `0x1007`, never auto-reports `0x5010`).
+- `Koenkk/zigbee-herdsman-converters` (Zigbee2MQTT) is the more actively maintained reference:
+  [PR #13223](https://github.com/Koenkk/zigbee-herdsman-converters/pull/13223), **merged
+  2026-09-18**, replaced the composite `manual_default_settings` control with scalar controls
+  (`irrigation_duration`, `irrigation_mode`, `irrigation_amount`, `irrigation_amount_unit`,
+  `fail_safe`) — same composite-to-scalar shape as our own `0x5020` problem, but this specific PR
+  doesn't touch `valve_alarm_settings` (checked its diff directly).
+- **Firmware confirmed to have moved**: `sonoff.ts` notes dual-channel SWV-ZF2 only gained
+  unified imperial-gallon support in firmware **1.0.9**, and
+  [issue #12891](https://github.com/Koenkk/zigbee-herdsman-converters/issues/12891) reports
+  SWV-ZFE firmware **1.0.8** changed how these alarm settings get exposed via the frontend. This
+  lines up with Guillaume's recollection that auto-close behavior changed around the 1.0.9
+  update — not misremembered.
+- Repeated attempts to pull the actual `0x5020` byte-parsing code out of `sonoff.ts` itself
+  failed: the full file is too large for one `WebFetch` pass (returns type definitions, not
+  function bodies), GitHub's diff views don't render for `WebFetch` (JS-rendered, comes back as
+  "Uh oh! There was an error while loading"), and GitHub code search requires authentication.
+  Traced it down to two specific commits that likely contain it (`d757bf2` SWV-ZNE irrigation
+  support, `48ddb47` SWV-ZF2 dual-channel support) but couldn't extract their diffs through
+  `WebFetch` either. **This avenue is likely exhausted for automated fetching** — next attempt
+  should browse these commits manually rather than retry `WebFetch`.
+- Checked `dgaust/sonoff-swv-quirk` (community ZHA quirk): single-channel SWV only, doesn't
+  handle `SWV-ZF2` or `0x5020`. Not useful here.
+- `zigbee2mqtt.io` and `gist.github.com` are blocked by this sandbox's network proxy —
+  couldn't fetch the device's Z2M docs page or nglessner's companion gist directly; everything
+  above came from GitHub PR/issue pages and `raw.githubusercontent.com` instead.
+
+**New recommended next step, cheaper than finishing the Zigbee decode: try the eWeLink app over
+Bluetooth first.** The Hydro DUO is explicitly a dual BLE+Zigbee device (marketed and reviewed as
+such), and device-side settings like the water-shortage alarm threshold live on the valve itself,
+independent of which radio you use to reach it — so raising `alarm_water_shortage_duration` (or
+disabling `enable_water_shortage_auto_close`) from the app, if the UI exposes it, would fix the
+actual mid-cycle-stop problem without needing the ZHA quirk to decode or write `0x5020` at all.
+Unverified — couldn't confirm the app's exact menu path (the one review covering this was also
+blocked by the proxy) — but worth five minutes with the phone before investing more session time
+in the byte-layout reverse-engineering below.
+
 ## Not yet reviewed
 
 - `blueprints/` (the IKEA Bilresa scrollwheel blueprint referenced from `automations.yaml` is
