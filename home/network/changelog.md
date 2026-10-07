@@ -2534,3 +2534,71 @@ Verified: `/routing/bgp/template/print detail` now shows the `X` (disabled) flag
 one entry. This also closes the long-open 2026-09-10 question in `config-review.md` about
 `route_BFD` reappearing in `/ip/service/print` — it was this same genuinely-enabled, unused BFD
 config, not a dump-collection artifact.
+
+## mikrotik4 — S17 baseline hardening, first six items closed (2026-10-07)
+
+Found during the same-day fleet-wide config review (S17 in `config-review.md`, still open for
+the remaining items — MNDP discovery, NTP, IPv6 firewall, build-session debris). All done
+directly on mikrotik4 over SSH (key auth, set up earlier the same day), each verified by
+`print` immediately after, same discipline as the rest of today's work.
+
+**DNS pointed at Pi-hole**, matching every other device:
+```
+/ip/dns/set servers=192.168.20.40
+```
+
+**`mgmt` address-list added**, mirroring the exact 7-host list already on mikrotik1/2/3 (cross-
+checked live on all three first — confirmed mikrotik4 was already correctly a member of
+*their* lists since the 2026-09-07 renumber, so only mikrotik4's own list needed creating):
+```
+/ip/firewall/address-list/add address=192.168.10.1 list=mgmt comment=mikrotik1
+/ip/firewall/address-list/add address=192.168.10.2 list=mgmt comment=mikrotik2
+/ip/firewall/address-list/add address=192.168.10.3 list=mgmt comment=mikrotik3
+/ip/firewall/address-list/add address=192.168.10.4 list=mgmt comment=mikrotik4
+/ip/firewall/address-list/add address=192.168.10.90 list=mgmt comment=desktop
+/ip/firewall/address-list/add address=192.168.10.92 list=mgmt comment=gimli
+/ip/firewall/address-list/add address=192.168.50.2 list=mgmt comment="phone via wireguard1"
+```
+
+**`admin`'s own address restriction widened** — the separate gate from the list above:
+```
+/user/set [find name=admin] address=192.168.10.0/24,192.168.50.0/24
+```
+
+**`ha` group and user created**, same shape as the other three (password matched to the
+existing `homeassistant` credential already configured in Home Assistant's MikroTik
+integration, not shown here):
+```
+/user/group/add name=ha policy=read,test,api
+/user/add name=homeassistant group=ha address=192.168.20.60 password=<matching the other three>
+```
+
+**Firewall input chain added**, matching the exact shape documented in `firewall.md` for
+mikrotik2/mikrotik3 (also the same shape used for the SXTsq build template in `wifi.md`) —
+split into two steps on purpose, pure accepts first, catch-all drop last, with a fresh SSH
+session checked in between:
+```
+/ip/firewall/filter/add chain=input action=accept connection-state=established,related comment=established
+/ip/firewall/filter/add chain=input action=drop connection-state=invalid comment="drop invalid"
+/ip/firewall/filter/add chain=input action=accept protocol=icmp comment=ICMP
+/ip/firewall/filter/add chain=input action=accept src-address-list=mgmt comment="mgmt hosts to device"
+/ip/firewall/filter/add chain=input action=accept protocol=tcp src-address=192.168.20.60 dst-port=8728 comment="HA API access"
+/ip/firewall/filter/add chain=input action=drop comment="drop everything else"
+```
+Rules 1-4 briefly showed the transient `I`-invalid flag on the first `print`, gone by the next
+one — the same already-documented pattern in `README.md`'s hard-won lessons, not a new issue.
+SSH confirmed still working from a fresh session after the catch-all drop went in.
+
+**`ftp`/`telnet`/`reverse-proxy`/`api-ssl` disabled:**
+```
+/ip/service/disable ftp,telnet,reverse-proxy,api-ssl
+```
+
+**SSH hardened** to match the other three:
+```
+/ip/ssh/set strong-crypto=yes host-key-size=4096
+/ip/ssh/regenerate-host-key
+```
+Regenerating the host key changes its fingerprint, so the desktop's cached one needed clearing
+(`ssh-keygen -R router4.home.ledcom.fr`) before reconnecting — expected, not a problem.
+Confirmed working afterward.

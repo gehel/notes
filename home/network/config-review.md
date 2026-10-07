@@ -154,48 +154,35 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 
-### S17. mikrotik4 has never had a baseline-hardening pass (critical — items 1-2 especially)
+### S17. mikrotik4's baseline-hardening pass, in progress
 
 `192.168.10.4` is now the cAP XL ac, built 2026-10-06/07 (see `wifi.md` for the full account,
 including an unplanned `netinstall` recovery and a wrong-then-corrected driver choice) — it's
 reachable and functional, both wireless bands up standalone on `wifi-qcom-ac` (not CAPsMAN —
 this hardware can't be managed by mikrotik1's legacy `/caps-man`), serving `LEDCOM` only
-(`LEDCOM-IoT` is not offered here, a confirmed hardware/driver limitation, see `wifi.md`). SSH
-key auth is set up for `admin`; everything else below, checked against a fresh dump 2026-10-07,
-is still missing:
+(`LEDCOM-IoT` is not offered here, a confirmed hardware/driver limitation, see `wifi.md`).
 
-1. **No firewall at all.** `/ip/firewall/filter/print` is completely empty — no input-chain
-   protection whatsoever. Every other device has at minimum: accept established/related, drop
-   invalid, accept ICMP, accept `mgmt`, drop everything else.
-2. **`admin` has no address restriction.** `address=""` — every other device restricts to
-   `192.168.10.0/24,192.168.50.0/24`. Right now, login is reachable from anywhere that can
-   route to `192.168.10.4`, gated only by password/key.
-3. **No `mgmt` address-list of its own.** `/ip/firewall/address-list/print` is empty. This is
-   separate from mikrotik4 already being *listed as a member* of `mgmt` on mikrotik1/2/3 (it
-   is, correctly, keyed to its real MAC `48:A9:8A:2E:10:0C`) — this item is about mikrotik4
-   restricting who can reach *it*, which nothing currently does.
-4. **`ftp`, `telnet`, `reverse-proxy`, `api-ssl` all still enabled.** Every other device
-   disables these four.
-5. **No `ha` user/group.** Home Assistant's MikroTik integration can't cover this device yet.
-6. **SSH not hardened.** `strong-crypto=no`, 2048-bit host key (others: 4096-bit).
-   `password-authentication=yes-if-no-key` is also inconsistent with the other three devices'
-   explicit `yes` — not necessarily wrong now that `admin` has a key, but worth an explicit
-   decision rather than leaving it at whatever the default happened to be.
-7. **Not MNDP-discoverable.** `discover-interface-list` points at a list called `static`, but
+**Closed and verified 2026-10-07** (see `changelog.md`): firewall (input-chain, matching the
+switches' shape), `admin` address restriction, `mgmt` address-list, ftp/telnet/reverse-
+proxy/api-ssl disabled, `ha` user/group, SSH hardening (`strong-crypto`, 4096-bit host key),
+and DNS pointed at Pi-hole.
+
+**Still open:**
+1. **Not MNDP-discoverable.** `discover-interface-list` points at a list called `static`, but
    `/interface/list/member/print` is empty — `ether1` isn't a member of any list, so nothing on
    this device is currently discoverable. Directly relevant after how much of the 2026-10-06/07
    build session was spent fighting exactly this kind of reachability gap.
-8. **No DNS server configured.** Every other device points at Pi-hole (`192.168.20.40`).
-9. **No NTP client configured.** Convention is pointing at the device's own VLAN gateway.
-10. **IPv6 present but minimal, and its firewall is empty.** Not disabled, but no real address
-    beyond link-local, and `/ipv6/firewall/filter/print` is empty — don't fix IPv4 (item 1) and
-    leave IPv6 wide open as a side effect.
-11. RouterOS `7.24.5` vs. the fleet's `7.24.2` — already known/documented, carried forward here
-    rather than re-discovered.
-12. **Leftover debris from the 2026-10-06/07 build session.** `/tool/sniffer` still has
-    `file-name=iot-test2`/`file-limit=2000KiB` set from that session's packet captures;
-    `add-dns-entries-suffix=lan` is the untouched factory default, inconsistent with the rest of
-    the network's `home.ledcom.fr`.
+2. **No NTP client configured.** Convention is pointing at the device's own VLAN gateway.
+3. **IPv6 present but minimal, and its firewall is empty.** Not disabled, but no real address
+   beyond link-local, and `/ipv6/firewall/filter/print` is empty — don't fix IPv4 and leave
+   IPv6 wide open as a side effect.
+4. **Leftover debris from the 2026-10-06/07 build session.** `/tool/sniffer` still has
+   `file-name=iot-test2`/`file-limit=2000KiB` set from that session's packet captures;
+   `add-dns-entries-suffix=lan` is the untouched factory default, inconsistent with the rest of
+   the network's `home.ledcom.fr`.
+
+RouterOS version drift (`7.24.5` vs. the fleet's `7.24.2`) is being resolved separately via
+`scripts/upgrade-fleet.sh`, not tracked as part of this finding.
 
 Nothing else is open on mikrotik2/mikrotik3 — both reviewed against this same fresh dump set
 and confirmed to still match the established baseline (mgmt list, admin address restriction,
