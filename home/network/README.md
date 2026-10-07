@@ -22,7 +22,7 @@ firmware updates. Read `vlan.md`'s **Status** section first.
 | mikrotik1 | RB2011UiAS-2HnD | `192.168.10.1` | edge router, CAPsMAN manager, NAT44 + NAT66 |
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2` | L2 switch, 24×GE + SFP, CAPsMAN CAP |
 | mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
-| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; hardening still pending |
+| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; baseline hardening (S17) closed 2026-10-07 |
 
 All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
@@ -47,6 +47,14 @@ Firewall log evidence — the `log=yes` deny-all rules at the end of every Phase
 see [firewall.md](firewall.md) — lives in `logs/` (also gitignored), collected with
 [dump-logs.sh](scripts/dump-logs.sh). RouterOS's own log buffer is small and rotates, so run
 this regularly rather than only once something's already suspected.
+
+Pi-hole's own on-disk logs (no API token configured, so this reads straight off disk via
+rsync+sudo instead of the web UI's API) land in `logs/pihole/` (also gitignored), collected
+with [dump-pihole-logs.sh](scripts/dump-pihole-logs.sh). `pihole.log` is the per-query
+dnsmasq-style log (shows `from <client-ip>` on query lines); `FTL.log` is Pi-hole v6's own
+consolidated log (matches the web UI's Diagnosis/Messages view) but doesn't show the
+requesting client — check `pihole.log` when tracking down who's generating particular
+queries.
 
 ## Documents
 
@@ -88,7 +96,13 @@ unidentified.
   also dropped as `connection-state:new`, same shape as finding 28 but a different path —
   one episode so far, watch for recurrence.
 - Review Pi-hole's own query log to confirm DNS is working well for every device generally —
-  not chasing a specific known problem, just a health check. Not yet done.
+  not chasing a specific known problem, just a health check. Not yet done as a general pass;
+  `dump-pihole-logs.sh` now exists for pulling `pihole.log`/`FTL.log` offline for this. One
+  specific thing already checked this way (2026-10-07): the `DNSMASQ_WARN` about hitting the
+  150-concurrent-query cap for `168.192.in-addr.arpa` PTR lookups — traced to Guillaume's own
+  desktop (`192.168.10.90`), reverse-resolving its own address plus `172.17.0.1` (Docker's
+  default bridge gateway), not Home Assistant as first suspected. Not a network-side problem;
+  no action taken.
 - Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had
   (finding 21's `ha-v6` address-list) — never checked either way, since no
   `services2users`-triggering traffic from HA has been observed in a log yet.
@@ -131,12 +145,14 @@ see `changelog.md`. mikrotik2/mikrotik3 have no open findings either as of the s
   on mikrotik1 (confirmed 2026-10-07, a real hardware ceiling, not a bug — see `wifi.md`),
   capping mikrotik4's link at 100M despite mikrotik4's own port being gigabit-capable. Every
   `RB5009UPr+S+IN` port is Gigabit, so once it lands mikrotik4 gets both PoE and full Gigabit
-  from the same cable — no separate injector needed, no trade-off to make.
+  from the same cable — no separate injector needed, no trade-off to make. **2026-10-07: the
+  wrong unit (`RB5009UG+S+IN`) arrived and was returned; the correct `RB5009UPr+S+IN` is
+  in transit, expected 2026-10-08.**
 - Office PoE switch — **dropped 2026-10-06**, a PoE injector covers the SXTsq permanently, no
   purchase needed. mikrotik3 stays in the office; see `config-review.md`'s hardware section.
-- Living room needs its own switch (TV, Nintendo Switch, amp — all wireless today, all on
-  `users`). Recommendation: a second RB750Gr3 (hEX), see `config-review.md`. Workshop still
-  needs a switch too, VLAN-aware if it carries more than just `iot`.
+- Living room switch (second RB750Gr3/hEX, for the TV/Nintendo Switch/amp, all wireless today
+  — see `config-review.md`) — **ordered, expected 2026-10-07.**
+- Workshop still needs a switch too, VLAN-aware if it carries more than just `iot`.
 
 **Backup internet (future idea, not yet designed).** Noted 2026-09-08: use a phone in
 access-point/tethering mode as a failover WAN on mikrotik1 if the Swisscom line goes down.
@@ -181,9 +197,10 @@ outstanding test is a host plugged directly into the Internet-Box.
   `changelog.md`'s entry (commands, output, verification) is the durable record, not the file.
   A filename referenced from `changelog.md` or `vlan.md` may therefore no longer exist on disk;
   that's expected, not a broken link to chase down. Keep only genuinely reusable tools
-  (`dump-configs.sh`, `fetch-backups.sh`, `measure-bufferbloat.sh` in `scripts/`,
-  [render-nwdiag.py](diagrams/render-nwdiag.py) in `diagrams/` as of this writing) — anything
-  written for a single migration step gets cleaned up after.
+  (`dump-configs.sh`, `dump-logs.sh`, `fetch-backups.sh`, `measure-bufferbloat.sh`,
+  `dump-pihole-logs.sh` in `scripts/`, [render-nwdiag.py](diagrams/render-nwdiag.py) in
+  `diagrams/` as of this writing) — anything written for a single migration step gets cleaned
+  up after.
 
 ## Hard-won lessons
 

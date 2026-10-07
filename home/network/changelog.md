@@ -2647,3 +2647,31 @@ nothing to apply to. Genuinely inert, not a finding. Left alone.
 **S17 is now fully closed** — firewall, `admin`/`mgmt` access control, services disabled, `ha`
 account, SSH hardening, DNS, NTP, IPv6 disabled, and build debris cleared. mikrotik1,
 mikrotik2, mikrotik3, and mikrotik4 all confirmed clean against the 2026-10-07 review.
+
+## Pi-hole PTR-lookup warning traced to the desktop, not Home Assistant (2026-10-07)
+
+Pi-hole's web UI diagnostics showed a recurring `DNSMASQ_WARN`: "Maximum number of concurrent
+DNS queries to 168.192.in-addr.arpa reached (max: 150)" — i.e. something flooding reverse
+lookups for the `192.168.x.x` range. Guillaume's working theory was Home Assistant's network
+discovery.
+
+No API token is configured on this Pi-hole, so pulled the on-disk logs directly instead (see
+`dump-pihole-logs.sh`, added this session). `FTL.log` (Pi-hole v6's consolidated log, matches
+the web UI) has the same warning but no client field. The actual per-query log,
+`pihole.log` (dnsmasq-style, one line per query including `from <client-ip>`), did:
+```
+Oct  7 13:28:22 dnsmasq[11997]: query[PTR] 90.10.168.192.in-addr.arpa from 192.168.10.90
+Oct  7 13:28:22 dnsmasq[11997]: forwarded 90.10.168.192.in-addr.arpa to 192.168.10.1
+Oct  7 13:28:22 dnsmasq[11997]: validation 90.10.168.192.in-addr.arpa is BOGUS
+```
+repeated rapidly. `90.10.168.192.in-addr.arpa` is the PTR for `192.168.10.90` itself —
+Guillaume's desktop (confirmed via `ip addr`, matches its `eno2` address) — and other matching
+lines PTR-queried `1.0.17.172.in-addr.arpa`, the reverse of `172.17.0.1`, Docker's default
+bridge gateway. So the source is the desktop itself, not Home Assistant: something running in
+a container there is reverse-resolving its own network stack, including its own address and
+the Docker bridge gateway. Wrong subnet for the HA theory too — Home Assistant is on `services`
+(`192.168.20.0/24`), this traffic is all `users` (`192.168.10.0/24`).
+
+Not a network-side problem — no firewall/DNS change made. Left as a closed investigation;
+if it's worth quieting down, that's a desktop-side (Docker container) question, out of scope
+for this repo.
