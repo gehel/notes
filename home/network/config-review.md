@@ -209,7 +209,16 @@ VLAN migration didn't need and hasn't touched.
 
 ### Hardware for the edge role
 
-**Recommendation (2026-09-04): RB5009UG+S+IN.**
+**Recommendation (2026-09-04): RB5009UG+S+IN. Corrected 2026-10-07: ordered
+RB5009UPr+S+IN instead — the PoE-out variant.** The original recommendation missed that
+mikrotik4 needs PoE from whatever occupies the edge role (it's currently powered from
+mikrotik1's `ether10`, which is also the box's only PoE-out port). `UPr` adds PoE-out across
+its ports (its own power budget, not relying on an injector) without changing anything else
+below — same CPU, same port count/speed, same passive cooling. This also cleanly resolves the
+100M-link trade-off already recorded in `wifi.md`: mikrotik4 was stuck choosing between
+mikrotik1's one Fast-Ethernet-only PoE port or a genuinely Gigabit port with no PoE. Every
+`RB5009UPr+S+IN` port is Gigabit, so once it lands, mikrotik4 can get both PoE and full
+Gigabit from the same cable, no separate injector needed.
 
 Quad-core ARM64 Cortex-A72 at 1.4 GHz, 1 GB RAM, 7x gigabit plus a 2.5G SFP+ cage,
 passively cooled.

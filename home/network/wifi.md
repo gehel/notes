@@ -373,6 +373,13 @@ connecting to this AP. **Decided 2026-10-07: leave as-is, revisit when the RB500
 mikrotik1** — that swap is the natural point to re-evaluate port/PoE assignment for this link
 rather than re-cabling mikrotik1 now for a router that's about to be replaced anyway.
 
+**Resolved, same day, once the order was corrected:** the original edge-role recommendation
+(`RB5009UG+S+IN`, see `config-review.md`) missed that mikrotik4 needs PoE from whatever runs
+the edge role — fixed by ordering `RB5009UPr+S+IN` instead, the PoE-out variant. Every port on
+it is Gigabit, so this trade-off disappears entirely once it arrives: mikrotik4 gets both PoE
+and full Gigabit from the same cable, no injector needed. Nothing to re-cable on mikrotik1 in
+the meantime; this was already a "wait for the swap" item.
+
 Kept below for history, since it no longer applies to the cAP: the original plan was to power
 it from mikrotik3 via a passive PoE injector, on the reasoning that placement should be decided
 by coverage, not by which port happens to have power. **That reasoning still applies to the

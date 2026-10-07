@@ -123,12 +123,15 @@ the full S1-S16-style pass — see `config-review.md`'s mikrotik4 section for th
 **Hardware.**
 - Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
   host) — broke the HA HTTPS NAT rule and IPv6 delegation, both fixed same day, see
-  `changelog.md`. RB5009UG+S+IN for the edge role is still a separate, not-yet-started step —
-  see `config-review.md`'s hardware section for what the box swap did and didn't resolve.
-  **When it arrives, also revisit mikrotik4's uplink**: `ether10` is Fast-Ethernet-only on
-  mikrotik1 (confirmed 2026-10-07, a real hardware ceiling, not a bug — see `wifi.md`), capping
-  mikrotik4's link at 100M despite mikrotik4's own port being gigabit-capable; deliberately left
-  as-is rather than re-cabling a router that's about to be replaced.
+  `changelog.md`. **RB5009UPr+S+IN** (the PoE-out variant — corrected 2026-10-07 from the
+  original `RB5009UG+S+IN` recommendation, which missed that mikrotik4 needs PoE from the edge
+  role) ordered for the edge role, still a separate, not-yet-arrived step — see
+  `config-review.md`'s hardware section for what the box swap did and didn't resolve.
+  **This also resolves the mikrotik4 uplink speed trade-off**: `ether10` is Fast-Ethernet-only
+  on mikrotik1 (confirmed 2026-10-07, a real hardware ceiling, not a bug — see `wifi.md`),
+  capping mikrotik4's link at 100M despite mikrotik4's own port being gigabit-capable. Every
+  `RB5009UPr+S+IN` port is Gigabit, so once it lands mikrotik4 gets both PoE and full Gigabit
+  from the same cable — no separate injector needed, no trade-off to make.
 - Office PoE switch — **dropped 2026-10-06**, a PoE injector covers the SXTsq permanently, no
   purchase needed. mikrotik3 stays in the office; see `config-review.md`'s hardware section.
 - Living room needs its own switch (TV, Nintendo Switch, amp — all wireless today, all on
