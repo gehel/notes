@@ -153,28 +153,6 @@ path, or something in how the TV re-uses port 8002 as both a server and client p
 checking Home Assistant's own Samsung TV integration log for errors/retries around 23:59:16 on
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
-### 34. SNMP community reverted to wide-open (low)
-
-Found 2026-10-07 reviewing a fresh dump. `/snmp community set [find default=yes]
-addresses=0.0.0.0/0` — `changelog.md`'s Round 1 (2026-09-03) entry explicitly recorded this
-narrowed to `192.168.1.0/24`. It's back to the default, unrestricted. SNMP itself doesn't show
-as an active listener in `/ip/service/print`, so current impact is low, but it's already
-misconfigured for the day it's turned on. Narrow it back to the LAN (`192.168.10.0/24` now,
-post-renumber) whenever SNMP is next touched.
-
-### 35. Unused BGP template and BFD config left enabled (low, cleanup)
-
-Found 2026-10-07. `/routing/bgp/template set default disabled=no` and `/routing/bfd/configuration
-add disabled=no` are both explicitly enabled with no actual BGP peers or BFD-using protocol
-anywhere else in the config — looks like defconf debris that survived the original "dead
-debris" cleanup (findings 19/20, round 1). This also answers the open question from the
-2026-09-10 note below: `route_BFD` reappearing in `/ip/service/print` wasn't a fluke or a
-dump-script artifact — BFD is genuinely configured and enabled, just unused. OSPF instances
-exist too but their areas are correctly `disabled=yes`, so those are fine as-is; just the BGP
-template and BFD config are the actual cleanup targets.
-
-**Previously-open question now answered:** the 2026-09-10 note two paragraphs below asked
-whether `route_BFD`'s reappearance was real or a dump-collection gap. It's real — see finding 35.
 
 ### S17. mikrotik4 has never had a baseline-hardening pass (critical — items 1-2 especially)
 
@@ -232,9 +210,9 @@ dump, not investigated further — neither looked urgent enough to chase down mi
 `cpu-load: 100%` in that snapshot (vs. the ~30-50% this document has previously measured under
 real load) — most likely just the dump script's own burst of SSH commands rather than a
 sustained condition, but worth a second look if it recurs on a quieter dump. And `route_BFD`
-reappearing in `/ip/service/print` as a dynamic listener — **now explained, see finding 35
-above**: BFD is genuinely configured and enabled, left over from defconf, not a dump-collection
-artifact.
+reappearing in `/ip/service/print` as a dynamic listener — **explained and closed, see
+`changelog.md`'s 2026-10-07 entry**: BFD was genuinely configured and enabled, left over from
+defconf, not a dump-collection artifact; now disabled.
 
 ## The architectural item: VLAN segmentation
 

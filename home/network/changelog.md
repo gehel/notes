@@ -2504,3 +2504,33 @@ fallback.
   (`/tool/sniffer`) instead of guessing at more bridge-table properties.
 - Don't trust `current-state`/`running-ap` on `wifi-qcom-ac`/IPQ4019 hardware without an actual
   client-association test — it can report full success for a radio that transmits nothing.
+
+## mikrotik1 — findings 34 and 35 closed (2026-10-07)
+
+Both found during the same-day fleet-wide config review (see the fork's findings, recorded in
+`config-review.md` before this closure).
+
+**Finding 34 — SNMP community reverted to wide-open.** `/snmp/community/print detail` showed
+`addresses=0.0.0.0/0` on the default `public` community; `changelog.md`'s Round 1 (2026-09-03)
+entry had explicitly narrowed this to `192.168.1.0/24`, so it had drifted back open at some
+point since. Fixed:
+```
+/snmp/community/set [find default=yes] addresses=192.168.10.0/24
+```
+Verified: `/snmp/community/print detail` now shows `addresses=192.168.10.0/24`. SNMP itself
+still doesn't show as an active listener in `/ip/service/print`, so this was precautionary —
+closing the misconfiguration before SNMP is ever actually turned on, not fixing a live exposure.
+
+**Finding 35 — unused BGP template and BFD config left enabled.** Both were explicitly enabled
+defconf debris with no actual BGP peer or BFD-using protocol anywhere else in the config —
+survived the original "dead debris" cleanup (findings 19/20, round 1). Fixed by disabling
+rather than removing (reversible, same security/cleanliness benefit):
+```
+/routing/bgp/template/set default disabled=yes
+/routing/bfd/configuration/set [find] disabled=yes
+```
+Verified: `/routing/bgp/template/print detail` now shows the `X` (disabled) flag on `default`;
+`/routing/bfd/configuration/print detail` now shows `Flags: X - DISABLED, I - INACTIVE` on its
+one entry. This also closes the long-open 2026-09-10 question in `config-review.md` about
+`route_BFD` reappearing in `/ip/service/print` — it was this same genuinely-enabled, unused BFD
+config, not a dump-collection artifact.
