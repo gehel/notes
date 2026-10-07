@@ -84,13 +84,17 @@ radios are `Atheros AR9300`). The cAP XL ac is IPQ-4018/4019 ARM hardware — th
 MikroTik moved to the new driver. If it needs `wifi-qcom-ac`, **mikrotik1 cannot manage it**:
 the package does not exist for mipsbe, so the RB2011 cannot run the new manager at all.
 
-**Resolved 2026-10-06: it runs `wireless`, confirmed on hardware.** The table above implied
-Qualcomm IPQ4019 needs `wifi-qcom-ac` — that turned out to be wrong, or at least incomplete, for
-this RouterOS version. After a `netinstall` recovery (see below) the `wireless` package was
-installed manually and `/interface/wireless/print` came up with two live radios,
-`interface-type=IPQ4019`, both fully functional. `/interface/wifi/print` returns nothing (that
-package was never installed). So: legacy stack works on this hardware after all. Branch A below
-applied, not B.
+**Resolved for real 2026-10-06/07, the hard way: it needs `wifi-qcom-ac` after all.** First
+attempt installed legacy `wireless` and it looked like a clean win — `/interface/wireless/print`
+showed two live radios, `interface-type=IPQ4019`, both reporting `running-ap` with full VHT
+rates on 5 GHz. That was false. Over several real-world tests (phone and desktop, close range,
+different regulatory domains ruled out, a full reboot) **the 5 GHz radio never actually
+transmitted anything** under `wireless` — RouterOS's own state reporting was simply wrong, not
+lying maliciously, just not reflecting reality on this chip. Swapping to `wifi-qcom-ac` (the
+table above was right the first time) fixed 5 GHz immediately, confirmed by a real client
+associating at close range within seconds. The two packages can't coexist, so this device is now
+fully on `wifi-qcom-ac`, both bands. See "Built 2026-10-06/07" below for the full account,
+including why that also means standalone, not CAPsMAN — Branch B, not A.
 
 **Decision 2026-09-05: target B3 — consolidate both managers onto the RB5009.**
 
@@ -132,7 +136,7 @@ check:
 Either way 5 GHz is available as soon as the AP is mounted and powered. The driver answer
 decides only whether it is centrally managed.
 
-### Built 2026-10-06: this is now mikrotik4, joined to `/caps-man` (Branch A)
+### Built 2026-10-06/07: this is now mikrotik4, standalone on `wifi-qcom-ac` (Branch B)
 
 **This device is mikrotik4** — `192.168.10.4`. That address was always held by a static DHCP
 reservation keyed to MAC `48:A9:8A:2E:10:0C`; this document previously, incorrectly, attributed
@@ -141,9 +145,8 @@ XL ac's own `ether1` MAC. The reservation itself was correct and needed no chang
 documentation describing it was wrong. The SXTsq still has no device number; its real MAC needs
 checking against its own label before it gets one (see below).
 
-**MACs, now confirmed from the physical label and cross-checked against the board:**
-`ether1`/management = `...0C`, `ether2` (unused, this board has two) = `...0D`, `wlan1`
-(2.4 GHz) = `...0E`, `wlan2` (5 GHz) = `...0F`.
+**MACs, confirmed from the physical label and cross-checked against the board:** `ether1` = `...0C`,
+`ether2` (unused, this board has two) = `...0D`, `wifi1`/2.4 GHz = `...0E`, `wifi2`/5 GHz = `...0F`.
 
 **Getting here needed an unplanned recovery.** First boot (over its own default WiFi, HTTP
 quick-set) triggered a RouterOS package/firmware update that left the device unable to fully
@@ -156,65 +159,102 @@ if a MikroTik stops responding to every management protocol right after a firmwa
 update, while still showing a live link and solid (non-blinking) LEDs, suspect a bad flash before
 anything else — Netinstall is the fix, not more config troubleshooting.
 
-After the reflash: `/system/package/print` showed only `routeros`, no wireless driver at all —
-the empty-config netinstall doesn't bundle one. Installed `wireless-7.24.5-arm.npk` via SCP to
-the device's root file list (after bringing it up with a DHCP client on `ether1`, which landed it
-back on its own `.4` reservation) and a reboot. Also needed a separate explicit
-`/system/routerboard/upgrade` — a plain `/system/reboot` does not apply a pending RouterBOARD
-firmware upgrade (`current-firmware` stayed behind `upgrade-firmware` through several reboots
-until this was run explicitly).
+**First driver attempt (`wireless`, legacy) looked successful and wasn't.** After the reflash,
+`/system/package/print` showed only `routeros` — no wireless driver, the empty-config netinstall
+doesn't bundle one. Installed `wireless-7.24.5-arm.npk`, joined mikrotik1's `/caps-man` (full
+CAPsMAN scaffolding built: new channels/configurations/provisioning rules, both bands reporting
+`running-ap` with real VHT rates). It was all fake for 5 GHz: no client, on any device, at any
+range, under any regulatory domain, ever actually associated to the 5 GHz radio — RouterOS's own
+state reporting was simply wrong on this chip, not maliciously, just unreliable. This was only
+caught because testing kept insisting on real end-to-end confirmation rather than trusting
+`running-ap`. **Don't trust `current-state`/`running-ap` on this hardware without an actual
+client association test — it can report success for a radio that never transmits anything.**
 
-**CAPsMAN scaffolding added on mikrotik1** — neither existed before today:
+**Fix: `wifi-qcom-ac`, standalone — and that forces Branch B, not A.** Removed `wireless`,
+installed `wifi-qcom-ac-7.24.5-arm.npk`, reconfigured `wifi1`/`wifi2` directly
+(`configuration.mode=ap`, `configuration.ssid=LEDCOM`, `security.authentication-types=wpa2-psk-sha2`).
+5 GHz worked immediately — a real client associated at close range within seconds, something that
+had never once happened under `wireless` no matter how long it ran. Since the two wireless
+packages can't coexist, and mikrotik1 only has legacy `/caps-man` (no `/interface/wifi/capsman`),
+**this device cannot be CAPsMAN-managed at all until the RB5009 exists with the new-stack
+manager** — exactly the Branch B fallback this document described months ago, now actually in
+effect rather than theoretical. All the CAPsMAN scaffolding built for Branch A was torn back out
+of mikrotik1 once this became clear.
 
-```
-/caps-man/configuration/add name=caps_ch6 channel=ch6 country=switzerland guard-interval=long \
-    ssid=LEDCOM datapath.bridge=bridge-main .vlan-mode=use-tag .vlan-id=10 \
-    security.authentication-types=wpa2-psk security.passphrase="<LEDCOM passphrase>"
+**Needed fixing along the way, all confirmed live, all worth remembering:**
+- Bridge/VLAN work needs the ports *and* interfaces to already exist before referencing them in
+  a `/interface/bridge/vlan` entry — creating the VLAN entry first, interfaces second, errors out.
+- A bridge-vlan `find` can match more than one row for the same `vlan-ids` (a real static entry
+  plus rows RouterOS auto-manages dynamically, e.g. "added by pvid") — `/get`/`/set` against the
+  unfiltered result fails ("invalid internal item number" / "can not change dynamic"). Filter on
+  `dynamic=no` explicitly.
+- `current-tagged`/`current-untagged` reflect the *live* list; `tagged`/`untagged` are what's
+  *configured* and can carry stale, unparseable leftover references (shown as `*NN`) that break
+  a naive read-modify-write round trip. Rebuild from `current-*`, not the configured property.
+- A property read via `/get` can come back as a native array, not a string — concatenating it
+  with `.` silently broadcasts the string onto every element instead of joining them, producing
+  garbage. Join arrays by hand with an explicit loop; never trust `.` between a string and
+  something that might not be one.
+- The **bridge interface itself** has its own `pvid`, separate from any port's `pvid` — it
+  governs VLAN tagging for the bridge's *own* locally-bound traffic (e.g. a management address
+  bound directly to `bridge`). Leaving it at the default while every port is correctly configured
+  is enough on its own to break reachability.
+- A scheduled job that removes itself from inside its own `on-event` can still fire a second time
+  — don't assume "fires once" for a self-deleting scheduler/script pair; make the on-event body
+  itself idempotent/harmless to re-run, don't rely on the removal being instantaneous.
+- `/interface/bridge/host`'s real VLAN-related property is `vid`, not `vlan-id` — and it comes
+  back empty for ordinary wireless client traffic regardless of VLAN, so it's not a useful signal
+  for this kind of diagnosis at all. When bridge-table introspection gives ambiguous answers,
+  go straight to a wire-level capture (`/tool/sniffer`) instead of guessing at more properties.
 
-/caps-man/channel/add name=ch5g-42 band=5ghz-a/n/ac frequency=5210
-/caps-man/configuration/add name=caps_5g channel=ch5g-42 country=switzerland guard-interval=long \
-    ssid=LEDCOM datapath.bridge=bridge-main .vlan-mode=use-tag .vlan-id=10 \
-    security.authentication-types=wpa2-psk security.passphrase="<LEDCOM passphrase>"
+**`LEDCOM-IoT` cannot be VLAN-isolated on this device — confirmed, not a configuration gap.**
+Wanted: a second SSID on each band, tagged onto `iot` (VLAN 30), matching every other AP on this
+network. Tried, in order, all confirmed by packet capture on `ether1` (not just by trusting
+RouterOS's own reporting, given the lesson above):
+1. **Bridge port `pvid=30`** on the virtual multi-SSID interface (`wifi1-iot`/`wifi2-iot`,
+   `master-interface=wifi1`/`wifi2`) — silently had no effect. Traffic left `ether1` completely
+   untagged, identical to plain `LEDCOM`/VLAN 10 traffic.
+2. **`datapath.vlan-id=30`** (the correct mechanism in principle — it's exactly what CAPsMAN's
+   own `caps_iot` slave configuration uses) — RouterOS rejected it outright: `;;; vlan-id
+   configured, but interface does not support assigning vlans`, and worse, it then **actively
+   disconnected any client that tried to associate** (`;;; client was disconnected because could
+   not assign vlan`) rather than just ignoring the unsupported setting.
+3. **MikroTik's own published workaround for exactly this chip/package** (hardware switch-chip
+   VLAN table entry on `switch1`, `ingress-filtering=no` on the bridge and `ether1`,
+   `vlan-mode=fallback` on the switch ports) — applied in full, including a reboot (switch-chip
+   VLAN config is a category that often needs one to take effect). Zero change: traffic was still
+   leaving `ether1` untagged, confirmed by a fresh packet capture after the reboot.
 
-/caps-man/provisioning/add action=create-dynamic-enabled radio-mac=48:A9:8A:2E:10:0E \
-    master-configuration=caps_ch6 slave-configurations=caps_iot place-before=0
-/caps-man/provisioning/add action=create-dynamic-enabled radio-mac=48:A9:8A:2E:10:0F \
-    master-configuration=caps_5g slave-configurations=caps_iot place-before=0
-```
+With every documented mechanism exhausted, decided 2026-10-07: **`LEDCOM-IoT` is not offered on
+mikrotik4 at all.** Both virtual interfaces and their now-dangling bridge-port entries, the
+VLAN 30 bridge-vlan entry, and the switch1 VLAN entry were all removed. mikrotik4 now serves
+`LEDCOM` only, on both bands, landing correctly on `vlan-users`. IoT wifi coverage in this AP's
+area still comes from mikrotik1/mikrotik2's radios, which remain properly isolated — this gap
+is specific to mikrotik4's hardware/driver combination, not a network-wide regression.
+`ingress-filtering=no` and `vlan-mode=fallback` were deliberately left in place rather than
+reverted — they're harmless now and reverting them risks re-triggering the wireless-settling
+disruption below for no benefit.
 
-`/caps-man/channel/add` has no `width` property (unlike `/interface/wireless`) — only
-`extension-channel` for 2.4 GHz; the 5 GHz channel above uses defaults (20 MHz) rather than
-guessing at the right property name a second time after getting it wrong once already.
+**One real, repeatable side effect of touching `vlan-filtering` on this bridge** (confirmed
+across several reprovisions tonight, same shape as the already-documented CAPsMAN-side version
+of this in `README.md`'s hard-won lessons): every port, including the wifi interfaces, briefly
+drops to `I`/inactive and the wifi interfaces lose their `R`/running flag, settling back on their
+own within a minute or so. Expected, not a fault — but worth a real wait-and-recheck rather than
+assuming either success or failure immediately after.
 
-**Note on `/caps-man/remote-cap/provision`:** its `numbers=` parameter needs an ID from
-`/caps-man/remote-cap/print`, not a bare `[find ...]` as a positional argument — pass the find
-expression as the value: `numbers=[find identity=RBcAPGi]`. Also: provisioning a radio that's
-already bound tears down and **recreates** its dynamic `/caps-man/interface` entries under new
-names (`cap8`/`cap9` became `cap11`/`cap12` etc. here) — don't treat those names as stable, and
-expect a fresh DFS Channel Availability Check on 5 GHz every time a 5 GHz radio gets reprovisioned
-(~60s in `detecting-radar` before `running-ap`; this is required under `country=switzerland`
-across the entire 5150-5350 MHz range, unlike the US where low UNII-1 channels skip it).
-
-**Verified working**, both bands, both SSIDs — `/caps-man/interface/print detail` on mikrotik1
-showed all four as `running-ap`: 2.4 GHz `LEDCOM` on `ch6` (2437 MHz, avoiding the existing
-ch1/ch11 radios) plus a `LEDCOM-IoT` slave, and 5 GHz `LEDCOM` on channel 42 (5210 MHz) plus its
-own `LEDCOM-IoT` slave, VHT rates confirmed (2 spatial streams). A real client associated on
-2.4 GHz and roamed correctly between this radio and the existing ones. 5 GHz association from a
-real client still needs a deliberate test (client band preference defaults to 2.4 GHz; proving
-5 GHz needs forcing a client to it, e.g. via `nmcli dev wifi connect ... bssid 48:A9:8A:2E:10:0F`
-from a Linux machine, which can target a specific BSSID — Samsung's One UI has no equivalent
-manual band/BSSID selection).
+**SSH key auth added for `admin`**, to make the rest of this kind of session less painful —
+`/user/ssh-keys/import` from a key copied over via SCP. Password auth left enabled as a fallback,
+not yet disabled.
 
 **Still open:**
-- Confirm real client association on 5 GHz specifically (not just the radio being `running-ap`).
-- Physical location: confirmed final 2026-10-06 — mikrotik1's `ether10` (same port used
-  throughout this build), not mikrotik3. See "Powering the cAP XL ac" below.
 - Baseline hardening to match every other device — `mgmt` address-list plus the separate
-  `admin` user `address=` restriction, ftp/telnet/www-ssl disabled, `ha` account, SSH hardening,
-  MAC-Telnet reachability confirmed. Not yet done; `config-review.md`'s "mikrotik4 has never been
-  reviewed" section has the full checklist.
+  `admin` user `address=` restriction, ftp/telnet/www-ssl disabled, `ha` account, broader SSH
+  hardening beyond the key, proven MAC-Telnet recovery path. Not yet done; `config-review.md`'s
+  "mikrotik4 has never been reviewed" section has the full checklist.
 - RouterOS package version drifted from the rest of the fleet during recovery (`7.24.5` vs the
   fleet's `7.24.2`) — not urgent, just a known inconsistency.
+- `wifi1`'s bridge port has shown `I`/inactive in the most recent check — likely still settling
+  per the note above, but worth a fresh look rather than assuming.
 
 ## Recommended order of work
 

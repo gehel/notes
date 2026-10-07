@@ -2436,3 +2436,71 @@ SXTsq, which will go through mikrotik3 via injector in the office once built.
 - Baseline hardening to match every other device (`mgmt` list + `admin` address restriction,
   services off, `ha` account, SSH hardening, proven MAC-Telnet recovery).
 - RouterOS version drifted from the fleet (`7.24.5` vs `7.24.2`) during recovery — not urgent.
+
+### Correction, 2026-10-07: the above "verified working" was wrong for 5 GHz
+
+Everything above reported `running-ap` with real VHT rates on 5 GHz and a client associated on
+2.4 GHz — reasonable to call "working" at the time, but 5 GHz never actually transmitted
+anything. No client (phone, then a Linux desktop forced to a specific BSSID), at any range
+including standing next to the device, under any regulatory domain, ever associated on 5 GHz
+under the legacy `wireless` package. RouterOS's own state reporting was simply unreliable on
+this chip for this driver — not a config mistake on either end.
+
+**Fix: switched to `wifi-qcom-ac`, standalone.** Removed `wireless`, installed
+`wifi-qcom-ac-7.24.5-arm.npk`, reconfigured `wifi1`/`wifi2` directly (no CAPsMAN — see below for
+why that's now permanent, not just an interim state). 5 GHz worked immediately, confirmed by a
+real client associating within seconds at close range — proof this was a driver limitation, not
+a hardware fault or a regulatory/DFS issue (several of which were suspected and ruled out along
+the way: Location services, self-managed regulatory domains, passive-scan timing).
+
+**All CAPsMAN scaffolding from the entry above was torn back out of mikrotik1**, since
+`wifi-qcom-ac` can't be managed by mikrotik1's legacy `/caps-man` at all — the two provisioning
+rules (radio-mac `...0E`/`...0F`), the `caps_ch6` and `caps_5g` configurations, and the
+`ch5g-42` channel were all removed. The dynamic `/caps-man/interface` entries for this device
+had already cleared themselves once it disconnected. `ch1`/`ch6`/`ch11` and `caps_config`/
+`caps_ch11`/`caps_iot` (long-standing, used by mikrotik1/mikrotik2's own radios) were untouched.
+
+**`LEDCOM-IoT` is not offered on mikrotik4 — confirmed impossible, not unconfigured.** Wanted
+a second SSID per band tagged onto VLAN 30, matching every other AP. Three distinct mechanisms
+tried, each verified by packet capture on `ether1` rather than trusted on RouterOS's own
+reporting (given the lesson above):
+1. Bridge port `pvid=30` on the virtual SSID interface — no effect, traffic left untagged.
+2. `datapath.vlan-id=30` (the mechanistically-correct approach, matching CAPsMAN's own
+   `caps_iot`) — RouterOS rejected it as unsupported on this hardware, and actively disconnected
+   any client that tried to associate while it was set.
+3. MikroTik's own published workaround for this exact chip/package (`switch1` hardware VLAN
+   table entry, `ingress-filtering=no`, `vlan-mode=fallback`, plus a full reboot since
+   switch-chip VLAN config often needs one) — zero effect, confirmed by a second packet capture
+   after reboot.
+
+Removed `wifi1-iot`/`wifi2-iot` and their bridge ports (which don't auto-clean when the
+interface is removed — left dangling, shown as `interface=*N`; had to be found via
+`pvid=30` and removed separately), the VLAN 30 bridge-vlan entry, and the `switch1` VLAN 30
+entry. mikrotik4 now serves `LEDCOM` only, both bands, correctly landing on `vlan-users`
+(verified: a real client's DHCP lease moved from `dhcp-home` 192.168.10.x, which is what it was
+incorrectly getting while `LEDCOM-IoT` was attempted, back to just that same correct pool now
+that `LEDCOM-IoT` no longer exists to be confused with). `ingress-filtering=no` and
+`vlan-mode=fallback` were left in place deliberately — harmless now, and reverting risks
+re-triggering the wireless-settling disruption noted below for no benefit.
+
+**SSH key auth added for `admin`** (`/user/ssh-keys/import`), password auth left enabled as
+fallback.
+
+**New hard-won lessons from this correction, worth README.md's collection:**
+- Bridge-vlan `find` can match multiple rows for one `vlan-ids` (a real static entry plus
+  RouterOS-auto-managed dynamic ones) — `/get`/`/set` against the unfiltered result fails
+  (`invalid internal item number` / `can not change dynamic`). Filter on `dynamic=no`.
+- `current-tagged`/`current-untagged` are the live, effective values; `tagged`/`untagged` are
+  configured and can carry stale unparseable references (`*NN`). Rebuild from `current-*`.
+- A property read via `/get` can come back as a native array; concatenating it with a string via
+  `.` broadcasts the string onto every element instead of joining them — join arrays by hand.
+- The bridge interface's own `pvid` (separate from any port's) governs VLAN tagging for the
+  bridge's own locally-bound traffic. Leaving it at default broke reachability on its own, with
+  every port otherwise correctly configured.
+- A self-removing scheduled job can still fire twice — make the on-event idempotent, don't
+  assume the removal is instantaneous relative to the next scheduled firing.
+- `/interface/bridge/host`'s VLAN property is `vid`, not `vlan-id`, and comes back empty for
+  ordinary wireless traffic regardless of VLAN — not a useful signal; go to a wire-level capture
+  (`/tool/sniffer`) instead of guessing at more bridge-table properties.
+- Don't trust `current-state`/`running-ap` on `wifi-qcom-ac`/IPQ4019 hardware without an actual
+  client-association test — it can report full success for a radio that transmits nothing.

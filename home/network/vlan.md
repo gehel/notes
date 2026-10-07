@@ -121,7 +121,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | mikrotik1 | `.10.1` | gateway on all three VLANs | |
 | mikrotik2 | `.10.2` | mikrotik1 `ether2-master` | |
 | mikrotik3 | `.10.3` | mikrotik2 `ether16` | |
-| mikrotik4 (cAP XL ac) | `.10.4` | mikrotik1 `ether10` (final location) | CAPsMAN CAP, built 2026-10-06, see `wifi.md` |
+| mikrotik4 (cAP XL ac) | `.10.4` | mikrotik1 `ether10` (final location) | Standalone `wifi-qcom-ac`, not CAPsMAN — `LEDCOM` only, no `LEDCOM-IoT`; built 2026-10-06/07, see `wifi.md` |
 
 ### services — VLAN 20, 192.168.20.0/24
 

@@ -18,7 +18,7 @@ reorg (see [changelog.md](changelog.md)) — a dump refresh, not a new full revi
 | mikrotik1 | RB2011UiAS-2HnD — 128 MB, 600 MHz single-core MIPS | `192.168.10.1/24`; `ether1` dynamic from the Internet-Box | edge router, CAPsMAN manager |
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2/24` static on `bridge-local` | L2 bridge, 24 ports + SFP; CAPsMAN CAP (wlan1) |
 | mikrotik3 | RB750Gr3 (hEX) — 256 MB, 880 MHz quad-core | `192.168.10.3/24` static on `bridge` | L2 bridge, 5 ports |
-| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; not yet reviewed (see below) |
+| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` | Standalone `wifi-qcom-ac`, dual-band, not CAPsMAN-managed — built 2026-10-06/07, see `wifi.md`; not yet reviewed (see below) |
 
 All three reachable devices run RouterOS 7.24.2, current as of 2026-09-08 (RouterBOOT current
 on mikrotik1 too — re-checked this round). `bridge-fon` (`192.168.2.0/24`) no longer exists —
@@ -155,9 +155,12 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 
 ### mikrotik4 has never been reviewed
 
-`192.168.10.4` is now the cAP XL ac, built 2026-10-06 (see `wifi.md` for the full account,
-including an unplanned `netinstall` recovery) — it's reachable and functional (both wireless
-bands up under CAPsMAN), but hasn't had the baseline hardening pass yet.
+`192.168.10.4` is now the cAP XL ac, built 2026-10-06/07 (see `wifi.md` for the full account,
+including an unplanned `netinstall` recovery and a wrong-then-corrected driver choice) — it's
+reachable and functional, both wireless bands up standalone on `wifi-qcom-ac` (not CAPsMAN —
+this hardware can't be managed by mikrotik1's legacy `/caps-man`), serving `LEDCOM` only
+(`LEDCOM-IoT` is not offered here, a confirmed hardware/driver limitation, see `wifi.md`). SSH
+key auth is set up for `admin`; the rest of the baseline hardening pass still hasn't happened.
 
 It still needs the full pass the switches got — input-chain firewall, FTP/Telnet off, `admin`
 bound to the LAN, resolver closed, defconf debris cleared, static address, SSH hardened, and a

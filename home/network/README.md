@@ -94,13 +94,18 @@ unidentified.
   `services2users`-triggering traffic from HA has been observed in a log yet.
 
 **Wireless** — [wifi.md](wifi.md).
-- **The cAP XL ac is now mikrotik4, built 2026-10-06.** Driver question resolved — it runs
-  legacy `wireless` (not `wifi-qcom-ac` as the architecture table implied), joined to mikrotik1's
-  `/caps-man` directly (Branch A). Both bands verified `running-ap` with both SSIDs
-  (`LEDCOM`/`LEDCOM-IoT`). Needed an unplanned `netinstall` recovery along the way — see
-  `wifi.md` for the full account and the lesson about what that failure looked like. Final location confirmed 2026-10-06: mikrotik1 `ether10` (not mikrotik3 -
-  that plan was superseded; it still applies to the SXTsq). Still open: confirm a real client on
-  5 GHz specifically, and baseline hardening (see `config-review.md`'s mikrotik4 section).
+- **The cAP XL ac is now mikrotik4, built 2026-10-06/07.** Driver question resolved for real
+  this time: it needs `wifi-qcom-ac`, standalone — not legacy `wireless` (which looked like a
+  working fix, reporting `running-ap` on 5 GHz with full VHT rates, but never actually
+  transmitted anything; only caught by insisting on real client tests). Standalone means **not**
+  CAPsMAN-managed — mikrotik1 only has legacy `/caps-man`, which can't manage a `wifi-qcom-ac`
+  device, so this is Branch B, not A, until the RB5009 exists. Needed an unplanned `netinstall`
+  recovery along the way — see `wifi.md` for the full account. Final location: mikrotik1
+  `ether10` (not mikrotik3 — that plan was superseded; it still applies to the SXTsq).
+  **`LEDCOM-IoT` is not offered on this AP** — VLAN tagging for multi-SSID virtual interfaces is
+  confirmed unsupported on this hardware/driver combination, every documented mechanism
+  exhausted (see `wifi.md`); only plain `LEDCOM` is served, on both bands. SSH key auth added
+  for `admin`. Still open: baseline hardening (see `config-review.md`'s mikrotik4 section).
 - The SXTsq Lite2 (garden AP) has **no device number yet** — it was previously, incorrectly,
   recorded as mikrotik4 with the cAP's MAC. Check its own label for its real MAC before building
   it; see `wifi.md`.
@@ -392,3 +397,50 @@ outstanding test is a host plugged directly into the Internet-Box.
   rule by "no comment," match by every *other* distinguishing property instead (or remove every
   rule sharing some other unique property, like a newly-added address-list, and re-add the one
   you want to keep) rather than testing for comment absence directly.
+- **Don't trust `current-state`/`running-ap` (CAPsMAN) or a radio's own reported state
+  (standalone `wifi-qcom-ac`) as proof a radio is actually transmitting.** mikrotik4's 5 GHz
+  radio reported `running-ap` with full VHT rates under the legacy `wireless` package for an
+  entire build session, while never once actually being associable by any real client at any
+  range. Only caught by insisting on a real client test instead of trusting the print. If a
+  "working" radio seems to have zero clients ever, test with a real device before concluding
+  it's just unused — don't assume the state report is honest on IPQ4019/`wifi-qcom-ac`.
+  Resolved by switching to the `wifi-qcom-ac` package, which worked immediately — see
+  `wifi.md` and `changelog.md`'s 2026-10-07 correction entry for the full account.
+- **Bridge-vlan `find` can match more than one row for the same `vlan-ids`** — a real static
+  entry plus rows RouterOS auto-manages dynamically (seen with comments like "added by wifi" or
+  "added by pvid"). `/get`/`/set` against the unfiltered result fails outright (`invalid
+  internal item number` / `can not change dynamic`). Filter explicitly on `dynamic=no`.
+- **A bridge-vlan entry's `current-tagged`/`current-untagged` are the live, effective values;
+  `tagged`/`untagged` are what's configured and can carry stale, unparseable leftover
+  references** (displayed as `*NN`, confirmed to be dangling references to since-removed
+  interfaces). Rebuilding a `tagged=`/`untagged=` value from the configured property can
+  silently fail the `/set`; rebuild from `current-*` instead.
+- **A property read via `/get` can come back as a native RouterOS array, not a pre-joined
+  string**, even when `print` displays it as comma-separated text. Concatenating it with a
+  string using `.` does not join the array into a string — it broadcasts the string onto every
+  element instead, silently producing garbage. Join arrays into a real string by hand
+  (`:foreach` + manual concatenation) before using them in any further string operation.
+- **The bridge interface itself has its own `pvid`, separate from any port's `pvid`** — it
+  governs VLAN tagging for the bridge's *own* locally-bound traffic (e.g. a management IP bound
+  directly to `bridge` rather than to a dedicated `/interface vlan`). Leaving it at the default
+  while every port's own `pvid` is already correct is enough on its own to break reachability.
+- **A scheduled job that removes itself from inside its own `on-event` can still fire a second
+  time** — confirmed live, same idempotent action run twice, 3 minutes apart, despite the first
+  firing's own cleanup removing the scheduler entry. Don't rely on "fires exactly once because
+  it deletes itself"; make the on-event body safe to run more than once instead.
+- **`/interface/bridge/host`'s VLAN-related property is `vid`, not `vlan-id`** (the latter errors
+  with "input does not match any value of value-name"), and it comes back empty for ordinary
+  wireless client traffic regardless of which VLAN that traffic is actually on — not a useful
+  signal for diagnosing VLAN misclassification. Go to a wire-level capture (`/tool/sniffer`,
+  pulled off and read with `tcpdump -e` for the real 802.1Q tag) instead of guessing at more
+  bridge-table properties when `print`-level introspection gives ambiguous or empty answers.
+- **VLAN tagging for a multi-SSID virtual `wifi-qcom-ac` interface (`master-interface=`) is not
+  achievable on IPQ4019 cAP-family hardware** — confirmed by exhausting every documented
+  mechanism (bridge port `pvid`, `datapath.vlan-id`, and MikroTik's own published switch-chip
+  workaround for this exact chip/package) and verifying each by packet capture rather than
+  trusting any RouterOS state report. `datapath.vlan-id` doesn't just silently fail here, it
+  actively disconnects any client that tries to associate while it's set. If a multi-SSID
+  VLAN-tagged AP is needed on this hardware, it has to be CAPsMAN-managed on the legacy
+  `wireless` stack instead — which brings back that stack's own 5 GHz unreliability (see above),
+  so on current hardware the two requirements (working 5 GHz, VLAN-tagged multi-SSID) can't
+  both be satisfied on the same radio.
