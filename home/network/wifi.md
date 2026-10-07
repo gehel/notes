@@ -354,8 +354,24 @@ itself a problem — clients choose, and these had all reassociated seconds earl
 2026-09-05 reasoning below (mikrotik3 via injector; `ether10` is "the wrong end of the house")
 no longer holds — confirmed with Guillaume that `ether10` is this AP's real, final location,
 not a bench/test setup. It already has what it needs: `poe-out=auto-on`, and it's the same port
-used throughout the 2026-10-06 build (see above). Nothing left to do on the power/location
-front for this device.
+used throughout the 2026-10-06 build (see above).
+
+**Known trade-off, parked until the RB5009 swap, 2026-10-07: the link runs at 100M, not
+1G, and that's a real hardware ceiling, not a bug.** `/interface/ethernet/monitor ether10 once`
+on mikrotik1 shows its `supported` list tops out at `100M-baseT-full` — no gigabit at all,
+despite the `advertise=` property (configuration, not capability) listing it. This matches the
+RB2011UiAS-2HnD's documented hardware split across its two switch groups: the high-numbered
+ports, `ether10` among them, are Fast Ethernet only. mikrotik4's own `ether1` is genuinely
+gigabit-capable (`supported` includes both `1G-baseT-half`/`full`) — the cap is entirely on
+mikrotik1's side. Since `ether10` is also mikrotik1's PoE-out port (the whole reason it was
+picked), there's a real trade-off here, not just a missing config: getting mikrotik4 onto a
+genuinely Gigabit port on mikrotik1 would mean giving up `ether10`'s built-in PoE-out and adding
+a separate injector instead. Practical impact: irrelevant for 2.4 GHz (802.11n tops out well
+under 100 Mbps anyway), real for 5 GHz 802.11ac (`wifi2` can theoretically exceed 100 Mbps, up to
+~867 Mbps PHY for 2-stream 80 MHz) — this uplink caps real-world 5 GHz throughput for anything
+connecting to this AP. **Decided 2026-10-07: leave as-is, revisit when the RB5009 replaces
+mikrotik1** — that swap is the natural point to re-evaluate port/PoE assignment for this link
+rather than re-cabling mikrotik1 now for a router that's about to be replaced anyway.
 
 Kept below for history, since it no longer applies to the cAP: the original plan was to power
 it from mikrotik3 via a passive PoE injector, on the reasoning that placement should be decided
