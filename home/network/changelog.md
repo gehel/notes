@@ -2602,3 +2602,48 @@ SSH confirmed still working from a fresh session after the catch-all drop went i
 Regenerating the host key changes its fingerprint, so the desktop's cached one needed clearing
 (`ssh-keygen -R router4.home.ledcom.fr`) before reconnecting — expected, not a problem.
 Confirmed working afterward.
+
+## NTP client enabled on mikrotik2, mikrotik3, mikrotik4 (2026-10-07)
+
+Checking mikrotik4's missing NTP client (part of S17) against the established baseline found
+mikrotik1 was the *only* device running one — mikrotik2/mikrotik3 both had `enabled=no`.
+Guillaume's call: all four devices should be NTP clients, not just mikrotik4, so this became a
+fleet-wide fix rather than mikrotik4-only. Same command on all three, pointing at mikrotik1
+(which already runs its own NTP server for exactly this, matching this network's existing
+"DNS and NTP are both fully self-contained" design rather than every device reaching the
+public internet independently):
+```
+/system/ntp/client/set enabled=yes servers=192.168.10.1
+```
+Verified: all three showed `status: waiting` immediately after, then `status: synchronized`
+with `synced-server: 192.168.10.1` within a minute, confirmed live on all three.
+
+## IPv6 disabled on mikrotik4 (2026-10-07)
+
+Was going to build a real IPv6 input-chain firewall for mikrotik4 (part of S17 — IPv6 was
+present but minimal, with no firewall at all behind it). Guillaume's call instead: disable
+IPv6 entirely, matching mikrotik2/mikrotik3 — switches and standalone APs on this network
+don't need it.
+```
+/ipv6/settings/set disable-ipv6=yes
+```
+Verified: `/ipv6/settings/print` shows `disable-ipv6: yes`. Makes the empty-firewall concern
+moot rather than needing a fix.
+
+## S17 closed: mikrotik4's build-session debris cleared (2026-10-07)
+
+Last item from mikrotik4's baseline-hardening pass. `/tool/sniffer` still had
+`file-name=iot-test2` left over from the previous night's packet captures:
+```
+/tool/sniffer/set file-name=""
+```
+Verified: `/tool/sniffer/print` shows `file-name:` empty. `file-limit=2000KiB` left as-is —
+a reasonable cap on its own, not worth chasing a "true default" for.
+
+Checked `add-dns-entries-suffix=lan` before touching it: `/ip/dhcp-server/print` is empty on
+mikrotik4 (it doesn't run a DHCP server — that's mikrotik1's job), so the suffix setting has
+nothing to apply to. Genuinely inert, not a finding. Left alone.
+
+**S17 is now fully closed** — firewall, `admin`/`mgmt` access control, services disabled, `ha`
+account, SSH hardening, DNS, NTP, IPv6 disabled, and build debris cleared. mikrotik1,
+mikrotik2, mikrotik3, and mikrotik4 all confirmed clean against the 2026-10-07 review.

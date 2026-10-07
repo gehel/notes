@@ -154,43 +154,13 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 
-### S17. mikrotik4's baseline-hardening pass, in progress
-
-`192.168.10.4` is now the cAP XL ac, built 2026-10-06/07 (see `wifi.md` for the full account,
-including an unplanned `netinstall` recovery and a wrong-then-corrected driver choice) — it's
-reachable and functional, both wireless bands up standalone on `wifi-qcom-ac` (not CAPsMAN —
-this hardware can't be managed by mikrotik1's legacy `/caps-man`), serving `LEDCOM` only
-(`LEDCOM-IoT` is not offered here, a confirmed hardware/driver limitation, see `wifi.md`).
-
-**Closed and verified 2026-10-07** (see `changelog.md`): firewall (input-chain, matching the
-switches' shape), `admin` address restriction, `mgmt` address-list, ftp/telnet/reverse-
-proxy/api-ssl disabled, `ha` user/group, SSH hardening (`strong-crypto`, 4096-bit host key),
-and DNS pointed at Pi-hole.
-
-**Still open:**
-1. **Not MNDP-discoverable.** `discover-interface-list` points at a list called `static`, but
-   `/interface/list/member/print` is empty — `ether1` isn't a member of any list, so nothing on
-   this device is currently discoverable. Directly relevant after how much of the 2026-10-06/07
-   build session was spent fighting exactly this kind of reachability gap.
-2. **No NTP client configured.** Convention is pointing at the device's own VLAN gateway.
-3. **IPv6 present but minimal, and its firewall is empty.** Not disabled, but no real address
-   beyond link-local, and `/ipv6/firewall/filter/print` is empty — don't fix IPv4 and leave
-   IPv6 wide open as a side effect.
-4. **Leftover debris from the 2026-10-06/07 build session.** `/tool/sniffer` still has
-   `file-name=iot-test2`/`file-limit=2000KiB` set from that session's packet captures;
-   `add-dns-entries-suffix=lan` is the untouched factory default, inconsistent with the rest of
-   the network's `home.ledcom.fr`.
-
-RouterOS version drift (`7.24.5` vs. the fleet's `7.24.2`) is being resolved separately via
-`scripts/upgrade-fleet.sh`, not tracked as part of this finding.
-
-Nothing else is open on mikrotik2/mikrotik3 — both reviewed against this same fresh dump set
-and confirmed to still match the established baseline (mgmt list, admin address restriction,
-services disabled, `ha` group/user, SSH hardening, static addresses, real input-chain
-firewalls). **IPv6 is explicitly disabled on both** (`disable-ipv6=yes`) — raised during this
-review and confirmed as the deliberate, wanted state, not a finding: these are pure L2 switches
-with no real need for it. mikrotik1 has findings 34-35 above (19-24 all closed — see
-[changelog.md](changelog.md)).
+Nothing is open on mikrotik1, mikrotik2, mikrotik3, or mikrotik4 as of 2026-10-07 — mikrotik4's
+full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services, `ha` account,
+SSH hardening, DNS, NTP, IPv6 disabled) is closed, see `changelog.md`'s 2026-10-07 entries.
+mikrotik2/mikrotik3 reviewed against the same fresh dump set and confirmed to still match the
+established baseline. **IPv6 is explicitly disabled on all three non-edge devices**
+(`disable-ipv6=yes`) — confirmed as the deliberate, wanted state: switches and standalone APs
+on this network don't need it.
 
 **Two minor things noticed 2026-09-10 while regenerating `firewall.md` against a fresh
 dump, not investigated further — neither looked urgent enough to chase down mid-pass:**
