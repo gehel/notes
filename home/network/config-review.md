@@ -153,37 +153,88 @@ path, or something in how the TV re-uses port 8002 as both a server and client p
 checking Home Assistant's own Samsung TV integration log for errors/retries around 23:59:16 on
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
-### mikrotik4 has never been reviewed
+### 34. SNMP community reverted to wide-open (low)
+
+Found 2026-10-07 reviewing a fresh dump. `/snmp community set [find default=yes]
+addresses=0.0.0.0/0` — `changelog.md`'s Round 1 (2026-09-03) entry explicitly recorded this
+narrowed to `192.168.1.0/24`. It's back to the default, unrestricted. SNMP itself doesn't show
+as an active listener in `/ip/service/print`, so current impact is low, but it's already
+misconfigured for the day it's turned on. Narrow it back to the LAN (`192.168.10.0/24` now,
+post-renumber) whenever SNMP is next touched.
+
+### 35. Unused BGP template and BFD config left enabled (low, cleanup)
+
+Found 2026-10-07. `/routing/bgp/template set default disabled=no` and `/routing/bfd/configuration
+add disabled=no` are both explicitly enabled with no actual BGP peers or BFD-using protocol
+anywhere else in the config — looks like defconf debris that survived the original "dead
+debris" cleanup (findings 19/20, round 1). This also answers the open question from the
+2026-09-10 note below: `route_BFD` reappearing in `/ip/service/print` wasn't a fluke or a
+dump-script artifact — BFD is genuinely configured and enabled, just unused. OSPF instances
+exist too but their areas are correctly `disabled=yes`, so those are fine as-is; just the BGP
+template and BFD config are the actual cleanup targets.
+
+**Previously-open question now answered:** the 2026-09-10 note two paragraphs below asked
+whether `route_BFD`'s reappearance was real or a dump-collection gap. It's real — see finding 35.
+
+### S17. mikrotik4 has never had a baseline-hardening pass (critical — items 1-2 especially)
 
 `192.168.10.4` is now the cAP XL ac, built 2026-10-06/07 (see `wifi.md` for the full account,
 including an unplanned `netinstall` recovery and a wrong-then-corrected driver choice) — it's
 reachable and functional, both wireless bands up standalone on `wifi-qcom-ac` (not CAPsMAN —
 this hardware can't be managed by mikrotik1's legacy `/caps-man`), serving `LEDCOM` only
 (`LEDCOM-IoT` is not offered here, a confirmed hardware/driver limitation, see `wifi.md`). SSH
-key auth is set up for `admin`; the rest of the baseline hardening pass still hasn't happened.
+key auth is set up for `admin`; everything else below, checked against a fresh dump 2026-10-07,
+is still missing:
 
-It still needs the full pass the switches got — input-chain firewall, FTP/Telnet off, `admin`
-bound to the LAN, resolver closed, defconf debris cleared, static address, SSH hardened, and a
-proven MAC-Telnet recovery path (this one matters more than usual here — MAC-Telnet access was
-genuinely difficult to get working during today's build, see `wifi.md`). It is already in the
-`mgmt` address list on every device and holds its `.4` reservation on mikrotik1, correctly keyed
-to its real MAC (`48:A9:8A:2E:10:0C`) — this document and `wifi.md` previously, incorrectly,
-attributed that same reservation to the SXTsq Lite2; that was a documentation error, not a
-config change, so nothing on-device needed fixing for it.
+1. **No firewall at all.** `/ip/firewall/filter/print` is completely empty — no input-chain
+   protection whatsoever. Every other device has at minimum: accept established/related, drop
+   invalid, accept ICMP, accept `mgmt`, drop everything else.
+2. **`admin` has no address restriction.** `address=""` — every other device restricts to
+   `192.168.10.0/24,192.168.50.0/24`. Right now, login is reachable from anywhere that can
+   route to `192.168.10.4`, gated only by password/key.
+3. **No `mgmt` address-list of its own.** `/ip/firewall/address-list/print` is empty. This is
+   separate from mikrotik4 already being *listed as a member* of `mgmt` on mikrotik1/2/3 (it
+   is, correctly, keyed to its real MAC `48:A9:8A:2E:10:0C`) — this item is about mikrotik4
+   restricting who can reach *it*, which nothing currently does.
+4. **`ftp`, `telnet`, `reverse-proxy`, `api-ssl` all still enabled.** Every other device
+   disables these four.
+5. **No `ha` user/group.** Home Assistant's MikroTik integration can't cover this device yet.
+6. **SSH not hardened.** `strong-crypto=no`, 2048-bit host key (others: 4096-bit).
+   `password-authentication=yes-if-no-key` is also inconsistent with the other three devices'
+   explicit `yes` — not necessarily wrong now that `admin` has a key, but worth an explicit
+   decision rather than leaving it at whatever the default happened to be.
+7. **Not MNDP-discoverable.** `discover-interface-list` points at a list called `static`, but
+   `/interface/list/member/print` is empty — `ether1` isn't a member of any list, so nothing on
+   this device is currently discoverable. Directly relevant after how much of the 2026-10-06/07
+   build session was spent fighting exactly this kind of reachability gap.
+8. **No DNS server configured.** Every other device points at Pi-hole (`192.168.20.40`).
+9. **No NTP client configured.** Convention is pointing at the device's own VLAN gateway.
+10. **IPv6 present but minimal, and its firewall is empty.** Not disabled, but no real address
+    beyond link-local, and `/ipv6/firewall/filter/print` is empty — don't fix IPv4 (item 1) and
+    leave IPv6 wide open as a side effect.
+11. RouterOS `7.24.5` vs. the fleet's `7.24.2` — already known/documented, carried forward here
+    rather than re-discovered.
+12. **Leftover debris from the 2026-10-06/07 build session.** `/tool/sniffer` still has
+    `file-name=iot-test2`/`file-limit=2000KiB` set from that session's packet captures;
+    `add-dns-entries-suffix=lan` is the untouched factory default, inconsistent with the rest of
+    the network's `home.ledcom.fr`.
 
-Nothing else is open. mikrotik2 and mikrotik3 are clear; mikrotik1 has findings 21-22 above
-(19, 20, 23, 24 all closed — see [changelog.md](changelog.md)).
+Nothing else is open on mikrotik2/mikrotik3 — both reviewed against this same fresh dump set
+and confirmed to still match the established baseline (mgmt list, admin address restriction,
+services disabled, `ha` group/user, SSH hardening, static addresses, real input-chain
+firewalls). **IPv6 is explicitly disabled on both** (`disable-ipv6=yes`) — raised during this
+review and confirmed as the deliberate, wanted state, not a finding: these are pure L2 switches
+with no real need for it. mikrotik1 has findings 34-35 above (19-24 all closed — see
+[changelog.md](changelog.md)).
 
 **Two minor things noticed 2026-09-10 while regenerating `firewall.md` against a fresh
 dump, not investigated further — neither looked urgent enough to chase down mid-pass:**
 `cpu-load: 100%` in that snapshot (vs. the ~30-50% this document has previously measured under
 real load) — most likely just the dump script's own burst of SSH commands rather than a
 sustained condition, but worth a second look if it recurs on a quieter dump. And `route_BFD`
-reappearing in `/ip/service/print` as a dynamic listener, which the original finding 11 closure
-(round 1) recorded as gone once OSPF/BGP/BFD config was removed — `dump-configs.sh` doesn't
-currently collect `/routing/bfd/configuration/print`, so this couldn't be re-verified from the
-dump alone; worth a live check next time (`/routing/bfd/configuration/print` should still be
-empty) rather than assuming either way.
+reappearing in `/ip/service/print` as a dynamic listener — **now explained, see finding 35
+above**: BFD is genuinely configured and enabled, left over from defconf, not a dump-collection
+artifact.
 
 ## The architectural item: VLAN segmentation
 
