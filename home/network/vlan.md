@@ -114,9 +114,10 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | second laptop | pool | wireless | **still not identified** |
 | Galaxy S24 Ultra | pool | wireless, randomised MAC | |
 | phone `EA:84:28` | pool | wireless, randomised MAC | |
-| TV (Samsung) `F4:DD:06:2A:FB:AF` | pool | mikrotik5 `ether2` | moved off wireless 2026-10-08; no reservation yet |
+| TV (Samsung), wired `4C:57:39:2C:20:2C` | `.10.50` | mikrotik5 `ether2`, added 2026-10-08 — link is 100Mbps not Gigabit, accepted, see "Living room and workshop" | |
+| TV (Samsung), wifi `F4:DD:06:2A:FB:AF` | `.10.51` | wireless | the MAC this file always called "the TV's" before 2026-10-08 — it's the wifi interface, not wired |
 | Nintendo Switch (likely) `BC:CE:25:5E:7F:8A` | pool | wireless | not 100% confirmed |
-| Onkyo amp `00:09:B0` | `.10.104` | wireless | intermittent |
+| Onkyo amp `00:09:B0` | `.10.104`? | wireless | **address stale — no static reservation for this MAC found in a 2026-10-08 lease print; `.10.104` was instead held by the TV's wifi MAC at the time.** Not re-investigated, see `changelog.md`'s "mikrotik5 build" follow-ups |
 | Printer `NPI52346B` | `.10.110` | mikrotik3 `ether2` | reverted from `services` |
 | mikrotik1 | `.10.1` | gateway on all three VLANs | |
 | mikrotik2 | `.10.2` | mikrotik1 `ether2-master` | |
@@ -180,10 +181,27 @@ for this build have been run, verified, and deleted per this repo's scripts/ con
 `changelog.md`'s "mikrotik5 build" entry is the durable record.
 
 **Physically in place as of 2026-10-08: mikrotik5 is connected to mikrotik2's
-`ether12-slave-local` in the living room, and the TV is plugged into `ether2`.** Not yet
-verified from a real client — no check yet that the TV actually picks up a `vlan-users` DHCP
-lease through this link (e.g. `/ip/dhcp-server/lease/print` on mikrotik1, or the TV's own
-network settings). Nintendo Switch and amp aren't plugged in yet.
+`ether12-slave-local` in the living room, and the TV is plugged into `ether2`.** Verified via
+`/ip/dhcp-server/lease/print` on mikrotik1 — both of the TV's MACs (wifi and wired) bound fresh
+`vlan-users` leases within minutes of the physical move, confirming the new link works. The TV
+now has static reservations, `.10.50` (wired, `4C:57:39:2C:20:2C`) and `.10.51` (wifi,
+`F4:DD:06:2A:FB:AF`) — see the `users` device table above and `changelog.md` for the
+mixed-up-then-corrected MAC assignment (the MAC `vlan.md` had always documented as "the TV's"
+turned out to be the wifi interface, not the newly-wired one). Nintendo Switch and amp aren't
+plugged in yet.
+
+**Accepted limitation: the mikrotik2-mikrotik5 trunk only links at 100Mbps, not Gigabit.**
+Both ports support and are configured to advertise Gigabit (`ether12-slave-local` on mikrotik2,
+`ether1` on mikrotik5), and mikrotik5 correctly receives mikrotik2's Gigabit advertisement —
+but mikrotik5's own resolved `advertising:` list never includes Gigabit, even after a scripted
+interface bounce and a genuine physical unplug/replug (ruling out config and a stale
+soft-negotiation state). Not root-caused — most likely either the patch-panel run (only 2 good
+pairs would explain base link-pulse signaling getting through fine while the full 4-pair
+1000BASE-T handshake fails) or a hardware/PHY issue specific to this mikrotik5 unit's `ether1`;
+the decisive test (a laptop at the same wall jack) would tell them apart but **Guillaume's
+call: not worth pursuing** — the TV/Switch/amp don't need more than 100Mbps. See
+`changelog.md`'s "mikrotik5 build" entry for the full diagnostic trail, in case this is ever
+worth revisiting (e.g. if a higher-bandwidth device ever needs this link).
 
 OctoPrint's wired link is down (bad cable); it runs on `LEDCOM-IoT` wireless until fixed. The
 workshop switch, when bought, needs to be VLAN-aware unless it ends up carrying only `iot`
@@ -209,7 +227,7 @@ Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikr
 |---|---|---|---|
 | `ether1-gateway` | trunk to mikrotik1 | 10 | 20, 30 |
 | `ether16-slave-local` | trunk to mikrotik3 | 10 | 20, 30 |
-| `ether12-slave-local` | trunk to mikrotik5 (living room) | 10 | 20, 30 |
+| `ether12-slave-local` | trunk to mikrotik5 (living room) — **100Mbps, not Gigabit, accepted** | 10 | 20, 30 |
 | `ether21-slave-local` | Home Assistant | 20 | — |
 | `ether23-slave-local` | Pi-hole | 20 | — |
 | `ether24-slave-local` | OctoPrint wired (cable down) | 30 | — |
@@ -228,13 +246,14 @@ Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikr
 
 Config is live and verified (`pvid=10` confirmed on all five ports via `/interface/bridge/port/
 print detail`, 2026-10-08). The device is now physically in the living room, connected to
-mikrotik2's `ether12-slave-local`. The TV is plugged into `ether2` (not yet confirmed from a
-real client — see "Living room and workshop" above); Nintendo Switch and amp aren't plugged in
-yet.
+mikrotik2's `ether12-slave-local` — confirmed working end-to-end (TV DHCP lease verified), but
+**only at 100Mbps, not Gigabit; accepted, not pursued further** (see "Living room and
+workshop" above for the diagnostic trail). The TV is plugged into `ether2`; Nintendo Switch and
+amp aren't plugged in yet.
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether1` | trunk to mikrotik2 `ether12-slave-local` | 10 | 20, 30 |
+| `ether1` | trunk to mikrotik2 `ether12-slave-local` — **100Mbps, not Gigabit, accepted** | 10 | 20, 30 |
 | `ether2` | TV | 10 | — |
 | `ether3` | Nintendo Switch (not yet connected) | 10 | — |
 | `ether4` | amp (not yet connected) | 10 | — |

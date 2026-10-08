@@ -2757,6 +2757,68 @@ deleted per this repo's scripts/ convention — this entry is the durable record
 
 **Physically relocated and connected, 2026-10-08.** Guillaume moved mikrotik5 to the living
 room and connected it to mikrotik2's `ether12-slave-local`; the TV is plugged into `ether2`.
-**Not yet verified from a real client** — no check yet that the TV actually picks up a
-`vlan-users` DHCP lease through this link. Nintendo Switch and amp are still wireless, not
-plugged in.
+
+**TV connectivity verified via `/ip/dhcp-server/lease/print` on mikrotik1.** Both of the TV's
+MACs picked up fresh `vlan-users` leases within minutes of the physical move:
+`F4:DD:06:2A:FB:AF` at `.10.195` and `4C:57:39:2C:20:2C` at `.10.104` (both dynamic, `dhcp-home`,
+hostname `Samsung`). Confirms the new wired link works end-to-end through the trunk chain
+(mikrotik5 -> mikrotik2 -> mikrotik1).
+
+**Static reservations added, then the MAC/interface pairing had to be corrected.** Asked to
+reserve `.10.50` for "the TV" and `.10.51` for "the TV wifi," assumed `F4:DD:06:2A:FB:AF`
+(the MAC `vlan.md` had always documented as "the TV's," from before this session) was the new
+*wired* connection, since it was the one that showed up with the shortest `last-seen` right
+after the physical move. **That assumption was wrong** — `vlan.md` had already documented that
+exact MAC as the TV's *wireless* interface, from before any of this session's work; the short
+`last-seen` was just its existing wifi link renewing, not evidence of anything new. The
+genuinely new MAC was `4C:57:39:2C:20:2C`. Guillaume caught this by checking the TV's own
+network settings directly (wifi showed `.50`, wired showed `.51` — the opposite of what was
+configured). Fixed by removing both static leases and re-adding with the MACs swapped:
+`.10.50` -> `4C:57:39:2C:20:2C` (wired), `.10.51` -> `F4:DD:06:2A:FB:AF` (wifi). Lesson: don't
+infer "which interface is new" from DHCP lease recency alone — check what the device's own
+MAC was already documented as, and when in doubt, check the device's own network settings
+directly rather than inferring from timestamps.
+
+**Found along the way, not yet reconciled:** the Onkyo amp's documented static reservation at
+`.10.104` (`vlan.md`'s device inventory, MAC `00:09:B0...`) doesn't actually exist — no static
+(non-dynamic) lease for that MAC appears anywhere in a 2026-10-08 `/ip/dhcp-server/lease/print`,
+and `.10.104` was instead being held, dynamically, by the TV's wifi MAC at the time. Not
+investigated further this session; `vlan.md` now flags the amp's address as stale rather than
+restating it as fact.
+
+## mikrotik5-mikrotik2 trunk capped at 100Mbps instead of Gigabit — accepted, not pursued further (2026-10-08)
+
+Found while verifying the living-room move: `/interface/ethernet/monitor` on both ends showed
+`rate: 100Mbps` on a link where both ports are Gigabit-capable hardware (CRS125's
+`ether12-slave-local`, hEX's `ether1`) and both are configured to advertise it
+(`/interface/ethernet/print detail` on mikrotik5 confirmed `advertise=` already included
+`1G-baseT-half,1G-baseT-full`).
+
+**Ruled out, in order:**
+1. **Config mismatch** — both ends' configured `advertise=` already include Gigabit. Not the
+   cause.
+2. **Stale negotiation state from a soft bounce** — wrapped the risky management-path change
+   in a `/system/script` (same technique as mikrotik3's S15 and this build's own address
+   change, since a plain two-line `disable`/`enable` paste would drop the SSH session before
+   the second line ever sent): `/interface/ethernet/disable ether1`, `:delay 3s`,
+   `/interface/ethernet/enable ether1`. No change — `ether1`'s live `advertising:` list still
+   excluded Gigabit afterward.
+3. **A genuine physical unplug** (not just software admin-down, which doesn't necessarily drop
+   the PHY link signal) — Guillaume disconnected the cable for 10 seconds and replugged it. No
+   change either.
+
+**Not root-caused.** One data point worth keeping: mikrotik5's `link-partner-advertising` (what
+it sees mikrotik2 sending) correctly includes Gigabit both times, after the soft bounce and
+after the real unplug — so mikrotik2's side of the wire is getting a clean Gigabit-capability
+signal through. mikrotik5's own resolved `advertising:` list never does, despite its configured
+value being correct throughout. Two live hypotheses, not distinguished: the patch-panel run
+itself (a termination with only 2 good pairs would explain base link-pulse signaling getting
+through fine while the full 4-pair 1000BASE-T handshake silently fails and falls back) or a
+hardware/PHY issue specific to this mikrotik5 unit's `ether1`. The decisive test would be
+plugging any other Gigabit-capable device into the same living-room wall jack and checking what
+speed *it* negotiates — not done.
+
+**Guillaume's call: not worth pursuing.** The TV/Nintendo Switch/amp don't need more than
+100Mbps. Documented as an accepted limitation in `vlan.md`'s "Living room and workshop" section,
+`config-review.md`, and `README.md`'s device table, rather than left as an open finding that
+implies someone should still chase it.

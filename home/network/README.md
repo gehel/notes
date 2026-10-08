@@ -23,7 +23,7 @@ firmware updates. Read `vlan.md`'s **Status** section first.
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2` | L2 switch, 24×GE + SFP, CAPsMAN CAP |
 | mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
 | mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; baseline hardening (S17) closed 2026-10-07 |
-| mikrotik5 | RB750Gr3 (hEX) | `192.168.10.5` | L2 switch, living room, 5×GE — built and hardened 2026-10-08, in place and connected to mikrotik2 the same day; TV wired to `ether2` |
+| mikrotik5 | RB750Gr3 (hEX) | `192.168.10.5` | L2 switch, living room, 5×GE — built and hardened 2026-10-08, in place and connected to mikrotik2 the same day (uplink capped at 100Mbps, not Gigabit — accepted); TV wired to `ether2` |
 
 All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
@@ -159,8 +159,10 @@ see `changelog.md`. mikrotik2/mikrotik3 have no open findings either as of the s
   Config build verified on every device involved (mikrotik1-5) — see `vlan.md`'s "Living room
   and workshop" section and `changelog.md`'s "mikrotik5 build" entry (2026-10-08), which also
   records two real RouterOS scripting bugs found and fixed along the way (now in this file's
-  hard-won lessons below). TV is wired to `ether2`, not yet confirmed from a real client
-  (no DHCP lease / VLAN check through the new link yet). Nintendo Switch and amp still wireless.
+  hard-won lessons below). TV is wired to `ether2`, confirmed working (verified `vlan-users`
+  DHCP lease) — but the mikrotik2-mikrotik5 trunk only links at 100Mbps, not Gigabit;
+  **accepted, not pursued further** (TV/Switch/amp don't need more). Nintendo Switch and amp
+  still wireless.
 - Workshop still needs a switch too, VLAN-aware if it carries more than just `iot`.
 
 **Backup internet (future idea, not yet designed).** Noted 2026-09-08: use a phone in
