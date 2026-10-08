@@ -19,7 +19,7 @@ reorg (see [changelog.md](changelog.md)) — a dump refresh, not a new full revi
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2/24` static on `bridge-local` | L2 bridge, 24 ports + SFP; CAPsMAN CAP (wlan1) |
 | mikrotik3 | RB750Gr3 (hEX) — 256 MB, 880 MHz quad-core | `192.168.10.3/24` static on `bridge` | L2 bridge, 5 ports |
 | mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` | Standalone `wifi-qcom-ac`, dual-band, not CAPsMAN-managed — built 2026-10-06/07, see `wifi.md`; not yet reviewed (see below) |
-| mikrotik5 | RB750Gr3 (hEX), same as mikrotik3 | `192.168.10.5/24` static on `bridge` | L2 bridge, 5 ports — living-room switch, built and hardened 2026-10-08, still on the bench, see `vlan.md` |
+| mikrotik5 | RB750Gr3 (hEX), same as mikrotik3 | `192.168.10.5/24` static on `bridge` | L2 bridge, 5 ports — living-room switch, built and hardened 2026-10-08, in place and connected to mikrotik2's `ether12-slave-local` the same day, see `vlan.md` |
 
 All three reachable devices run RouterOS 7.24.2, current as of 2026-09-08 (RouterBOOT current
 on mikrotik1 too — re-checked this round). `bridge-fon` (`192.168.2.0/24`) no longer exists —
@@ -304,15 +304,16 @@ which was the earlier candidate for this role but runs **SwOS**, not RouterOS �
 lighter management model (web/WinBox-lite only, no scripting, no CAPsMAN) than everything else
 on this network. The SFP+ headroom CSS610 offers isn't needed for three gigabit media devices.
 
-**Received 2026-10-07, built and fully configured 2026-10-08, still on the bench.** Assigned
-mikrotik5, `192.168.10.5`, uplink confirmed and live as mikrotik2 `ether12-slave-local`.
-Despite the "no VLAN-awareness needed" framing above, Guillaume's call was to build it
-VLAN-aware anyway (trunk uplink tagged 20/30, matching mikrotik3) for fleet consistency and to
-avoid re-cabling later if a services/iot device ever lands on the spare port — see `vlan.md`'s
-"Living room and workshop" section for the full breakdown and `changelog.md`'s "mikrotik5
-build" entry for the build account, including two real RouterOS scripting bugs found and fixed
-along the way. Config build (mikrotik1-5, all verified) is done; only the physical move to the
-living room is still open.
+**Received 2026-10-07, built and fully configured 2026-10-08, moved to the living room and
+connected the same day.** Assigned mikrotik5, `192.168.10.5`, uplink confirmed and live as
+mikrotik2 `ether12-slave-local`. Despite the "no VLAN-awareness needed" framing above,
+Guillaume's call was to build it VLAN-aware anyway (trunk uplink tagged 20/30, matching
+mikrotik3) for fleet consistency and to avoid re-cabling later if a services/iot device ever
+lands on the spare port — see `vlan.md`'s "Living room and workshop" section for the full
+breakdown and `changelog.md`'s "mikrotik5 build" entry for the build account, including two
+real RouterOS scripting bugs found and fixed along the way. Config build (mikrotik1-5, all
+verified) is done. TV is plugged into `ether2`, not yet confirmed from a real client; Nintendo
+Switch and amp aren't connected yet.
 
 ### Probably a bigger constraint than the router: the wireless
 

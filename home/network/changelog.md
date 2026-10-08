@@ -2753,7 +2753,10 @@ item from mikrotik5's own build that hadn't been directly verified yet.
 
 **mikrotik5's full config build is now done and verified on every device involved** (mikrotik1,
 2, 3, 4, and 5 itself). All five one-shot scripts for this build have been run, verified, and
-deleted per this repo's scripts/ convention — this entry is the durable record. **Still open:
-the physical move** — mikrotik5 is still on the bench, not yet relocated to the living room or
-connected to mikrotik2's `ether12-slave-local`, and the TV/Nintendo Switch/amp aren't plugged
-into it yet.
+deleted per this repo's scripts/ convention — this entry is the durable record.
+
+**Physically relocated and connected, 2026-10-08.** Guillaume moved mikrotik5 to the living
+room and connected it to mikrotik2's `ether12-slave-local`; the TV is plugged into `ether2`.
+**Not yet verified from a real client** — no check yet that the TV actually picks up a
+`vlan-users` DHCP lease through this link. Nintendo Switch and amp are still wireless, not
+plugged in.

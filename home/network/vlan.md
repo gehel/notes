@@ -114,7 +114,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | second laptop | pool | wireless | **still not identified** |
 | Galaxy S24 Ultra | pool | wireless, randomised MAC | |
 | phone `EA:84:28` | pool | wireless, randomised MAC | |
-| TV (Samsung) `F4:DD:06:2A:FB:AF` | pool | wireless | no reservation yet |
+| TV (Samsung) `F4:DD:06:2A:FB:AF` | pool | mikrotik5 `ether2` | moved off wireless 2026-10-08; no reservation yet |
 | Nintendo Switch (likely) `BC:CE:25:5E:7F:8A` | pool | wireless | not 100% confirmed |
 | Onkyo amp `00:09:B0` | `.10.104` | wireless | intermittent |
 | Printer `NPI52346B` | `.10.110` | mikrotik3 `ether2` | reverted from `services` |
@@ -122,7 +122,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | mikrotik2 | `.10.2` | mikrotik1 `ether2-master` | |
 | mikrotik3 | `.10.3` | mikrotik2 `ether16` | |
 | mikrotik4 (cAP XL ac) | `.10.4` | mikrotik1 `ether10` (final location) | Standalone `wifi-qcom-ac`, not CAPsMAN — `LEDCOM` only, no `LEDCOM-IoT`; built 2026-10-06/07, see `wifi.md` |
-| mikrotik5 (RB750Gr3, living room) | `.10.5` | mikrotik2 `ether12-slave-local` | Built and hardened 2026-10-08, still on the bench — see "Living room and workshop" below |
+| mikrotik5 (RB750Gr3, living room) | `.10.5` | mikrotik2 `ether12-slave-local` | Built and hardened 2026-10-08; moved to the living room and connected 2026-10-08 — see "Living room and workshop" below |
 
 ### services — VLAN 20, 192.168.20.0/24
 
@@ -164,13 +164,13 @@ mikrotik3 stays there and does not free up for the living room after all. The li
 its own, separate switch purchase; see `config-review.md`'s hardware section for the candidate
 (plain hEX, RB750Gr3, matching mikrotik3).
 
-**Received 2026-10-07, built 2026-10-08. Decision: build it VLAN-aware anyway** (trunk carrying
-20/30 tagged, same shape as mikrotik3's `ether1`), even though nothing on it needs tagged
-traffic today — Guillaume's call, for fleet consistency and so a future services/iot device on
-the spare port doesn't need the trunk re-cabled later. Assigned **mikrotik5**, `192.168.10.5`.
-Still on the bench, not yet moved to its final living-room location. Full build account,
-including two real RouterOS scripting bugs found and fixed along the way, in `changelog.md`'s
-"mikrotik5 build" entry (2026-10-08).
+**Received 2026-10-07, built 2026-10-08, moved to the living room and connected 2026-10-08.
+Decision: build it VLAN-aware anyway** (trunk carrying 20/30 tagged, same shape as mikrotik3's
+`ether1`), even though nothing on it needs tagged traffic today — Guillaume's call, for fleet
+consistency and so a future services/iot device on the spare port doesn't need the trunk
+re-cabled later. Assigned **mikrotik5**, `192.168.10.5`. Full build account, including two real
+RouterOS scripting bugs found and fixed along the way, in `changelog.md`'s "mikrotik5 build"
+entry (2026-10-08).
 
 **Config build done and verified on every device involved (mikrotik1-5), 2026-10-08** —
 mikrotik5 itself (VLAN bring-up, `pvid=10` confirmed on all five ports, baseline hardening, SSH
@@ -179,9 +179,11 @@ and 30), and mikrotik1/3/4's own `mgmt`-list entries for mikrotik5. All five one
 for this build have been run, verified, and deleted per this repo's scripts/ convention —
 `changelog.md`'s "mikrotik5 build" entry is the durable record.
 
-**Still open: the physical move.** mikrotik5 is still on the bench, not yet relocated to the
-living room or connected to mikrotik2's `ether12-slave-local`, and the TV/Nintendo
-Switch/amp aren't plugged into it yet.
+**Physically in place as of 2026-10-08: mikrotik5 is connected to mikrotik2's
+`ether12-slave-local` in the living room, and the TV is plugged into `ether2`.** Not yet
+verified from a real client — no check yet that the TV actually picks up a `vlan-users` DHCP
+lease through this link (e.g. `/ip/dhcp-server/lease/print` on mikrotik1, or the TV's own
+network settings). Nintendo Switch and amp aren't plugged in yet.
 
 OctoPrint's wired link is down (bad cable); it runs on `LEDCOM-IoT` wireless until fixed. The
 workshop switch, when bought, needs to be VLAN-aware unless it ends up carrying only `iot`
@@ -224,15 +226,16 @@ Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikr
 
 ### mikrotik5 — `bridge`
 
-Config below is live and verified (`pvid=10` confirmed on all five ports via `/interface/
-bridge/port/print detail`, 2026-10-08). The device itself is still on the bench, not yet moved
-to the living room — the "Role" column is the intended assignment once it's there and devices
-are plugged in, not yet real today.
+Config is live and verified (`pvid=10` confirmed on all five ports via `/interface/bridge/port/
+print detail`, 2026-10-08). The device is now physically in the living room, connected to
+mikrotik2's `ether12-slave-local`. The TV is plugged into `ether2` (not yet confirmed from a
+real client — see "Living room and workshop" above); Nintendo Switch and amp aren't plugged in
+yet.
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
 | `ether1` | trunk to mikrotik2 `ether12-slave-local` | 10 | 20, 30 |
-| `ether2` | TV (not yet connected) | 10 | — |
+| `ether2` | TV | 10 | — |
 | `ether3` | Nintendo Switch (not yet connected) | 10 | — |
 | `ether4` | amp (not yet connected) | 10 | — |
 | `ether5` | spare | 10 | — |
