@@ -190,18 +190,13 @@ mixed-up-then-corrected MAC assignment (the MAC `vlan.md` had always documented 
 turned out to be the wifi interface, not the newly-wired one). Nintendo Switch and amp aren't
 plugged in yet.
 
-**Accepted limitation: the mikrotik2-mikrotik5 trunk only links at 100Mbps, not Gigabit.**
-Both ports support and are configured to advertise Gigabit (`ether12-slave-local` on mikrotik2,
-`ether1` on mikrotik5), and mikrotik5 correctly receives mikrotik2's Gigabit advertisement —
-but mikrotik5's own resolved `advertising:` list never includes Gigabit, even after a scripted
-interface bounce and a genuine physical unplug/replug (ruling out config and a stale
-soft-negotiation state). Not root-caused — most likely either the patch-panel run (only 2 good
-pairs would explain base link-pulse signaling getting through fine while the full 4-pair
-1000BASE-T handshake fails) or a hardware/PHY issue specific to this mikrotik5 unit's `ether1`;
-the decisive test (a laptop at the same wall jack) would tell them apart but **Guillaume's
-call: not worth pursuing** — the TV/Switch/amp don't need more than 100Mbps. See
-`changelog.md`'s "mikrotik5 build" entry for the full diagnostic trail, in case this is ever
-worth revisiting (e.g. if a higher-bandwidth device ever needs this link).
+**The mikrotik2-mikrotik5 trunk's 100Mbps-instead-of-Gigabit cap is root-caused: a bad patch
+cable at the living-room end, not the in-wall run or either device's port.** Config was already
+correct on both ends, and neither a scripted interface bounce nor a genuine physical
+unplug/replug of the original cable fixed it — but swapping in a spare patch cable immediately
+negotiated a full Gigabit link (confirmed 2026-10-08). **Still open: a permanent replacement
+cable needs to be bought** — the spare isn't meant to stay in place. See `changelog.md`'s
+"mikrotik5 build" entry for the full diagnostic trail.
 
 OctoPrint's wired link is down (bad cable); it runs on `LEDCOM-IoT` wireless until fixed. The
 workshop switch, when bought, needs to be VLAN-aware unless it ends up carrying only `iot`
@@ -227,7 +222,7 @@ Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikr
 |---|---|---|---|
 | `ether1-gateway` | trunk to mikrotik1 | 10 | 20, 30 |
 | `ether16-slave-local` | trunk to mikrotik3 | 10 | 20, 30 |
-| `ether12-slave-local` | trunk to mikrotik5 (living room) — **100Mbps, not Gigabit, accepted** | 10 | 20, 30 |
+| `ether12-slave-local` | trunk to mikrotik5 (living room) — **100Mbps on the current cable, bad patch cable, replacement needed** | 10 | 20, 30 |
 | `ether21-slave-local` | Home Assistant | 20 | — |
 | `ether23-slave-local` | Pi-hole | 20 | — |
 | `ether24-slave-local` | OctoPrint wired (cable down) | 30 | — |
@@ -247,13 +242,13 @@ Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikr
 Config is live and verified (`pvid=10` confirmed on all five ports via `/interface/bridge/port/
 print detail`, 2026-10-08). The device is now physically in the living room, connected to
 mikrotik2's `ether12-slave-local` — confirmed working end-to-end (TV DHCP lease verified), but
-**only at 100Mbps, not Gigabit; accepted, not pursued further** (see "Living room and
-workshop" above for the diagnostic trail). The TV is plugged into `ether2`; Nintendo Switch and
-amp aren't plugged in yet.
+**currently at 100Mbps due to a bad patch cable, root-caused, replacement needed** (see "Living
+room and workshop" above for the diagnostic trail). The TV is plugged into `ether2`; Nintendo
+Switch and amp aren't plugged in yet.
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether1` | trunk to mikrotik2 `ether12-slave-local` — **100Mbps, not Gigabit, accepted** | 10 | 20, 30 |
+| `ether1` | trunk to mikrotik2 `ether12-slave-local` — **100Mbps on the current cable, bad patch cable, replacement needed** | 10 | 20, 30 |
 | `ether2` | TV | 10 | — |
 | `ether3` | Nintendo Switch (not yet connected) | 10 | — |
 | `ether4` | amp (not yet connected) | 10 | — |

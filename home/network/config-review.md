@@ -315,13 +315,12 @@ real RouterOS scripting bugs found and fixed along the way. Config build (mikrot
 verified) is done. TV is plugged into `ether2`, confirmed working via a verified `vlan-users`
 DHCP lease; Nintendo Switch and amp aren't connected yet.
 
-**Accepted limitation: the mikrotik2-mikrotik5 trunk only links at 100Mbps.** Both ends are
-configured to advertise Gigabit and mikrotik5 correctly receives mikrotik2's Gigabit
-advertisement, but mikrotik5's own port never resolves to Gigabit — survived a scripted
-interface bounce and a genuine physical unplug/replug with no change, ruling out config and
-stale negotiation state. Not root-caused (suspect either the patch-panel run or the port's own
-PHY); Guillaume's call not to pursue it further, since the TV/Switch/amp don't need more than
-100Mbps. Full diagnostic trail in `changelog.md`'s "mikrotik5 build" entry.
+**Root-caused 2026-10-08: the mikrotik2-mikrotik5 trunk's 100Mbps cap was a bad patch cable at
+the living-room end**, not the in-wall run or either device's port — config, a scripted
+interface bounce, and a genuine physical unplug/replug of the original cable all ruled out
+first, then a spare cable immediately negotiated full Gigabit. **Still open: a permanent
+replacement cable needs to be bought** — the spare currently in place isn't meant to stay.
+Full diagnostic trail in `changelog.md`'s "mikrotik5 build" entry.
 
 ### Probably a bigger constraint than the router: the wireless
 

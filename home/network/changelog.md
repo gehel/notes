@@ -2786,7 +2786,7 @@ and `.10.104` was instead being held, dynamically, by the TV's wifi MAC at the t
 investigated further this session; `vlan.md` now flags the amp's address as stale rather than
 restating it as fact.
 
-## mikrotik5-mikrotik2 trunk capped at 100Mbps instead of Gigabit — accepted, not pursued further (2026-10-08)
+## mikrotik5-mikrotik2 trunk capped at 100Mbps instead of Gigabit — root-caused to a bad patch cable (2026-10-08)
 
 Found while verifying the living-room move: `/interface/ethernet/monitor` on both ends showed
 `rate: 100Mbps` on a link where both ports are Gigabit-capable hardware (CRS125's
@@ -2818,7 +2818,22 @@ hardware/PHY issue specific to this mikrotik5 unit's `ether1`. The decisive test
 plugging any other Gigabit-capable device into the same living-room wall jack and checking what
 speed *it* negotiates — not done.
 
-**Guillaume's call: not worth pursuing.** The TV/Nintendo Switch/amp don't need more than
-100Mbps. Documented as an accepted limitation in `vlan.md`'s "Living room and workshop" section,
-`config-review.md`, and `README.md`'s device table, rather than left as an open finding that
-implies someone should still chase it.
+**Guillaume's call at the time: not worth pursuing further** given the TV/Nintendo Switch/amp
+don't need more than 100Mbps — documented as an accepted limitation rather than an open
+finding.
+
+**Root-caused 2026-10-08, same day: it's the patch cable.** Guillaume swapped in a spare patch
+cable at the living-room end (not the in-wall run itself, not a device-side change) and the
+link immediately negotiated full Gigabit — confirming the decisive test suggested above
+(a different device at the same point) without needing a laptop: the cable alone explains
+every observation, including why `link-partner-advertising` always showed mikrotik2's Gigabit
+offer getting through cleanly (the original cable's fault only broke one direction's full
+4-pair 1000BASE-T handshake, not the base link-pulse signaling both directions used to
+exchange capability lists). Neither hypothesis from the original write-up was about the
+hardware being faulty in a software-visible way — a bad cable explains the "config says
+Gigabit, bounce doesn't help, physical replug (of the same bad cable) doesn't help, but a
+different cable fixes it instantly" pattern perfectly in hindsight.
+
+**Still open: a permanent replacement cable needs to be bought** — the spare currently in
+place isn't meant to stay long-term. Updated `vlan.md`, `config-review.md`, and `README.md`
+from "accepted limitation" to "root-caused, replacement pending" accordingly.
