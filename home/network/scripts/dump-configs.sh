@@ -18,12 +18,15 @@ USER_NAME="${MIKROTIK_USER:-admin}"
 CTLDIR="$(mktemp -d)"
 trap 'rm -rf "$CTLDIR"' EXIT
 
-# name:address — edit as devices come and go
+# name:hostname — edit as devices come and go. Hostnames resolve via Pi-hole's
+# local DNS records (router<N>.home.ledcom.fr), not IP addresses, so a
+# renumber doesn't require editing this list.
 HOSTS=(
-  "mikrotik1-main:192.168.10.1"
-  "mikrotik2-switch:192.168.10.2"
-  "mikrotik3-office:192.168.10.3"
-  "mikrotik4:192.168.10.4"
+  "mikrotik1-main:router1.home.ledcom.fr"
+  "mikrotik2-switch:router2.home.ledcom.fr"
+  "mikrotik3-office:router3.home.ledcom.fr"
+  "mikrotik4:router4.home.ledcom.fr"
+  "mikrotik5-livingroom:router5.home.ledcom.fr"
 )
 
 # Read-only commands. Nothing here changes state.
@@ -88,29 +91,29 @@ mkdir -p "$OUTDIR"
 
 for entry in "${HOSTS[@]}"; do
   name="${entry%%:*}"
-  addr="${entry##*:}"
+  host="${entry##*:}"
   out="$OUTDIR/$name.txt"
   ctl="$CTLDIR/${name}.sock"
 
-  echo "=== $name ($addr) ==="
+  echo "=== $name ($host) ==="
 
   # Reachable at all? Keeps a retired or powered-off device from stalling the run.
-  if ! timeout 5 bash -c "</dev/tcp/$addr/22" 2>/dev/null; then
+  if ! timeout 5 bash -c "</dev/tcp/$host/22" 2>/dev/null; then
     echo "  port 22 unreachable — skipping"
-    { echo "# $name ($addr)"; echo "# UNREACHABLE on port 22 at $(date -Is)"; } > "$out"
+    { echo "# $name ($host)"; echo "# UNREACHABLE on port 22 at $(date -Is)"; } > "$out"
     continue
   fi
 
   # One authenticated connection, reused by every command below.
   if ! ssh -M -S "$ctl" -o ControlPersist=120 -o ConnectTimeout=10 \
-           -fN "$USER_NAME@$addr"; then
+           -fN "$USER_NAME@$host"; then
     echo "  login failed — skipping"
-    { echo "# $name ($addr)"; echo "# LOGIN FAILED at $(date -Is)"; } > "$out"
+    { echo "# $name ($host)"; echo "# LOGIN FAILED at $(date -Is)"; } > "$out"
     continue
   fi
 
   {
-    echo "# $name ($addr)"
+    echo "# $name ($host)"
     echo "# collected $(date -Is) as user $USER_NAME"
   } > "$out"
 
@@ -124,13 +127,13 @@ for entry in "${HOSTS[@]}"; do
     # -T: no PTY, so RouterOS does not wrap output or emit control characters.
     # Failures are recorded rather than fatal: menus differ across models and
     # RouterOS versions, and an absent menu is itself useful information.
-    if ! timeout 30 ssh -T -S "$ctl" "$USER_NAME@$addr" "$cmd" >> "$out" 2>&1; then
+    if ! timeout 30 ssh -T -S "$ctl" "$USER_NAME@$host" "$cmd" >> "$out" 2>&1; then
       echo "# (command failed, timed out, or menu not present on this device)" >> "$out"
     fi
     echo "  $cmd"
   done
 
-  ssh -S "$ctl" -O exit "$USER_NAME@$addr" 2>/dev/null
+  ssh -S "$ctl" -O exit "$USER_NAME@$host" 2>/dev/null
   echo "  -> $out"
 done
 

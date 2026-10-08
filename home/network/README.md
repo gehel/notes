@@ -23,6 +23,7 @@ firmware updates. Read `vlan.md`'s **Status** section first.
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2` | L2 switch, 24×GE + SFP, CAPsMAN CAP |
 | mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
 | mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; baseline hardening (S17) closed 2026-10-07 |
+| mikrotik5 | RB750Gr3 (hEX) | `192.168.10.5` | L2 switch, living room, 5×GE — built and hardened 2026-10-08, still on the bench (not yet physically relocated or connected) |
 
 All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
@@ -152,7 +153,13 @@ see `changelog.md`. mikrotik2/mikrotik3 have no open findings either as of the s
 - Office PoE switch — **dropped 2026-10-06**, a PoE injector covers the SXTsq permanently, no
   purchase needed. mikrotik3 stays in the office; see `config-review.md`'s hardware section.
 - Living room switch (second RB750Gr3/hEX, for the TV/Nintendo Switch/amp, all wireless today
-  — see `config-review.md`) — **ordered, expected 2026-10-07.**
+  — see `config-review.md`) — **received 2026-10-07, built and fully configured 2026-10-08,
+  still on the bench.** Assigned mikrotik5, `192.168.10.5`, built VLAN-aware (fleet consistency,
+  Guillaume's call) despite not strictly needing it. Config build verified on every device
+  involved (mikrotik1-5) — see `vlan.md`'s "Living room and workshop" section and
+  `changelog.md`'s "mikrotik5 build" entry (2026-10-08), which also records two real RouterOS
+  scripting bugs found and fixed along the way (now in this file's hard-won lessons below).
+  Still open: the physical move to the living room.
 - Workshop still needs a switch too, VLAN-aware if it carries more than just `iot`.
 
 **Backup internet (future idea, not yet designed).** Noted 2026-09-08: use a phone in
@@ -469,3 +476,18 @@ outstanding test is a host plugged directly into the Internet-Box.
   `wireless` stack instead — which brings back that stack's own 5 GHz unreliability (see above),
   so on current hardware the two requirements (working 5 GHz, VLAN-tagged multi-SSID) can't
   both be satisfied on the same radio.
+- **`[find prop1=X and prop2=Y]` silently matching nothing is not limited to
+  `/ip/firewall/filter`** (where it was first documented above) — confirmed live 2026-10-08 in
+  `/interface/bridge/vlan` too: `[find vlan-ids=$vid and dynamic=no]` matched nothing even
+  though a matching static row existed, and the following `/interface/bridge/vlan/get` on the
+  empty result threw "no such item." Assume this `and`-combination risk applies fleet-wide
+  across menus, not just the one menu it was first caught in; filter on a single condition and
+  do any further narrowing (e.g. excluding dynamic rows) in script logic instead.
+- **The MikroTik-wiki `:local f do={ :local x $1 ... }` / `[$f "arg"]` pseudo-function idiom does
+  not reliably bind `$1`/`$2` when the `do={}` block is defined and invoked from inside another
+  named `/system/script`'s own `source=`, run via `/system/script/run`** — confirmed live
+  2026-10-08: `$1` came back empty inside the nested block, even though the call site passed a
+  literal value (`[$addTagged 20 "ether12-slave-local"]`). Root cause not identified — RouterOS
+  gave no error, the argument was just silently absent. Don't use this idiom for anything
+  beyond the console/a top-level script's own body; duplicate the logic per call site instead
+  of parameterizing it.

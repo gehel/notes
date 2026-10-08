@@ -19,6 +19,7 @@ reorg (see [changelog.md](changelog.md)) — a dump refresh, not a new full revi
 | mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2/24` static on `bridge-local` | L2 bridge, 24 ports + SFP; CAPsMAN CAP (wlan1) |
 | mikrotik3 | RB750Gr3 (hEX) — 256 MB, 880 MHz quad-core | `192.168.10.3/24` static on `bridge` | L2 bridge, 5 ports |
 | mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` | Standalone `wifi-qcom-ac`, dual-band, not CAPsMAN-managed — built 2026-10-06/07, see `wifi.md`; not yet reviewed (see below) |
+| mikrotik5 | RB750Gr3 (hEX), same as mikrotik3 | `192.168.10.5/24` static on `bridge` | L2 bridge, 5 ports — living-room switch, built and hardened 2026-10-08, still on the bench, see `vlan.md` |
 
 All three reachable devices run RouterOS 7.24.2, current as of 2026-09-08 (RouterBOOT current
 on mikrotik1 too — re-checked this round). `bridge-fon` (`192.168.2.0/24`) no longer exists —
@@ -154,13 +155,14 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 
-Nothing is open on mikrotik1, mikrotik2, mikrotik3, or mikrotik4 as of 2026-10-07 — mikrotik4's
-full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services, `ha` account,
-SSH hardening, DNS, NTP, IPv6 disabled) is closed, see `changelog.md`'s 2026-10-07 entries.
-mikrotik2/mikrotik3 reviewed against the same fresh dump set and confirmed to still match the
-established baseline. **IPv6 is explicitly disabled on all three non-edge devices**
-(`disable-ipv6=yes`) — confirmed as the deliberate, wanted state: switches and standalone APs
-on this network don't need it.
+Nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
+mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
+`ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
+2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
+closed 2026-10-08, see `changelog.md`'s "mikrotik5 build" entry. mikrotik2/mikrotik3 reviewed
+against the same fresh dump set and confirmed to still match the established baseline. **IPv6
+is explicitly disabled on all four non-edge devices** (`disable-ipv6=yes`) — confirmed as the
+deliberate, wanted state: switches and standalone APs on this network don't need it.
 
 **Two minor things noticed 2026-09-10 while regenerating `firewall.md` against a fresh
 dump, not investigated further — neither looked urgent enough to chase down mid-pass:**
@@ -292,8 +294,8 @@ Candidate that was under consideration: CRS112-8P-4S-IN (8×GE with PoE-out on e
 ### Living room switch
 
 Recorded 2026-10-06. TV, Nintendo Switch and amplifier are all wireless today and all live on
-`users` (see `vlan.md`) — no VLAN-awareness or PoE needed, just a handful of wired ports to get
-them off wifi. Port count: uplink + 3 devices + a spare = 5.
+`users` (see `vlan.md`) — no VLAN-awareness or PoE strictly needed, just a handful of wired
+ports to get them off wifi. Port count: uplink + 3 devices + a spare = 5.
 
 **Recommendation: a second RB750Gr3 (hEX)** — same model as mikrotik3, full RouterOS, exactly
 the port count needed. Keeps the fleet uniform (one management model, one set of known
@@ -301,6 +303,16 @@ quirks/lessons already documented in `README.md`) rather than introducing CSS610
 which was the earlier candidate for this role but runs **SwOS**, not RouterOS — a different,
 lighter management model (web/WinBox-lite only, no scripting, no CAPsMAN) than everything else
 on this network. The SFP+ headroom CSS610 offers isn't needed for three gigabit media devices.
+
+**Received 2026-10-07, built and fully configured 2026-10-08, still on the bench.** Assigned
+mikrotik5, `192.168.10.5`, uplink confirmed and live as mikrotik2 `ether12-slave-local`.
+Despite the "no VLAN-awareness needed" framing above, Guillaume's call was to build it
+VLAN-aware anyway (trunk uplink tagged 20/30, matching mikrotik3) for fleet consistency and to
+avoid re-cabling later if a services/iot device ever lands on the spare port — see `vlan.md`'s
+"Living room and workshop" section for the full breakdown and `changelog.md`'s "mikrotik5
+build" entry for the build account, including two real RouterOS scripting bugs found and fixed
+along the way. Config build (mikrotik1-5, all verified) is done; only the physical move to the
+living room is still open.
 
 ### Probably a bigger constraint than the router: the wireless
 

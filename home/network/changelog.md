@@ -2696,3 +2696,64 @@ scanning — no `nmap_tracker`, no `device_tracker` platform, nothing scan-inter
 for the `services` subnet. The responsible mechanism isn't identified yet. Tracked as
 `home/home-assistant`'s finding 17 for that follow-up — this repo's job (confirming the
 source and the pattern) is done; narrowing which HA component causes it belongs over there.
+
+## mikrotik5 build — second RB750Gr3 (hEX), living room switch (2026-10-08)
+
+New device, received 2026-10-07. Assigned `mikrotik5`, `192.168.10.5`. Built VLAN-aware
+(trunk carries 20/30 tagged) despite the role not strictly needing it — Guillaume's call, for
+fleet consistency and so a future services/iot device on the spare port doesn't need a
+re-cable. See `vlan.md`'s "Living room and workshop" section for the design decision.
+
+**mikrotik5 itself, via `scripts/mikrotik5-build.rsc`:** networking/VLAN bring-up (`ether1`
+trunk into the bridge, `pvid=10` on all five ports, bridge-vlan table for 10/20/30, static
+`192.168.10.5/24` replacing the DHCP-assigned bench address, a default route to `192.168.10.1`
+per the "pure L2 switch needs its own route" lesson, DNS/NTP/IPv6 baseline), then the same
+S1-S17-shape baseline hardening as mikrotik2/3/4 (`mgmt` list, `admin` address restriction, `ha`
+account, input-chain firewall, disabled services, SSH hardening). **Verified:**
+`/interface/bridge/port/print detail` showed `pvid=10` on `ether1`-`ether5`; `/ip/firewall/
+filter/print`, `/ip/service/print`, `/user/print detail`, `/ip/ssh/print` all matched the
+intended shape (established/invalid/icmp/mgmt/HA-API accepts then a final drop; ftp/telnet/
+reverse-proxy/api-ssl disabled, `reverse-proxy` simply absent from this RouterOS's service list
+rather than erroring; `admin` restricted to `192.168.10.0/24,192.168.50.0/24`; `homeassistant`
+user present; `strong-crypto=yes host-key-size=4096`).
+
+**mikrotik2's side, via `scripts/mikrotik2-add-mikrotik5-uplink.rsc`:** `ether12-slave-local`
+(the living-room patch-panel run) added to VLAN 20 and 30's tagged list, same shape as
+`ether16-slave-local` (trunk to mikrotik3), plus mikrotik2's own `mgmt` entry for mikrotik5.
+**Verified:** `/interface/bridge/vlan/print` shows `ether12-slave-local` in vlan 20 and vlan
+30's `current-tagged`; `/ip/firewall/address-list/print where list=mgmt` shows 8 entries
+including mikrotik5 (`192.168.10.5`, added `2026-10-08 09:51:17`).
+
+**Two real scripting bugs found and fixed along the way, both now recorded in README's
+hard-won lessons:**
+
+1. `[find vlan-ids=$vid and dynamic=no]` in `/interface/bridge/vlan` silently matched nothing
+   even though a matching static row existed — the following `/get` on the empty result threw
+   "no such item." Same `[find prop1=X and prop2=Y]` unreliability already documented for
+   `/ip/firewall/filter`, now confirmed in a second menu. Fixed by filtering on `vlan-ids=`
+   alone and excluding dynamic rows in script logic (`:foreach` + `/get ... dynamic`) instead of
+   combining both into the `find` query.
+2. The MikroTik-wiki `:local f do={ :local x $1 ... }` / `[$f "arg"]` pseudo-function idiom
+   didn't bind `$1` when the `do={}` block was defined and invoked from inside another named
+   `/system/script`'s own `source=`, run via `/system/script/run` — `$1` came back empty with no
+   error (`:error "...vlan-ids=" . $vid` printed as `...vlan-ids=` with nothing after the `=`).
+   Root cause not identified. Fixed by dropping the function abstraction and duplicating the
+   per-VLAN logic inline in both `mikrotik2-add-mikrotik5-uplink.rsc` and (pre-emptively, not
+   yet re-run) `mikrotik5-build.rsc`.
+
+The `homeassistant` account password and the admin SSH public key were filled in and applied
+directly on the device; the placeholders in `scripts/mikrotik5-build.rsc` were cleared back out
+afterward rather than committed.
+
+**mikrotik1/3/4's own `mgmt`-list entries for mikrotik5 — run and confirmed by Guillaume
+directly, 2026-10-08** (`scripts/mikrotik1-add-mikrotik5-mgmt.rsc`,
+`scripts/mikrotik3-add-mikrotik5-mgmt.rsc`, `scripts/mikrotik4-add-mikrotik5-mgmt.rsc`).
+**SSH key access to mikrotik5 confirmed working** by Guillaume the same day, closing the one
+item from mikrotik5's own build that hadn't been directly verified yet.
+
+**mikrotik5's full config build is now done and verified on every device involved** (mikrotik1,
+2, 3, 4, and 5 itself). All five one-shot scripts for this build have been run, verified, and
+deleted per this repo's scripts/ convention — this entry is the durable record. **Still open:
+the physical move** — mikrotik5 is still on the bench, not yet relocated to the living room or
+connected to mikrotik2's `ether12-slave-local`, and the TV/Nintendo Switch/amp aren't plugged
+into it yet.

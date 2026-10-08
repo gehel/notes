@@ -33,6 +33,7 @@ EXPECTED_VERSION="$1"
 HOSTS=(
     "router4.home.ledcom.fr"   # mikrotik4 -- cAP XL ac, standalone
     "router3.home.ledcom.fr"   # mikrotik3 -- office switch
+    "router5.home.ledcom.fr"   # mikrotik5 -- living room switch
     "router2.home.ledcom.fr"   # mikrotik2 -- main switch
     "router1.home.ledcom.fr"   # mikrotik1 -- edge router, last on purpose
 )
