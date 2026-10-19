@@ -2871,3 +2871,20 @@ A key-only login from the desktop works:
 **Expected later:** the plan imports mikrotik1's SSH host key onto this router, which will make
 the `known_hosts` entry for `router6` invalid at that point (`ssh-keygen -R
 router6.home.ledcom.fr`).
+
+## Phone management access verified on mikrotik3 and mikrotik4 (2026-10-19)
+
+mikrotik4 was built after the 2026-09-28 phone-mgmt rollout, and its management access had
+not been tested from the phone. **Guillaume confirmed a real login to `192.168.10.3` and
+`192.168.10.4` from the phone over WireGuard.**
+
+All three gates were already in place on mikrotik4 before the test (`dumps/mikrotik4.txt`,
+2026-10-19 11:08): `192.168.50.2` in `mgmt`, `admin` `address=192.168.10.0/24,192.168.50.0/24`,
+and the `static default` route to `192.168.10.1`. No change was needed.
+`scripts/phone-mgmt-check.rsc`, written to check and fix these gates, was never run. It is
+deleted because the login test made it unnecessary.
+
+**mikrotik5 is not verified from the phone.** Its build entry (2026-10-08) records the same
+three gates, but it was unreachable on port 22 in the 2026-10-19 11:08 dump, and it was not
+tested. Check that it is up, then do the same phone login test. If the test fails, the script
+is in git history (commit `422fdfe`).
