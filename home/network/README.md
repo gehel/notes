@@ -47,7 +47,9 @@ snapshot, not a source of truth.
 
 Firewall log evidence — the `log=yes` deny-all rules at the end of every Phase 5 jump chain,
 see [firewall.md](firewall.md) — lives in `logs/` (also gitignored), collected with
-[dump-logs.sh](scripts/dump-logs.sh). RouterOS's own log buffer is small and rotates, so run
+[dump-logs.sh](scripts/dump-logs.sh) — since 2026-10-09 this collects the full log (all
+topics) from every MikroTik, one file per device; firewall entries are in the edge router's
+file. RouterOS's own log buffer is small and rotates, so run
 this regularly rather than only once something's already suspected.
 
 Pi-hole's own on-disk logs (no API token configured, so this reads straight off disk via
