@@ -3,20 +3,36 @@
 # needed, the RouterBOARD firmware (two independent things; a device can be
 # package-current while its firmware still lags) -- waiting for each to
 # fully come back up and confirming it reports working internet/DNS
-# connectivity before moving on to the next one. Stops immediately on any
-# failure -- never cascades a bad upgrade across the fleet unattended;
+# connectivity before moving on to the next one.
+#
+# A device that is unreachable *before* anything is done to it (mikrotik5
+# is often powered off) is skipped with a warning, and the run continues.
+# Skipped devices are listed at the end; re-run once they are up.
+#
+# Once an upgrade has started on a device, any failure stops the run
+# immediately: the install or firmware upgrade not taking effect, or the
+# device not coming back after its reboot. That points at a problem with
+# the new version, so it must never cascade across the fleet unattended;
 # whatever device failed is left for you to check by hand before re-running.
 #
 # Usage: ./upgrade-fleet.sh <expected-routeros-version>
 #   e.g. ./upgrade-fleet.sh 7.24.5
 #
-# Run /system/package/update/check-for-updates by hand first to confirm
-# what the real latest version actually is -- this script trusts the
-# version you pass it, it doesn't look it up itself.
+# Exit status: 0 all devices done, 1 a failure (run stopped), 2 finished
+# but some unreachable devices were skipped.
 #
-# Order matters and is deliberate: mikrotik4 first (lowest stakes -- it's
-# standalone, nothing else depends on it, and it's usually already current,
-# making it a cheap smoke test of the skip-logic below), then the switches
+# Every device is put on the "stable" update channel first, so the fleet
+# always tracks the latest stable release. Run
+# /system/package/update/check-for-updates by hand first (channel=stable)
+# to confirm what the real latest version actually is -- this script
+# trusts the version you pass it, it doesn't look it up itself.
+#
+# Order matters and is deliberate: mikrotik6 first while it is still in
+# staging (rb5009-migration.md; nothing depends on it yet -- move it to
+# the end, in mikrotik1's place, once it is the edge router), then
+# mikrotik4 (low stakes -- it's standalone, nothing else depends on it,
+# and it's usually already current, making it a cheap smoke test of the
+# skip-logic below), then the switches
 # (smaller blast radius if something goes wrong), edge router last.
 #
 # A device already on the target version is skipped (safe to re-run after
@@ -31,6 +47,7 @@ fi
 EXPECTED_VERSION="$1"
 
 HOSTS=(
+    "router6.home.ledcom.fr"   # mikrotik6 -- RB5009, staging, not in production yet
     "router4.home.ledcom.fr"   # mikrotik4 -- cAP XL ac, standalone
     "router3.home.ledcom.fr"   # mikrotik3 -- office switch
     "router5.home.ledcom.fr"   # mikrotik5 -- living room switch
@@ -73,6 +90,10 @@ wait_for_up() {
         fi
     done
     echo "  ${host} is back up after ${waited}s."
+}
+
+set_stable_channel() {
+    ssh "${SSH_OPTS[@]}" "${SSH_USER}@${1}" '/system/package/update/set channel=stable' 2>/dev/null
 }
 
 get_installed_version() {
@@ -159,8 +180,22 @@ upgrade_routerboard_if_needed() {
     echo "  OK: ${host} routerboard firmware now current."
 }
 
+skipped=()
 for host in "${HOSTS[@]}"; do
     echo "=== ${host} ==="
+
+    # Nothing has been done to this device yet: unreachable means skip, not stop.
+    if ! is_reachable "$host"; then
+        echo "  WARNING: ${host} is not reachable -- SKIPPING it, nothing changed." >&2
+        skipped+=("$host")
+        echo
+        continue
+    fi
+
+    if ! set_stable_channel "$host"; then
+        echo "  ERROR: could not set the update channel on ${host} -- STOPPING." >&2
+        exit 1
+    fi
 
     current="$(get_installed_version "$host")"
     echo "  current installed-version: ${current:-<unknown -- could not reach ${host}>}"
@@ -199,4 +234,9 @@ for host in "${HOSTS[@]}"; do
     echo
 done
 
+if [ "${#skipped[@]}" -gt 0 ]; then
+    echo "Done, but these devices were unreachable and SKIPPED (re-run once they are up):"
+    printf '  %s\n' "${skipped[@]}"
+    exit 2
+fi
 echo "All devices checked/upgraded successfully: ${HOSTS[*]}"

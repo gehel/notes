@@ -149,8 +149,9 @@ over its own WAN, and be fully checked before it carries any traffic.
    with **no default config** (`/system/reset-configuration no-defaults=yes
    skip-backup=yes`). The defconf firewall, NAT, DHCP and `192.168.88.1` would otherwise
    collide with the port. Reconnect via MAC-Winbox/MAC-Telnet.
-2. **Packages.** Upgrade to the fleet version (7.24.5 as of the latest dump), and the
-   RouterBOOT firmware too. Then **verify the B3 prerequisite from `wifi.md`**: the legacy
+2. **Packages.** Upgrade to the latest `stable` release with `scripts/upgrade-fleet.sh`
+   (RouterOS and RouterBOOT firmware). If that is newer than the rest of the fleet, the
+   same run upgrades every device, so the fleet stays on one version. Then **verify the B3 prerequisite from `wifi.md`**: the legacy
    `wireless` package must install on arm64 next to `wifi-qcom`/`wifi-qcom-ac`.
    - If it installs, the RB5009 runs legacy `/caps-man` for mikrotik2 (target B3).
    - If it does not, **this plan changes**: the RB2011 has to stay as the legacy CAPsMAN
