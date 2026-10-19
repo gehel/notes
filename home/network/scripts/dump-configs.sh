@@ -27,6 +27,7 @@ HOSTS=(
   "mikrotik3-office:router3.home.ledcom.fr"
   "mikrotik4:router4.home.ledcom.fr"
   "mikrotik5-livingroom:router5.home.ledcom.fr"
+  "mikrotik6:router6.home.ledcom.fr"
 )
 
 # Read-only commands. Nothing here changes state.

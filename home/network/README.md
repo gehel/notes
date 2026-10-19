@@ -72,6 +72,7 @@ queries.
 | [qos.md](qos.md) | Closed by measurement: there is no bufferbloat to fix |
 | [ipv6.md](ipv6.md) | IPv6 via DHCPv6-PD and the NAT66 workaround |
 | [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone — applied and verified 2026-09-22 |
+| [rb5009-migration.md](rb5009-migration.md) | **Next active work.** Runbook for moving the edge role from mikrotik1 to the RB5009UPr+S+IN — written 2026-10-09, not started |
 
 Diagrams live in [diagrams/](diagrams/): [network.svg](diagrams/network.svg) is physical
 topology (Graphviz), [network-addressing.svg](diagrams/network-addressing.svg) is the VLAN
@@ -151,6 +152,8 @@ see `changelog.md`. mikrotik2/mikrotik3 have no open findings either as of the s
   from the same cable — no separate injector needed, no trade-off to make. **2026-10-07: the
   wrong unit (`RB5009UG+S+IN`) arrived and was returned; the correct `RB5009UPr+S+IN` is
   in transit, expected 2026-10-08.**
+  **Arrived; migration plan written 2026-10-09 — see [rb5009-migration.md](rb5009-migration.md).**
+  Not started.
 - Office PoE switch — **dropped 2026-10-06**, a PoE injector covers the SXTsq permanently, no
   purchase needed. mikrotik3 stays in the office; see `config-review.md`'s hardware section.
 - Living room switch (second RB750Gr3/hEX, originally for the TV/Nintendo Switch/amp, all
