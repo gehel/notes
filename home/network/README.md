@@ -27,7 +27,8 @@ firmware updates. Read `vlan.md`'s **Status** section first.
 
 All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
-Upstream is a Swisscom Internet-Box at `10.1.1.1` doing a second layer of NAT.
+Upstream is a Swisscom Internet-Box at `192.168.1.1` (mikrotik1 holds `192.168.1.101` on
+`ether1`, as the box's DMZ host) doing a second layer of NAT. The old box was at `10.1.1.1`.
 
 **DNS and NTP are both fully self-contained as of 2026-09-10** — no LAN device should ever
 need to reach the public internet for either. Pi-hole (`192.168.20.40`) is every device's
