@@ -2837,3 +2837,37 @@ different cable fixes it instantly" pattern perfectly in hindsight.
 **Still open: a permanent replacement cable needs to be bought** — the spare currently in
 place isn't meant to stay long-term. Updated `vlan.md`, `config-review.md`, and `README.md`
 from "accepted limitation" to "root-caused, replacement pending" accordingly.
+
+## mikrotik6 (RB5009UPr+S+IN) — SSH key auth for `admin` (2026-10-19)
+
+First change logged for mikrotik6. It is connected and reachable at `192.168.10.6` /
+`router6.home.ledcom.fr`.
+
+**State found before the change:** `/system/identity` is still `MikroTik`, and `admin` had
+`address=""` and no SSH keys. **`scripts/mikrotik6-base.rsc` has not run**, because its first
+command sets the identity to `mikrotik6` and it also sets the `admin` address restriction and
+imports the key. Whatever config gives the router `.10.6` came from somewhere else. Don't
+assume any of the Phase 1 step 3 base build is in place. Check `/export` before running the
+base script or any Phase 2 script.
+
+**Done:**
+- `id_rsa.pub` uploaded with `scp`, then `/user/ssh-keys/import user=admin
+  public-key-file=id_rsa.pub`. The import deleted the file (`/file/print where name~"id_rsa"`
+  is empty).
+- `/user/set admin address=192.168.10.0/24,192.168.50.0/24`, the same restriction as
+  mikrotik1. Before this, `admin` could log in from any address.
+- Password authentication stays on as the fallback, the same as on the rest of the fleet.
+
+**Verified:**
+```
+/user/ssh-keys/print
+#  USER   KEY-TYPE  BITS  INFO         FINGERPRINT
+0  admin  rsa       2048  gehel@durin  SHA256:JUJ8UlrLvbHedYQubZbGmxzmX4UKDI2lmIcDPJh+vYg=
+```
+A key-only login from the desktop works:
+`ssh -o PreferredAuthentications=publickey admin@router6.home.ledcom.fr '/system/identity/print'`
+→ `name: MikroTik`.
+
+**Expected later:** the plan imports mikrotik1's SSH host key onto this router, which will make
+the `known_hosts` entry for `router6` invalid at that point (`ssh-keygen -R
+router6.home.ledcom.fr`).

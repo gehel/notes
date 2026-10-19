@@ -1,6 +1,8 @@
 # RB5009 edge migration — replacing mikrotik1
 
-**Status: plan written 2026-10-09, nothing executed yet.** The `RB5009UPr+S+IN` has arrived.
+**Status: plan written 2026-10-09. 2026-10-19: mikrotik6 is reachable at `192.168.10.6`, and SSH key
+auth plus the `admin` address restriction are done by hand (see `changelog.md`). The rest of the
+base script (`mikrotik6-base.rsc`) has not run: the identity is still `MikroTik`.** The `RB5009UPr+S+IN` has arrived.
 It is **mikrotik6**, hostname `router6.home.ledcom.fr` → `192.168.10.6` (needs a Pi-hole local
 DNS record, the same way as `router1`-`router5`). It is already in `dump-configs.sh` and
 `dump-logs.sh`.
