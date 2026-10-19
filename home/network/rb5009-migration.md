@@ -1,8 +1,12 @@
 # RB5009 edge migration — replacing mikrotik1
 
-**Status: plan written 2026-10-09. 2026-10-19: mikrotik6 is reachable at `192.168.10.6`, and SSH key
-auth plus the `admin` address restriction are done by hand (see `changelog.md`). The rest of the
-base script (`mikrotik6-base.rsc`) has not run: the identity is still `MikroTik`.** The `RB5009UPr+S+IN` has arrived.
+**Status: plan written 2026-10-09. Phase 1 done 2026-10-19, except step 4 (reserve the WAN
+lease `192.168.1.103` in the Internet-Box): RouterOS 7.24.5, `wireless` installed (B3
+prerequisite met), base build applied and checked, mikrotik2 `ether18-slave-local` trunk
+carries VLANs 10/20/30, `.10.6` in `mgmt` on mikrotik1-5. Phase 2 done 2026-10-19 for
+IPv4, CAPsMAN and WireGuard: export diff clean, `cutover`/`rollback` stored, not run. IPv6
+not ported yet (`disable-ipv6=yes` on mikrotik6), and `cutover` has no IPv6 steps. See
+`changelog.md`. Next: Phase 2b.** The `RB5009UPr+S+IN` has arrived.
 It is **mikrotik6**, hostname `router6.home.ledcom.fr` → `192.168.10.6` (needs a Pi-hole local
 DNS record, the same way as `router1`-`router5`). It is already in `dump-configs.sh` and
 `dump-logs.sh`.
@@ -167,7 +171,7 @@ over its own WAN, and be fully checked before it carries any traffic.
    - **Staging routes** `192.168.20.0/24`, `192.168.30.0/24`, `192.168.50.0/24` via
      `192.168.10.1` (comment `staging`). Without them, mikrotik6's replies to Pi-hole, HA or
      the phone over WireGuard follow the WAN default route to the Internet-Box and are lost.
-   - Built by `scripts/mikrotik6-base.rsc` via `run-after-reset` (it also turns IPv6 off
+   - Built by `scripts/mikrotik6-base.rsc` (run and deleted 2026-10-19) via `run-after-reset` (it also turns IPv6 off
      until Phase 2, which is simpler than disabled ND entries).
    - `admin` password, SSH key (`gehel@durin`), `admin` `address=` restriction identical to
      mikrotik1 (`192.168.10.0/24,192.168.50.0/24`), `mgmt` address-list **built before** any
@@ -222,6 +226,26 @@ importing mikrotik1's raw export. The raw export carries RB2011-specific names
 | Services | ftp/telnet/api-ssl/reverse-proxy/www-ssl off; ssh, www, winbox, api on; SSH strong-crypto, 4096 host key **imported** | Match `/ip/service/print` |
 | Misc | time zone, `max-neighbor-entries`, mac-server lists, neighbor discovery, SNMP off, BFD off, `/ip/cloud ddns-enabled=auto` | |
 | **Do not port** | `ipv6-migrate` script, OSPF instances/areas, BGP template, `ovpn-server1`, LTE APN, SMB, `wlan1`/local CAP config, legacy `ether*-master` naming | Leftovers or RB2011-only |
+
+**Scripts (written 2026-10-19 from the 12:55 dump of mikrotik1; all run and verified the
+same day. Scripts 1-4 are deleted, see `changelog.md`. Only the secrets template and
+`mikrotik6-p2-cutover.rsc` stay in `scripts/`).** Imported in this order. The order matters, because later scripts reference what
+earlier ones create:
+
+| # | File | What it does |
+|---|---|---|
+| — | `mikrotik6-p2-secrets.rsc.example` | Template. The filled copy goes in `backups/` (gitignored) and sets 4 globals: WireGuard key, 2 CAPsMAN passphrases, the `homeassistant` password |
+| 1 | `mikrotik6-p2-system.rsc` | Interface lists, `wireguard1` + peer (disabled), production addresses (disabled), DNS → Pi-hole, NTP upstreams + server, `ha` group + `homeassistant` user, services, misc |
+| 2 | `mikrotik6-p2-dhcp.rsc` | Option 42 ×3, pools ×3, servers ×3 (disabled, with the dhcp-to-dns lease-script), networks ×3, all 15 static leases |
+| 3 | `mikrotik6-p2-firewall.rsc` | **Generated** from the export: 30 address-list entries, 89 filter rules and 2 NAT rules, verbatim and in order, plus finding 36's fix (`samsung-tv` list). The staging rules are removed only after the new ones are all in |
+| 4 | `mikrotik6-p2-capsman.rsc` | Channels, the 3 configurations, provisioning, and manager interfaces. Uses mikrotik1's imported certificate, and the manager stays `enabled=no` |
+| 5 | `mikrotik6-p2-cutover.rsc` | Stores `cutover` and `rollback` in `/system/script`. Does not run them |
+
+Each script's body is one `{ }` block, so that `:local` values persist (README lesson), and it
+guards every add. **IPv6 is not ported yet**: it waits for the Phase 2b PD test, and when it
+is ported, the `cutover` script gets the IPv6 steps too. A few mikrotik1 items are left out on
+purpose: `detect-internet`, the `sniffer` settings, the RB2011 `advertise=` settings and
+`max-neighbor-entries=8192` (below the RB5009's default soft-max, refused on import).
 
 **WAN: own MAC, own lease, DMZ moved at cutover.** Both routers sit on the box's LAN at the
 same time, so the RB5009 keeps its **own** `ether1` MAC (cloning mikrotik1's would put two

@@ -2888,3 +2888,241 @@ deleted because the login test made it unnecessary.
 three gates, but it was unreachable on port 22 in the 2026-10-19 11:08 dump, and it was not
 tested. Check that it is up, then do the same phone login test. If the test fails, the script
 is in git history (commit `422fdfe`).
+
+## Fleet upgrade run with mikrotik6 included (2026-10-19)
+
+First run of `scripts/upgrade-fleet.sh 7.24.5` since it switched to the `stable` channel and
+added mikrotik6. The `stable` channel's `latest-version` was `7.24.5`, which is the fleet's
+version already.
+
+- **mikrotik6:** RouterOS 7.21.4 → **7.24.5** (back up after 30s, `System is already up to
+  date` from its own WAN). RouterBOOT firmware 7.21.4 → **7.24.5** (`current=7.24.5
+  available=7.24.5` after the second reboot, back after 36s).
+- **mikrotik1, mikrotik2, mikrotik3, mikrotik4:** already on 7.24.5 with firmware 7.24.5, no
+  change.
+- **mikrotik5:** unreachable, skipped. Re-run the script once it is up.
+
+## mikrotik6 — legacy `wireless` package installs on arm64 (B3 prerequisite met) (2026-10-19)
+
+`wifi.md`'s B3 target needs the legacy `wireless` package (for `/caps-man`, which manages
+mikrotik2's radio) to install on the RB5009. `/system/package/enable wireless` returned
+`no such item`, because an available package that is not installed cannot be enabled. It was
+installed by `/tool/fetch` of `wireless-7.24.5-arm64.npk`, then a reboot. Verified:
+```
+/system/package/print
+0 routeros   7.24.5   2026-09-29 14:21:27  13.3MiB
+1 wireless   7.24.5   2026-09-29 14:21:27  844.1KiB
+2 container  7.24.5   2026-09-29 14:21:27  1160.1KiB
+```
+Phase 1 step 2 of `rb5009-migration.md` is done, and the plan does not change. That
+`/caps-man` actually manages mikrotik2's CAP from this box is only proven at cutover.
+
+Also seen: after the 7.24.5 upgrade, the default identity changed from `MikroTik` to
+`RB5009UPr`. It does not matter, because `mikrotik6-base.rsc` sets `mikrotik6`.
+
+## mikrotik6 — Phase 1 base build applied (2026-10-19)
+
+`rb5009-migration.md` Phase 1 step 3. The factory default config (with `.10.6` and a DHCP
+client added by hand) was replaced with the planned staging config:
+`id_rsa.pub` and `scripts/mikrotik6-base.rsc` uploaded with `scp`, then
+`/system/reset-configuration no-defaults=yes skip-backup=yes run-after-reset=mikrotik6-base.rsc`.
+The script now also sets an NTP client to `192.168.10.1` (staging only, added before the run).
+
+**Verified after the reset:**
+- `/log/print where message~"mikrotik6-base"` → `script,info mikrotik6-base: done`, and no
+  `ssh key import failed` warning. The entry is dated **2026-09-28 16:22**: the script ran
+  before the clock was set, which is why the NTP client is in the base script.
+- `/system/identity/print` → `mikrotik6`.
+- `/ip/address/print` → `192.168.10.6/24` on `vlan-users` (`mikrotik6 management`), and the
+  dynamic WAN address `192.168.1.103/24` on `ether1`.
+- `/ip/dhcp-client/print` → `client1` on `ether1`, `bound`, `192.168.1.103/24`.
+- `/ip/route/print` → `DAd 0.0.0.0/0 via 192.168.1.1`, plus the three `staging` routes
+  (`192.168.20.0/24`, `192.168.30.0/24`, `192.168.50.0/24` via `192.168.10.1`), all active.
+- `/interface/bridge/vlan/print detail` → VLAN 10 `current-untagged=ether2`, VLAN 20 and 30
+  `current-tagged=bridge-main,ether2`. The other ports are not in `current-*` because they
+  have no link.
+- `/ip/firewall/filter/print` → input: accept established/related, drop invalid, drop all
+  from WAN, accept ICMP, accept `mgmt`, drop everything else. Forward: drop all (staging).
+- `/user/ssh-keys/print` → `admin` / `gehel@durin`, and key login from the desktop works
+  (after `ssh-keygen -R router6.home.ledcom.fr`: the reset generated a new host key).
+- `/system/ntp/client/print` → `synchronized` to `192.168.10.1`, stratum 3.
+- `/ping 1.1.1.1 count=3` → 3/3, about 5 ms, over its own WAN.
+- `admin` password set (the reset had put the sticker password back). After a reboot,
+  `/ipv6/address/print` is empty, so `disable-ipv6=yes` is in effect.
+
+Phase 1 step 3 is done. mikrotik6's `ether2` is cabled to **mikrotik2 `ether18`**. That
+port is not yet a trunk (step 5).
+
+## mikrotik2 `ether18-slave-local` made a trunk to mikrotik6 (2026-10-19)
+
+`rb5009-migration.md` Phase 1 step 5. mikrotik6's `ether2` is cabled to mikrotik2
+`ether18-slave-local`. That port already had `pvid=10` and was untagged on VLAN 10. It was
+added to the tagged lists of VLAN 20 and VLAN 30, which gives it the same shape as
+`ether12`/`ether16`. VLAN 10 and the management path are unchanged. The lists were typed in
+full from the configured `tagged=` values, not rebuilt from `current-tagged` (a down mikrotik5
+drops `ether12` from `current-*`).
+```
+/interface/bridge/vlan/set 0 tagged=ether1-gateway,ether12-slave-local,ether16-slave-local,ether18-slave-local
+/interface/bridge/vlan/set 1 tagged=ether1-gateway,ether12-slave-local,ether16-slave-local,ether18-slave-local
+```
+Verified on mikrotik2 (`/interface/bridge/vlan/print detail where dynamic=no`): VLAN 20 and
+VLAN 30 both have `current-tagged=ether1-gateway,ether12-slave-local,ether16-slave-local,ether18-slave-local`.
+The untagged ports (`ether21`/`ether23` on 20, `ether24` on 30) are unchanged, and VLAN 10's
+`current-untagged` includes `ether18-slave-local`. `vlan.md`'s mikrotik2 port table and
+device inventory are updated.
+
+**Not yet verified from mikrotik6's side.** `/interface/bridge/host/print where vlan-id=20`
+(and `=30`) on mikrotik6 returned nothing, but the bridge host table's property is `vid`, not
+`vlan-id`, so that check was probably malformed. Redo it with `vid`.
+
+## mikrotik6 `192.168.10.6` added to `mgmt` on mikrotik1-5 (2026-10-19)
+
+`rb5009-migration.md` Phase 1 step 6. Guillaume added `192.168.10.6` to the `mgmt`
+address-list on mikrotik1, 2, 3, 4 and 5. **Verified in the 2026-10-19 12:55 dumps:** every one
+of the five exports has `add address=192.168.10.6 comment=mikrotik6 list=mgmt`. The same
+dumps show all six devices on RouterOS 7.24.5 with `current-firmware: 7.24.5`, which confirms
+the fleet upgrade re-run below, mikrotik5 included. The Pi-hole record
+`router6.home.ledcom.fr` → `192.168.10.6` already resolves (used for every SSH session to
+mikrotik6 today).
+
+**Verified from mikrotik6's side, same day** (`/interface/bridge/host/print where vid=20`, then
+`vid=30`): MAC addresses learned on `ether2` in both VLANs, so frames tagged 20 and 30 arrive
+end to end through mikrotik2 `ether18-slave-local`.
+- VLAN 20: `B8:27:EB:83:79:48` (Pi-hole), `D8:3A:DD:31:E0:59` (Home Assistant),
+  `E4:8D:8C:19:6F:32` (mikrotik1).
+- VLAN 30: `D8:BC:38:99:44:68` (Kids Light, Tasmota), `E4:8D:8C:19:6F:32` (mikrotik1).
+
+Phase 1 step 5 is done.
+
+## Fleet upgrade re-run, mikrotik5 included (2026-10-19)
+
+mikrotik5 was up again, and Guillaume re-ran `scripts/upgrade-fleet.sh 7.24.5`. He reported it
+done, which is exit status 0, so no device was skipped this time. The output is not recorded
+here.
+
+## mikrotik1 — finding 36 fix applied: HA -> Samsung TV rule matches the TV's current addresses (2026-10-19)
+
+`services2users: HA -> Samsung TV` pointed at `192.168.10.195`, the TV's address before the
+2026-10-08 reservations (`.10.50` wired, `.10.51` wifi). Applied on mikrotik1:
+```
+/ip/firewall/address-list/add list=samsung-tv address=192.168.10.50 comment="TV (Samsung), wired"
+/ip/firewall/address-list/add list=samsung-tv address=192.168.10.51 comment="TV (Samsung), wifi"
+/ip/firewall/filter/set [find comment="services2users: HA -> Samsung TV"] !dst-address dst-address-list=samsung-tv
+```
+Config verified (`/ip/firewall/filter/print where comment="services2users: HA -> Samsung TV"`):
+`chain=services2users action=accept connection-state=new protocol=tcp src-address=192.168.20.60
+dst-address-list=samsung-tv dst-port=8002`, and there is no `dst-address`.
+**Finding 36 stays open** until HA → TV traffic is verified (the rule's counters increase, or
+HA's Samsung TV integration works). HA's own host setting may still be `.10.195`.
+
+## mikrotik6 — Phase 2 started: certificates, secrets, system script (2026-10-19)
+
+- mikrotik1's CAPsMAN CA and certificate are imported. `/certificate/print` shows
+  `cert_export_CAPsMAN-CA-E48D8C196F30.p12_0` (`KA T`, CN `CAPsMAN-CA-E48D8C196F30`) and
+  `cert_export_CAPsMAN-E48D8C196F30.p12_0` (`K IT`, CN `CAPsMAN-E48D8C196F30`), both with
+  private keys.
+- `/import mikrotik6-p2-secrets.rsc` → `executed successfully`.
+- `/import ... dry-run` needs `verbose=yes` (`dry-run parameter cannot be used in non-verbose
+  mode`). `/import mikrotik6-p2-system.rsc verbose=yes dry-run` → `No syntax errors found`.
+- The first real import **stopped at line 88**: `soft-max-neighbor-entries must be less than
+  max-neighbor-entries (/ipv6/settings/set)`. Lines 1-87 ran, including
+  `/ip settings set max-neighbor-entries=8192`. Lines 88 to the end did not (conn-tracking
+  `udp-timeout`, SNMP, `ip cloud`). Both neighbor-table lines are removed from the script,
+  and the IPv4 value set before the error is left to check.
+- **System script re-run after the fix:** `/import mikrotik6-p2-system.rsc` →
+  `mikrotik6-p2-system: done`. `/ip/settings/print` still shows `max-neighbor-entries: 8192`
+  from the failed run. It is left as is, because the RB5009's IPv6 defaults are
+  `soft-max-neighbor-entries: 8192` / `max-neighbor-entries: 16384`, and 8192 IPv4 neighbors
+  is far above what this network needs. Verified:
+  - `/interface/wireguard/print` → `X wireguard1`, mtu 1420, port 51820,
+    `public-key="QReTsWFSjYwkQ7Tm5l6KekxmA6sfvl+P1V0J67+NTXI="`. This is **mikrotik1's
+    public key** (`vpn.md`), so the private key was imported correctly and the phone needs no
+    change.
+  - `/ip/address/print` → `.10.1`, `.20.1`, `.30.1` and `.50.1` all `X` with the comment
+    `production, enabled by cutover`. `.10.6` and the WAN lease are unchanged.
+  - `/ip/dns/print` → `servers: 192.168.20.40`, `allow-remote-requests: yes`, and the cache is
+    in use, so Pi-hole answers through the staging route.
+  - `/system/ntp/client/print` → `synchronized` to `1.pool.ntp.org`, with `0-3.pool.ntp.org`
+    configured.
+  - `/user/print where name=homeassistant` → group `ha`, `192.168.20.60/32`.
+- **DHCP script:** dry-run `No syntax errors found`, then `/import mikrotik6-p2-dhcp.rsc` →
+  `mikrotik6-p2-dhcp: done`. Verified:
+  - `/ip/dhcp-server/print` → `dhcp-home`/`dhcp-iot`/`dhcp-services` all `X` (disabled),
+    on `vlan-users`/`vlan-iot`/`vlan-services`, with pools `pool-*`, `1d`. mikrotik6 hands out
+    no leases.
+  - `/ip/dhcp-server/network/print` → `192.168.10/20/30.0/24`, gateways `.1`, DNS
+    `192.168.20.40`, domain `home.ledcom.fr`. `caps-manager` is not in the default columns,
+    so it gets checked in the next export.
+  - `/ip/dhcp-server/lease/print count-only` → `15`.
+  - `/ip/pool/print` → three pools `.100-.200`, 101 addresses each, 0 used.
+- **Firewall script:** `/import mikrotik6-p2-firewall.rsc` → `mikrotik6-p2-firewall: done`
+  (no dry-run). Results:
+  - `/ip/firewall/filter/print count-only where dynamic=no` → `89`. The staging rules are gone.
+  - `/ip/firewall/address-list/print count-only where dynamic=no` → `32`. `samsung-tv` holds
+    `.10.50` (wired) and `.10.51` (wifi).
+  - The NAT count was not printed.
+  - **`/ip/firewall/filter/print where invalid` → 88 of the 89 rules are `I - INVALID`.** The
+    only valid rule is the first one added, `defconf: accept established,related` (input).
+    Rules with no matchers at all, such as `Drop anything else!`, are invalid too, so this is
+    not a per-rule shape problem from the README list. It looks like the ruleset failed to load
+    from the second rule onwards. Per the README, an invalid rule is not enforced: until this
+    clears, the input chain on mikrotik6 effectively accepts everything. Exposure is limited,
+    because the WAN sits behind the Internet-Box NAT.
+  - **It was transient.** A later `/ip/firewall/filter/print where invalid` returned nothing,
+    and nothing was done in between (no toggle, no reboot). So this is the same transient
+    `I - INVALID` as the README lesson, but here it covered almost the whole ruleset right
+    after a bulk import, not just one rule.
+  - `/ip/firewall/nat/print count-only` → `2`. A **new** SSH login from the desktop
+    (`ssh admin@router6.home.ledcom.fr '/system/identity/print'` → `name: mikrotik6`) works
+    through the enforced input chain.
+- **CAPsMAN script:** `/import mikrotik6-p2-capsman.rsc` → `mikrotik6-p2-capsman: done`.
+  Verified:
+  - `/caps-man/manager/print` → `enabled: no`, `certificate:
+    cert_export_CAPsMAN-E48D8C196F30.p12_0`, `ca-certificate:
+    cert_export_CAPsMAN-CA-E48D8C196F30.p12_0`, `upgrade-policy: suggest-same-version`.
+  - Channels `ch1`/`ch6`/`ch11` at 2412/2437/2462, `2ghz-g/n`, no extension channel.
+  - Configurations `caps_config` (`LEDCOM`, VLAN 10, `ch1`), `caps_ch11` (`LEDCOM`, VLAN 10,
+    `ch11`) and `caps_iot` (`LEDCOM-IoT`, VLAN 30), all `wpa2-psk` on `bridge-main`. The
+    passphrases are not shown by `print`, so they get compared in the export diff.
+  - Manager interfaces: default `all` with `forbid=yes`, plus `bridge-main` and `vlan-users`.
+  - Provisioning: the `radio-mac=4C:5E:0C:91:51:99` rule first (master `caps_ch11`), then the
+    default rule (master `caps_config`), both with slave `caps_iot` and prefix `ap`.
+- **Cutover script:** `/import mikrotik6-p2-cutover.rsc` → `cutover and rollback stored, NOT
+  run`. `/system/script/print` shows `cutover` and `rollback`, both `policy=read,write,test`,
+  `run-count=0`, with the expected sources. `cutover` has no IPv6 steps yet.
+- **Secrets cleanup:** `/system/script/environment/remove [find where name~"^m6"]`. After it,
+  `environment/print` is empty, and `/file/print where name~"mikrotik6|secrets"` is empty, so
+  no secrets file is left on the router.
+- **SSH host key:** after `ssh-keygen -R router6.home.ledcom.fr`, the desktop sees RSA
+  `SHA256:kJz5o2qroNm0EiBQcz/hrxSAGUWAnd5rYfyJr+0x+ew`, and ssh reports it as "known by the
+  following other names" (3 existing `known_hosts` entries). So mikrotik6 now serves
+  mikrotik1's host key.
+- **Phase 2 exit check** (`dump-configs.sh` 16:28-16:29, both `/export hide-sensitive`
+  outputs normalized and diffed):
+  - `/ip firewall filter`: **identical, rule for rule, in the same order** (89 rules). That
+    means mikrotik1 already uses `samsung-tv` too.
+  - NAT, address lists (except the `mgmt` comments: mikrotik6 keeps the staging wording
+    without "post-renumber"), DHCP options, pools, networks (`caps-manager=192.168.10.1`
+    present), static leases, the WireGuard peer, the discover list, DNS, NTP, users and the
+    CAPsMAN channels, configurations and provisioning: identical apart from port names.
+  - Expected differences: port names (`ether2-master`/`ether6-master`/`sfp1`/`ether9`/
+    `ether10` → RB5009 names), every staged item `disabled=yes` (addresses, `wireguard1`, DHCP
+    servers), the three `staging` routes, `.10.6`, `poe-out=off`, and the CAPsMAN certificate
+    named explicitly where mikrotik1 has `auto`.
+  - Left out on purpose (the "do not port" row and the Phase 2 notes): `ipv6-migrate`, OSPF,
+    BGP template, `ovpn-server1` (disabled on mikrotik1), LTE APN, SMB, IPsec profile,
+    `wlan1`/local CAP, `detect-internet`, `sniffer`, the RB2011 `advertise=` lines.
+  - **Not ported yet: all of IPv6** (PD client, from-pool addresses, ND, the v6 address lists
+    and filter, the masquerade workaround). mikrotik6 has `disable-ipv6=yes`. This waits for
+    Phase 2b's second-prefix test.
+
+## mikrotik5 phone login verified; one-shot mikrotik6 scripts deleted (2026-10-19)
+
+- Guillaume logged in to mikrotik5 (`.10.5`) from the phone over WireGuard, and it works. All
+  five older devices are now verified from the phone.
+- Deleted the one-shot scripts that have run and been verified (see the entries above):
+  `mikrotik6-base.rsc`, `mikrotik6-p2-system.rsc`, `mikrotik6-p2-dhcp.rsc`,
+  `mikrotik6-p2-firewall.rsc`, `mikrotik6-p2-capsman.rsc`. Kept
+  `mikrotik6-p2-cutover.rsc`, because it gets the IPv6 steps after Phase 2b, and
+  `mikrotik6-p2-secrets.rsc.example`, as the template for re-running a secrets import.
+- Finding 36's functional check is deferred until the migration is complete (`config-review.md`).

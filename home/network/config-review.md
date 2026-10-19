@@ -155,7 +155,49 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 
-Nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
+### 36. `services2users: HA -> Samsung TV` still points at the TV's old address (medium, fix prepared 2026-10-19)
+
+Found 2026-10-19 reading the 12:55 export of mikrotik1 for the RB5009 port. The IPv4 rule is
+`chain=services2users src-address=192.168.20.60 dst-address=192.168.10.195 dst-port=8002`.
+Since 2026-10-08 the TV has static reservations at **`.10.50`** (wired, `4C:57:39:2C:20:2C`,
+mikrotik5 `ether2`) and **`.10.51`** (wifi, `F4:DD:06:2A:FB:AF`). Nothing holds `.10.195` any
+more, so HA → TV over IPv4 falls through to `services2users: deny everything else`. The IPv6
+mirror matches by port only, so it is not affected.
+
+Home Assistant's side may be stale too: in the last HA config sync (2026-09-29, before the
+move), the `samsungtv` config entry (`65" The Frame`) has `host: 192.168.10.195`,
+`mac: f4:dd:06:2a:fb:af`. Run `home/home-assistant/scripts/sync.sh` and check whether HA picked
+up the new address.
+
+**Fix (on mikrotik1, does not touch the management path):** match both TV addresses with an
+address-list, so that the rule works whichever interface the TV uses.
+```
+/ip/firewall/address-list/add list=samsung-tv address=192.168.10.50 comment="TV (Samsung), wired"
+/ip/firewall/address-list/add list=samsung-tv address=192.168.10.51 comment="TV (Samsung), wifi"
+/ip/firewall/filter/set [find comment="services2users: HA -> Samsung TV"] !dst-address dst-address-list=samsung-tv
+/ip/firewall/filter/print where comment="services2users: HA -> Samsung TV"
+```
+Then check that the print shows `dst-address-list=samsung-tv` and **no** `dst-address`
+(README: property clears are unreliable). Verify it with HA's Samsung TV integration working, or
+with the rule's counters increasing. If HA still has `.10.195`, update the integration's host.
+The mikrotik6 port (`scripts/mikrotik6-p2-firewall.rsc`) already has the fixed form.
+
+**Status 2026-10-19:** the fix is applied on mikrotik1 and ported to mikrotik6 (Phase 2 export
+diff: identical rule). The functional check (HA → TV working, counters, HA's host) is
+**deferred until the RB5009 migration is complete**, by Guillaume's decision.
+
+### S18. mikrotik5 has no time zone set (low, fix prepared 2026-10-19)
+
+The 2026-10-19 12:55 dump shows `time-zone-name: manual`, `gmt-offset: +00:00` on mikrotik5.
+Every other device is on `Europe/Zurich`. The clock is correct in UTC, but its log timestamps
+are two hours behind the rest of the fleet, which makes log correlation wrong.
+```
+/system/clock/set time-zone-name=Europe/Zurich
+/system/clock/print
+```
+Verify: `time-zone-name: Europe/Zurich`, `gmt-offset: +02:00` (CEST).
+
+Apart from 36 and S18 above (both 2026-10-19), nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and

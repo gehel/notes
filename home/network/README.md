@@ -353,6 +353,11 @@ outstanding test is a host plugged directly into the Internet-Box.
     `disabled=yes`, `connection-state=new` present where applicable. If `iot2services` is
     touched again and shows this, it's expected, not a new problem — re-print and verify
     functionally as always, but don't spend time chasing it as if it were novel.
+  - **A bulk import can show it on almost the whole ruleset at once.** Right after
+    `mikrotik6-p2-firewall.rsc` added 89 rules (mikrotik6, 2026-10-19), 88 of them printed
+    `I - INVALID`, even matcher-less ones like `Drop anything else!`. Only the first rule added
+    was clean. A later print showed none invalid, with no action taken. Wait and re-print
+    before debugging.
 - **Clearing a property back to default/empty is trickier than it looks — three distinct
   failure modes found in one session.** `property=""` on an interface-typed field
   (`in-interface=`/`out-interface=`) is treated as an ambiguous wildcard match against every
