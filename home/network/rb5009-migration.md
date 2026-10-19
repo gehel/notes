@@ -1,12 +1,13 @@
 # RB5009 edge migration — replacing mikrotik1
 
-**Status: plan written 2026-10-09. Phase 1 done 2026-10-19, except step 4 (reserve the WAN
-lease `192.168.1.103` in the Internet-Box): RouterOS 7.24.5, `wireless` installed (B3
+**Status: plan written 2026-10-09. Phase 1 done 2026-10-19 (WAN lease `192.168.1.103`
+reserved in the Internet-Box): RouterOS 7.24.5, `wireless` installed (B3
 prerequisite met), base build applied and checked, mikrotik2 `ether18-slave-local` trunk
 carries VLANs 10/20/30, `.10.6` in `mgmt` on mikrotik1-5. Phase 2 done 2026-10-19 for
-IPv4, CAPsMAN and WireGuard: export diff clean, `cutover`/`rollback` stored, not run. IPv6
-not ported yet (`disable-ipv6=yes` on mikrotik6), and `cutover` has no IPv6 steps. See
-`changelog.md`. Next: Phase 2b.** The `RB5009UPr+S+IN` has arrived.
+IPv4, CAPsMAN and WireGuard: export diff clean, `cutover`/`rollback` stored, not run. See
+`changelog.md`. Phase 2b done 2026-10-19: IPv4 through mikrotik6 tested, and the box
+delegates mikrotik6 its own `2a02:1210:7621:9ac0::/58`. IPv6 is ported, with addresses and
+ND disabled until `cutover`. Next: Phase 3 (cutover).** The `RB5009UPr+S+IN` has arrived.
 It is **mikrotik6**, hostname `router6.home.ledcom.fr` → `192.168.10.6` (needs a Pi-hole local
 DNS record, the same way as `router1`-`router5`). It is already in `dump-configs.sh` and
 `dump-logs.sh`.
@@ -19,6 +20,36 @@ the smallest possible disruption to the house. Hardware rationale is in
 Built from the 2026-10-09 11:00 dumps (`dumps/mikrotik1-main.txt` etc.). mikrotik1's config
 had not changed since 2026-10-08 except the two TV reservations (`.10.50`/`.10.51`).
 **Regenerate the dumps again right before Phase 1 and Phase 3.** They are snapshots.
+
+## Resume here (written 2026-10-19 end of day)
+
+Next session starts at **Phase 3**. Everything before it is done and verified (see
+`changelog.md`, 2026-10-19 entries). State to rely on:
+
+- mikrotik6 is up at `.10.6` (`ssh admin@router6.home.ledcom.fr`, key auth, now serving
+  **mikrotik1's SSH host key**). WAN `ether1` = `192.168.1.103`, reserved in the box.
+- Staged and **disabled**: `.10.1`/`.20.1`/`.30.1`/`.50.1`, the three IPv6 from-pool
+  addresses, the three ND entries, `wireguard1`, the three DHCP servers, and the CAPsMAN manager.
+  Live: the 89 IPv4 filter rules, 2 NAT, 28 IPv6 filter rules, NAT66, the DHCPv6-PD client
+  (bound to `2a02:1210:7621:9ac0::/58`) and the three `staging` routes.
+- `/system/script` `cutover` and `rollback` are stored, `run-count=0`. Their source is in
+  `scripts/mikrotik6-p2-cutover.rsc` (delete it once Phase 3 is verified).
+- Secrets globals are removed from mikrotik6. The filled secrets file is only in `backups/`.
+
+Before starting Phase 3:
+1. **Re-check that the prefix is still `9ac0::/58`** (`/ipv6/dhcp-client/print detail` on
+   mikrotik6). If it changed, recompute the 5 EUI-64 entries in `/ipv6/firewall/address-list`
+   (see the Phase 2b result below and `ipv6.md`) before the cutover.
+2. Check that mikrotik6 still has `192.168.1.103` (`/ip/dhcp-client/print`).
+3. Run `dump-configs.sh` and `dump-logs.sh` (step 0).
+4. Have ready: an SSH session to `router6` from the desktop, the phone on mobile data with
+   WireGuard, and the box UI open at **`https://192.168.1.1`** (the hostname hangs over IPv6,
+   see the README lesson).
+
+Then follow the Phase 3 table and the 12 checks, and log each one in `changelog.md` as it
+happens. Parked until after the migration: finding 36's functional check (HA → TV, and HA's
+`samsungtv` host still at `.10.195`), in `config-review.md`. Phase 4 (clean-up) follows
+within the week.
 
 ## Strategy in one paragraph
 
@@ -281,7 +312,12 @@ Possible only because the RB5009 has its own WAN. Everyone else stays on mikroti
   default gateway to `192.168.10.6` by hand (e.g. `ip route replace default via
   192.168.10.6`). Check: browsing works; `curl -4 ifconfig.co` shows the same public IP
   (same box); the counters of `dispatch: users -> internet` and `users2internet` on the RB5009
-  increase. DNS still goes to Pi-hole through mikrotik1, which is fine.
+  increase.
+  - **Add routes for the internal subnets first, through mikrotik1**: `ip route add
+    192.168.20.0/24 via 192.168.10.1` (and `.30.0/24`, `.50.0/24`). Without them, DNS to
+    Pi-hole goes to mikrotik6, which sends it on to mikrotik1 out of `vlan-users`, the same
+    interface it came in on. No `dispatch` rule matches `vlan-users` → `vlan-users`, so
+    `Drop all other forward traffic` drops it, and name resolution breaks during the test.
   - Only internet-bound traffic can be tested this way. Traffic from the test host to
     `services`/`iot` would leave through the RB5009, but replies would come back through
     mikrotik1 (each host's gateway). That is asymmetric routing, so it does not prove anything.
@@ -291,6 +327,12 @@ Possible only because the RB5009 has its own WAN. Everyone else stays on mikroti
   from this pool, so `ha-v6`/`pihole-v6`/`octoprint-v6`/`http-outbound-v6` **have to be
   recomputed for it** (Phase 2 can already prepare them). If the box refuses a second
   delegation, plan for `/ipv6/dhcp-client/release` on mikrotik1 and the RB5009 at cutover.
+  - **Result 2026-10-19: the box does delegate a second prefix.** mikrotik6 (DUID
+    `…38327a44b445`) got `2a02:1210:7621:9ac0::/58`, and mikrotik1 kept `9a40::/58`. The
+    DHCPv6 client only started after a reboot, because RouterOS asks for one after
+    `accept-router-advertisements` changes. `scripts/mikrotik6-p2b-ipv6-addr.rsc` holds the
+    recomputed EUI-64 lists (`9ac1`/`9ac2`) and the disabled from-pool addresses, and
+    `cutover` enables them together with the ND entries. No `release` is needed at cutover.
 - **WireGuard and HA HTTPS cannot be tested before cutover**: they need the DMZ.
 
 Reset the test laptop's gateway afterwards (`dhclient` or reconnect).
@@ -306,7 +348,7 @@ tests.
 | 0 | Regenerate `dumps/` and `logs/`. Note both routers' `/ipv6/dhcp-client/print detail` prefixes | Baseline |
 | 1 | **Unplug mikrotik1 `ether2-master`** (the trunk to mikrotik2) | LAN loses its gateway. **Outage starts.** The RB5009 stays reachable at `.10.6` |
 | 2 | On the RB5009 (`ssh router6`): `/system/script/run cutover` | `.10.1`/`.20.1`/`.30.1` are now on the RB5009. Routing, DNS and internet come back (the RB5009's WAN is already up). **Outage ends** |
-| 3 | **Internet-Box UI: change the DMZ host** from mikrotik1 (`192.168.1.101`) to the RB5009's WAN address | HA HTTPS from outside and the WireGuard VPN come back |
+| 3 | **Internet-Box UI (`https://192.168.1.1`): change the DMZ host** from mikrotik1 (`192.168.1.101`) to the RB5009 (`192.168.1.103`) | HA HTTPS from outside and the WireGuard VPN come back |
 | 4 | **Move mikrotik4**: mikrotik1 `ether10` → RB5009 `ether3` | mikrotik4 reboots on PoE (~1 min outage on that AP only) |
 | 5 | On mikrotik1: `/interface/wireguard/disable wireguard1` | No second router answering for the phone's tunnel |
 | 6 | Leave mikrotik1 powered, on the box's WAN, off the LAN | Rollback stays one cable away |
@@ -341,11 +383,15 @@ leases are on the long side (1d), so clients ride through either direction.
    dump: good canaries).
 7. mikrotik4: `/interface/ethernet/monitor ether3 once` shows **`rate: 1Gbps`** (it was
    capped at 100M on `ether10`), and PoE is delivering. Clients on `LEDCOM` 5 GHz.
-8. IPv6: `/ipv6/dhcp-client/print detail` is `bound` with a prefix. If it stays `searching`,
-   run `/ipv6/dhcp-client/release` (the same issue happened on 2026-09-11). **The prefix will
-   differ from mikrotik1's** (a different DHCPv6 client), so the EUI-64 address-lists
-   must already have been recomputed in Phase 2b, or recompute them now: `ha-v6`, `pihole-v6`, `octoprint-v6` and `http-outbound-v6` exactly as on
-   2026-09-11 (`ipv6.md`). Then check `ping -6` from a client on each VLAN.
+8. IPv6: `/ipv6/dhcp-client/print detail` is `bound` with `2a02:1210:7621:9ac0::/58` (the
+   Phase 2b delegation; the EUI-64 lists are already computed for it). If the prefix has
+   changed, recompute `ha-v6`, `pihole-v6`, `octoprint-v6` and `http-outbound-v6`
+   (`ipv6.md`). `/ipv6/address/print` shows `9ac0::1`, `9ac1::1` and `9ac2::1`, not `X`.
+   Then check `ping -6` from a client on each VLAN. Clients keep their old `9a4x` SLAAC
+   addresses until mikrotik1's prefix lifetimes run out. Traffic from those still works
+   (NAT66 masquerades whatever leaves `ether1`), but it does not match the new
+   EUI-64 lists. So Pi-hole's own upstream IPv6 DNS, and HA's IPv6 to the printer and TV,
+   can fail until the old addresses expire. Those paths fall back to IPv4.
 9. External, from the phone on mobile data: `https://home.ledcom.fr` (HA, via
    `dst-nat` + `internet2services`), then the **WireGuard tunnel**: connect it, then reach
    `192.168.10.1` and the internet through it.

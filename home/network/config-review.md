@@ -186,18 +186,7 @@ The mikrotik6 port (`scripts/mikrotik6-p2-firewall.rsc`) already has the fixed f
 diff: identical rule). The functional check (HA → TV working, counters, HA's host) is
 **deferred until the RB5009 migration is complete**, by Guillaume's decision.
 
-### S18. mikrotik5 has no time zone set (low, fix prepared 2026-10-19)
-
-The 2026-10-19 12:55 dump shows `time-zone-name: manual`, `gmt-offset: +00:00` on mikrotik5.
-Every other device is on `Europe/Zurich`. The clock is correct in UTC, but its log timestamps
-are two hours behind the rest of the fleet, which makes log correlation wrong.
-```
-/system/clock/set time-zone-name=Europe/Zurich
-/system/clock/print
-```
-Verify: `time-zone-name: Europe/Zurich`, `gmt-offset: +02:00` (CEST).
-
-Apart from 36 and S18 above (both 2026-10-19), nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
+Apart from 36 above (2026-10-19), nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and

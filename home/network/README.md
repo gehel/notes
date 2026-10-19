@@ -5,15 +5,14 @@ Written so that work can resume from these documents alone, with no session hist
 
 ## Start here
 
-**Active work: [vlan.md](vlan.md) — VLAN segmentation, Phases 0-5 done.** Three VLANs
-(`users`/`services`/`iot`), full renumber, real firewall policy — all live. The forward chain
-is reorganized into one jump-chain per VLAN pair, log-reviewed and tightened, with the old
-rules fully cleaned up. **Finding 21 (IPv6 up to the same shape on every VLAN) closed
-2026-09-11** — all three phases verified end-to-end from real clients; see `ipv6.md` and
-`changelog.md`, including a real bug found along the way (IPv6 privacy extensions on
-Pi-hole/OctoPrint silently broke the EUI-64 address pinning, fixed per-host). IotaWatt is back
-online and verified the same day, and now has its own `iotawatt` internet exception for
-firmware updates. Read `vlan.md`'s **Status** section first.
+**Active work: [rb5009-migration.md](rb5009-migration.md) — replacing mikrotik1 (RB2011) with
+mikrotik6 (RB5009) as the edge router.** Phases 0, 1, 2 and 2b are done (2026-10-19): mikrotik6
+holds mikrotik1's whole config (IPv4, IPv6 with its own delegated `/58`, firewall, DHCP,
+CAPsMAN, WireGuard), staged disabled, with `cutover`/`rollback` scripts stored on it. **Next:
+Phase 3, the cutover.** Read that file's **Status** and **Resume here** first.
+
+The previous active work, [vlan.md](vlan.md) (VLAN segmentation, Phases 0-5, and finding 21's
+IPv6), is complete. See its **Status** section and `changelog.md`.
 
 ## The network as it stands
 
@@ -24,8 +23,9 @@ firmware updates. Read `vlan.md`'s **Status** section first.
 | mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
 | mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; baseline hardening (S17) closed 2026-10-07 |
 | mikrotik5 | RB750Gr3 (hEX) | `192.168.10.5` | L2 switch, living room, 5×GE — built and hardened 2026-10-08, in place and connected to mikrotik2 the same day; TV wired to `ether2`. Uplink was capped at 100Mbps on the original patch cable, root-caused and confirmed fixable with a spare cable (full Gigabit) — permanent replacement still needed |
+| mikrotik6 | RB5009UPr+S+IN | `192.168.10.6` (WAN `192.168.1.103`, reserved) | future edge router, staged; becomes mikrotik1/`.10.1` at cutover, see `rb5009-migration.md` |
 
-All on RouterOS 7.24.2. Three VLANs: `users` (`192.168.10.0/24`), `services`
+All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with `scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
 Upstream is a Swisscom Internet-Box at `192.168.1.1` (mikrotik1 holds `192.168.1.101` on
 `ether1`, as the box's DMZ host) doing a second layer of NAT. The old box was at `10.1.1.1`.
@@ -508,3 +508,10 @@ outstanding test is a host plugged directly into the Internet-Box.
   gave no error, the argument was just silently absent. Don't use this idiom for anything
   beyond the console/a top-level script's own body; duplicate the logic per call site instead
   of parameterizing it.
+- **The Internet-Box web UI hangs over IPv6; use `https://192.168.1.1`.** Seen 2026-10-19:
+  `internetbox.swisscom.ch` resolves to `192.168.1.1` *and* `2a02:a90:400e::1`, so browsers
+  and curl try IPv6 first. Over IPv6 the TLS handshake completes, then the box never answers
+  the HTTP request (`curl -6` timed out after 15 s with 0 bytes). `curl -4` returned
+  `HTTP/1.1 200 OK` right away. It is not a routing or MTU problem: the multi-KB certificate
+  chain came back fine. The AAAA is in public DNS (`dig AAAA @1.1.1.1` and Pi-hole both
+  return it), so this happens from any client with IPv6.

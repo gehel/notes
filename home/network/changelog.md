@@ -3126,3 +3126,101 @@ HA's Samsung TV integration works). HA's own host setting may still be `.10.195`
   `mikrotik6-p2-cutover.rsc`, because it gets the IPv6 steps after Phase 2b, and
   `mikrotik6-p2-secrets.rsc.example`, as the template for re-running a secrets import.
 - Finding 36's functional check is deferred until the migration is complete (`config-review.md`).
+
+## S18 closed: mikrotik5 time zone set to Europe/Zurich (2026-10-19)
+
+The 12:55 dump showed `time-zone-name: manual`, `gmt-offset: +00:00` on mikrotik5, so its log
+timestamps were two hours behind the rest of the fleet. Applied:
+```
+/system/clock/set time-zone-name=Europe/Zurich
+```
+Verified by `/system/clock/print` at 16:36 → `time: 16:36:19`, `time-zone-name:
+Europe/Zurich`, `gmt-offset: +02:00`, `dst-active: yes`, the same local time as the rest of
+the fleet.
+
+## mikrotik6 Phase 2b prepared (2026-10-19)
+
+- Wrote `scripts/mikrotik6-p2b-ipv6-pd.rsc`, generated from mikrotik1's 16:28 export. It
+  ports the `bad_ipv6` list (13 entries), all 28 IPv6 filter rules in order, and the NAT66
+  masquerade. It adds the 3 ND entries (all disabled) and the DHCPv6-PD client on `ether1`.
+  It sets `accept-router-advertisements-on=WAN`, so that mikrotik6 ignores mikrotik1's RAs on
+  `vlan-users`, and turns IPv6 on last. The from-pool addresses and the EUI-64 lists wait for
+  the delegated prefix. Not run yet.
+- Fixed the runbook's Phase 2b IPv4 test. "DNS still goes through mikrotik1" was wrong: with
+  the test host's default route set to `.10.6`, Pi-hole traffic hairpins on mikrotik6
+  (`vlan-users` → `vlan-users`) and hits `Drop all other forward traffic`. The test host now
+  needs explicit routes to 20/30/50.0/24 via `.10.1`.
+
+## mikrotik6 Phase 2b: IPv4 test passed, IPv6 PD script run (2026-10-19)
+
+- **IPv4 through mikrotik6, from the desktop (`.10.90`):** added routes to 20/30/50.0/24 via
+  `.10.1`, then `ip route replace default via 192.168.10.6`. Results:
+  - `ip route get 1.1.1.1` → `via 192.168.10.6 dev eno2`.
+  - `ping -c3 1.1.1.1` → 3/3, about 5.6 ms.
+  - `curl -4 ifconfig.co` → `178.192.223.49`, the usual public IP (same box).
+  - `curl -4 -sI https://www.wikipedia.org` → `HTTP/2 200`, so DNS through Pi-hole worked too.
+  - On mikrotik6, `dispatch: users -> internet` and `users2internet: internet` both showed
+    15 packets / 11 619 bytes.
+
+  The desktop routes were then reverted (Guillaume: "cleanup done").
+- **IPv6 PD script:** `/import mikrotik6-p2b-ipv6-pd.rsc` → `done`. Results:
+  - `/ipv6/settings/print` → `disable-ipv6: no`, `accept-router-advertisements: yes`,
+    `accept-router-advertisements-on: WAN`, with the note **"ipv6 accept router
+    advertisements configuration has changed, please restart device to apply settings"**.
+  - Filter: 28 rules. 27 of them showed `I - INVALID` right after the import (all except the
+    first). They cleared on a later print with no action, the same as the IPv4 bulk import.
+  - ND: all three entries `X` (disabled), `advertise-dns=no`, the default entry on
+    `vlan-users`.
+  - `/ipv6/dhcp-client/print detail` → **`status=stopped`**, and `/ipv6/pool` and
+    `/ipv6/route` are empty. The DHCPv6 client does not start until the reboot that
+    RouterOS asks for.
+  - mikrotik1's client is unaffected: `bound`, `prefix=2a02:1210:7621:9a40::/58`, server
+    `fe80::3a06:e6ff:fed9:c720`. The box delegates a **/58** to mikrotik1.
+  - The desktop's `ip -6 route show default` → only `via fe80::e68d:8cff:fe19:6f32`
+    (mikrotik1), so mikrotik6 sends no RAs on the LAN.
+- **After the reboot (IPv6 PD):**
+  - `/ipv6/settings/print` → the restart note is gone, `accept-router-advertisements-on: WAN`.
+  - `/ipv6/dhcp-client/print detail` → **`status=bound`**, server
+    `fe80::3a06:e6ff:fed9:c720` (the same as mikrotik1's),
+    **`prefix=2a02:1210:7621:9ac0::/58`**, 5h59m.
+  - `/ipv6/pool/print` → `swisscom-pd`, `9ac0::/58`, slices of `/64`.
+  - `/ipv6/route/print` → two default routes via the box's link-local on `ether1` (DHCP and
+    SLAAC), the connected `9a00::/64` on `ether1` (the box's own LAN prefix), and the
+    delegated `/58`. No route via `vlan-users`, so mikrotik1's RAs are ignored as intended.
+  - ND: all three still `X`. Filter: `count-only where invalid` → `0`.
+  - The desktop's `ip -6 route show default` → still only mikrotik1's link-local.
+
+  **The Internet-Box delegates a second /58**, to a different DHCPv6 DUID. So no `release` is
+  needed at cutover.
+- Wrote `scripts/mikrotik6-p2b-ipv6-addr.rsc`:
+  - The EUI-64 lists are recomputed for `9ac0::/58`: `pihole-v6` and `ha-v6`/
+    `http-outbound-v6` on `9ac1`, and `octoprint-v6` ×2 on `9ac2`.
+  - It adds the three from-pool addresses `disabled=yes` with the comment `production, enabled
+    by cutover`.
+
+  `mikrotik6-p2-cutover.rsc` now also enables the IPv6 addresses and `/ipv6/nd` (rollback:
+  the reverse). Not run yet.
+- **IPv6 address script and cutover re-import:** `/import mikrotik6-p2b-ipv6-addr.rsc` →
+  `done`, then `/import mikrotik6-p2-cutover.rsc` → `stored, NOT run`. Verified:
+  - `/ipv6/firewall/address-list/print where !(list=bad_ipv6)` → 5 entries:
+    `pihole-v6 …9ac1:ba27:ebff:fe83:7948`, `ha-v6` and `http-outbound-v6`
+    `…9ac1:da3a:ddff:fe31:e059`, `octoprint-v6 …9ac2:e65f:1ff:feda:2295` and `…2296`.
+  - `/ipv6/address/print` → `::1`, `::1:0:0:0:1` and `::2:0:0:0:1`, `from-pool=swisscom-pd`
+    on `vlan-users`/`vlan-services`/`vlan-iot`, all `X`, `advertise=yes`, comment
+    `production, enabled by cutover`. The WAN SLAAC address on `ether1` is
+    `2a02:1210:7621:9a00:3a32:7aff:fe44:b445/64`.
+  - `/system/script/print` → `cutover` has the `/ipv6/address/enable` and `/ipv6/nd/enable`
+    lines, and `rollback` the matching disables, `run-count=0`.
+
+  **Phase 2b is complete.** WireGuard and HA HTTPS can only be tested after cutover.
+- Deleted `mikrotik6-p2b-ipv6-pd.rsc` and `mikrotik6-p2b-ipv6-addr.rsc` (run and verified,
+  content in the entries above). `mikrotik6-p2-cutover.rsc` stays until Phase 3 has run.
+
+## Phase 1 step 4: mikrotik6 WAN lease reserved in the Internet-Box (2026-10-19)
+
+- Guillaume reserved `192.168.1.103` for mikrotik6 (`ether1`, `38:32:7A:44:B4:45`) in the
+  Internet-Box DHCP settings. This is the address that the DMZ points to at Phase 3 step 3.
+  **Phase 1 is now complete.**
+- Getting to the box's UI: `internetbox.swisscom.ch` hung in the browser. `curl -4` → `HTTP/1.1
+  200 OK`, `curl -6` (`2a02:a90:400e::1`) → TLS handshake OK, then a timeout with 0 bytes, and
+  `https://192.168.1.1` → `200`. The UI is reachable over IPv4 only (README lesson added).
