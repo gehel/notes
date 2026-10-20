@@ -3926,3 +3926,20 @@ switch-livingroom.
 `/interface/bridge/host/print where on-interface~"ether4|ether5"` → **`00:09:B0:E0:F3:F6`**
 (VLAN 10) on `ether4`, Onkyo's OUI. Router `/ip/dhcp-server/lease/print where dynamic` → it holds
 dynamic `.10.104`, host name `am335x-opt` (same as the wifi interface).
+
+**Router, wired reservation for the amp:**
+```
+/ip/dhcp-server/lease/make-static [find mac-address=00:09:B0:E0:F3:F6]
+/ip/dhcp-server/lease/set [find mac-address=00:09:B0:E0:F3:F6] address=192.168.10.52 comment="Amp (Onkyo), wired to switch-livingroom ether4"
+```
+`/ip/dhcp-server/lease/print where comment~"Amp|Nintendo|TV"` → all six living-room
+reservations static: `.50` TV wired (`waiting`/`never`), `.51` TV wifi, `.52` amp wired, `.53` amp
+wifi, `.54` console wired, `.55` console wifi (all bound). The amp's wired lease was last seen
+4m12s ago, before the change: it holds `.10.104` until it renews.
+
+**switch-livingroom:** `/interface/ethernet/set ether4 comment="Amp (Onkyo), wired"` → `print`
+shows the three port comments. `ether2` and `ether4` are `RS`. **`ether3` is `S` only: no link
+at that moment.** The console probably dropped its LAN link when it went to sleep in its dock.
+
+**Diagrams:** amp and console drawn as wired on switch-livingroom (`ether4`, `ether3`) in
+`network.dot` and `network-addressing.nwdiag`, re-rendered.

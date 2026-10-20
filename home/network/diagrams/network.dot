@@ -55,7 +55,9 @@ digraph home {
   desktop [label="desktop \"during\"\n192.168.10.90  ·  wired, mgmt list" fillcolor="#dcfce7"];
   printer [label="Printer NPI52346B\n192.168.10.110  ·  wired\nusers, reverted from services\n(mDNS repeater defect, see vlan.md)" fillcolor="#dcfce7"];
   tv      [label="Samsung TV\n192.168.10.50 wired  ·  .51 wifi" fillcolor="#dcfce7"];
-  users_wifi [label="users wireless clients\nlaptop \"gimli\" (.92), phones,\nNintendo Switch, Onkyo amp, others\n(DHCP lease review pending)" fillcolor="#dcfce7" style="rounded,filled,dashed"];
+  amp     [label="Onkyo amp\n192.168.10.52 wired  ·  .53 wifi" fillcolor="#dcfce7"];
+  nintendo [label="Nintendo Switch\n192.168.10.54 wired  ·  .55 wifi" fillcolor="#dcfce7"];
+  users_wifi [label="users wireless clients\nlaptop \"gimli\" (.92), phones, others\n(DHCP lease review pending)" fillcolor="#dcfce7" style="rounded,filled,dashed"];
 
   // ------------------------------------------------------- vlan-services (20)
   pihole  [label="Pi-hole\n192.168.20.40  ·  wired\nDNS for the whole LAN" fillcolor="#ede9fe"];
@@ -84,7 +86,9 @@ digraph home {
   swoffice -> printer [label="  ether2", style=solid];
   swoffice -> inj     [style=dotted];
   inj -> sxt          [style=dotted label="  passive PoE"];
-  swliving -> tv      [label="  ether2", style=solid];
+  swliving -> tv      [label="  ether2, 100M", style=solid];
+  swliving -> nintendo [label="  ether3", style=solid];
+  swliving -> amp     [label="  ether4, 100M", style=solid];
 
   swmain -> pihole    [label="  ether23, VLAN 20\n  verified", style=solid];
   swmain -> ha        [label="  ether21, VLAN 20\n  verified", style=solid];
@@ -97,7 +101,7 @@ digraph home {
   capmain -> fan       [style=dashed];
 
   { rank=same; router; rb2011; }
-  { rank=same; desktop; printer; tv; users_wifi; }
+  { rank=same; desktop; printer; tv; amp; nintendo; users_wifi; }
   { rank=same; pihole; ha; }
   { rank=same; octoprint; iotawatt; kidslight; fan; }
 }

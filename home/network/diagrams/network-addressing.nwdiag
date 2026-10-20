@@ -35,8 +35,10 @@ nwdiag {
       desktop [address = ".90", label = "desktop \"during\"\nwired, in mgmt"];
       gimli   [address = ".92", label = "laptop \"gimli\"\nwireless, in mgmt"];
       tv      [address = ".50 .51", label = "Samsung TV\nwired + wifi"];
+      amp     [address = ".52 .53", label = "Onkyo amp\nwired + wifi"];
+      nintendo [address = ".54 .55", label = "Nintendo Switch\nwired + wifi"];
       printer [address = ".110", label = "Printer\nwired, reverted\nfrom services"];
-      other   [address = "pool", label = "phones, Switch,\nOnkyo amp, others\nwireless"];
+      other   [address = "pool", label = "phones, others\nwireless"];
     }
   }
 
