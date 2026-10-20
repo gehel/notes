@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Measure latency-under-load, and locate WHERE the queue is.
 #
-# Run from the desktop (192.168.1.90, wired). Nothing here changes any config.
+# Run from the desktop (192.168.10.90, wired). Nothing here changes any config.
 #
 #   ./measure-bufferbloat.sh
 #
 # Three ping targets are probed simultaneously in every phase, which is the
 # point of the exercise:
 #
-#   192.168.1.1  mikrotik1        - the LAN side of the router
-#   10.1.1.1     Internet-Box     - one hop further, across the router's WAN port
-#   1.1.1.1      the internet     - everything beyond
+#   192.168.10.1  edge router     - the LAN side of the router (mikrotik6 since 2026-10-20)
+#   192.168.1.1   Internet-Box    - one hop further, across the router's WAN port
+#   1.1.1.1       the internet    - everything beyond
 #
 # Latency that rises only on the far target is a queue you do not control.
 # Latency that rises at the Internet-Box is a queue in the router's WAN egress.
@@ -23,7 +23,7 @@ STREAMS="${STREAMS:-4}"   # parallel transfers used to fill the link
 DOWN_URL="https://fsn1-speed.hetzner.com/1GB.bin"
 UP_URL="https://speed.cloudflare.com/__up"
 
-TARGETS=("192.168.1.1:mikrotik1" "10.1.1.1:internet-box" "1.1.1.1:internet")
+TARGETS=("192.168.10.1:edge-router" "192.168.1.1:internet-box" "1.1.1.1:internet")
 IFACE="${IFACE:-$(ip route show default | awk '/default/{print $5; exit}')}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; kill $(jobs -p) 2>/dev/null' EXIT

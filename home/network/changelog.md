@@ -3403,3 +3403,20 @@ HA's MikroTik integration now covers all five devices: router1 (mikrotik6) and m
 content is in the 2026-10-19 Phase 2 entries above, and the `cutover`/`rollback` scripts are
 still stored on mikrotik6 (`/system/script`). `rollback` stays usable for the rest of the
 rollback week.
+
+## Fleet scripts updated for mikrotik6 as the edge router (2026-10-20)
+
+`rb5009-migration.md` Phase 4. `router1.home.ledcom.fr` (`.10.1`) reaches mikrotik6 since
+the cutover, so the fleet scripts reached the same box twice:
+- `dump-configs.sh`, `dump-logs.sh`: dropped `mikrotik1-main:router1`. mikrotik6 stays as
+  `mikrotik6:router6`, so the edge router's output is now `dumps/mikrotik6.txt` and
+  `logs/mikrotik6.txt`. `dump-logs.sh`'s closing grep hint points at `mikrotik6.txt`.
+- `fetch-backups.sh`: dropped `mikrotik1-main`, added `mikrotik6:router6` (it was missing).
+- `upgrade-fleet.sh`: dropped `router1`, and moved `router6` from first (staging) to last
+  (edge router). The order is now mikrotik4, 3, 5, 2, 6.
+- `measure-bufferbloat.sh`: the targets were still pre-VLAN (`192.168.1.1` as the router,
+  `10.1.1.1` as the old box). They are now `192.168.10.1` (edge router), `192.168.1.1`
+  (Internet-Box) and `1.1.1.1`, and the desktop address in the comment is `192.168.10.90`.
+
+`bash -n` passes on every script. Not yet run against the devices: the next
+`dump-logs.sh` (check 11) is the first real run.

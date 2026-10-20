@@ -27,13 +27,12 @@
 # to confirm what the real latest version actually is -- this script
 # trusts the version you pass it, it doesn't look it up itself.
 #
-# Order matters and is deliberate: mikrotik6 first while it is still in
-# staging (rb5009-migration.md; nothing depends on it yet -- move it to
-# the end, in mikrotik1's place, once it is the edge router), then
-# mikrotik4 (low stakes -- it's standalone, nothing else depends on it,
+# Order matters and is deliberate: mikrotik4 first (low stakes -- it's standalone, nothing else depends on it,
 # and it's usually already current, making it a cheap smoke test of the
 # skip-logic below), then the switches
 # (smaller blast radius if something goes wrong), edge router last.
+# mikrotik1 (RB2011) left the LAN at the 2026-10-20 cutover, and router1
+# now reaches mikrotik6, so it is listed once, as router6.
 #
 # A device already on the target version is skipped (safe to re-run after
 # a partial failure without re-upgrading devices that already succeeded).
@@ -47,12 +46,11 @@ fi
 EXPECTED_VERSION="$1"
 
 HOSTS=(
-    "router6.home.ledcom.fr"   # mikrotik6 -- RB5009, staging, not in production yet
     "router4.home.ledcom.fr"   # mikrotik4 -- cAP XL ac, standalone
     "router3.home.ledcom.fr"   # mikrotik3 -- office switch
     "router5.home.ledcom.fr"   # mikrotik5 -- living room switch
     "router2.home.ledcom.fr"   # mikrotik2 -- main switch
-    "router1.home.ledcom.fr"   # mikrotik1 -- edge router, last on purpose
+    "router6.home.ledcom.fr"   # mikrotik6 -- RB5009, edge router, last on purpose
 )
 SSH_USER="admin"
 SSH_OPTS=(-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)

@@ -45,9 +45,9 @@ Still to do from Phase 3: **check 11, second half.** Run `dump-logs.sh` on 2026-
 review it. Expected noise: HA → `192.168.10.195:8002` (finding 36, parked) and none of the
 old-prefix `9a41` IPv6 drops, which should have expired by then.
 
-Phase 4 next. **The fleet scripts first**: `dump-configs.sh` and `dump-logs.sh` now hit
-mikrotik6 twice (as `mikrotik1-main` via `router1` and as `mikrotik6`). After that, the doc
-updates and the throughput re-baseline. Parked: finding 36's functional check (HA → TV, HA's
+Phase 4 next. The fleet scripts are done (2026-10-20, mikrotik6 is listed once, as
+`router6`, and its output files are `mikrotik6.txt`). Next: the doc updates and the
+throughput re-baseline. Parked: finding 36's functional check (HA → TV, HA's
 `samsungtv` host still at `.10.195`).
 
 ## Strategy in one paragraph
@@ -413,11 +413,13 @@ Log the cutover in `changelog.md` **as it happens**, with the output of each che
       port plan for mikrotik1, `firewall.md` regenerated from the new dump (rule order should
       be unchanged), `wifi.md` (mikrotik4 now on Gigabit + PoE, `ether10` trade-off
       resolved), `config-review.md`'s hardware section, both diagrams (`network.dot`,
-      `network-addressing.nwdiag`). Fleet scripts: `router1.home.ledcom.fr` (`.10.1`) now
-      reaches **mikrotik6**, so `dump-configs.sh`/`dump-logs.sh`/`fetch-backups.sh`/
-      `upgrade-fleet.sh` would hit the same box twice. Drop the `mikrotik1-main` entry
-      (or point it at mikrotik1's new address once it is redeployed), and add `router6` to
-      `fetch-backups.sh` and `upgrade-fleet.sh` (edge router last).
+      `network-addressing.nwdiag`).
+- [x] ~~Fleet scripts.~~ Done 2026-10-20: `mikrotik1-main`/`router1` dropped from
+      `dump-configs.sh`, `dump-logs.sh`, `fetch-backups.sh` and `upgrade-fleet.sh` (`router1`
+      now reaches mikrotik6). `router6` added to `fetch-backups.sh`, and it moved to last
+      in `upgrade-fleet.sh` as the edge router. `measure-bufferbloat.sh` now targets
+      `192.168.10.1`/`192.168.1.1`, not the pre-VLAN `192.168.1.1`/`10.1.1.1`. Add mikrotik1
+      back under its new address if it is redeployed.
 - [ ] Re-baseline throughput (`measure-bufferbloat.sh`, `performance.md`): the box was
       CPU-bound at ~30-50% for 111 Mbps. Also re-check `cpu-load` under real load with the
       WireGuard tunnel up (`vpn.md`'s open item).

@@ -21,8 +21,10 @@ trap 'rm -rf "$CTLDIR"' EXIT
 # name:hostname — edit as devices come and go. Hostnames resolve via Pi-hole's
 # local DNS records (router<N>.home.ledcom.fr), not IP addresses, so a
 # renumber doesn't require editing this list.
+# mikrotik1 (RB2011) is off the LAN since the 2026-10-20 cutover, and
+# router1 (.10.1) now reaches mikrotik6, so mikrotik1 has no entry here.
+# Add it back under its new address if it is redeployed.
 HOSTS=(
-  "mikrotik1-main:router1.home.ledcom.fr"
   "mikrotik2-switch:router2.home.ledcom.fr"
   "mikrotik3-office:router3.home.ledcom.fr"
   "mikrotik4:router4.home.ledcom.fr"
