@@ -3573,3 +3573,30 @@ Verified:
 **Finding 39's immediate part and the router side of finding 37 are applied.** 37 closes once a
 `dump-logs.sh` shows no `dhcp-lease` script error. For 38, HA's lease (`.20.60`) was last seen
 3h22m before this print. Check it again after T1.
+
+**switch-livingroom (mikrotik5), completed.** The two failed parts were redone so that they
+skip the dynamic dummy rule:
+```
+/system/identity/set name=switch-livingroom
+/ip/firewall/filter/remove [find comment~"defconf"]
+/ipv6/firewall/filter/remove [find comment~"defconf"]
+/ipv6/firewall/address-list/remove [find list=bad_ipv6]
+```
+Verified:
+- Identity `switch-livingroom`.
+- `/ip/firewall/filter/print` → only the dynamic dummy rule and the six input rules
+  (established, drop invalid, ICMP, `mgmt hosts to device`, `HA API access`, `drop everything
+  else`).
+- `/ipv6/firewall/filter/print` → only the dynamic dummy rule.
+- `/ipv6/firewall/address-list/print` → empty.
+
+S19 (opened earlier today): mikrotik5 still carried defconf from its build. That was
+`192.168.88.1/24` with a `router.lan` DNS name, `allow-remote-requests=yes`, USB media/SMB
+auto-sharing, six router-style forward rules, the IPv6 firewall on an IPv6-disabled device, and
+an empty `WAN` list. S20: leftovers and old names on mikrotik2/3/4. That was the
+`mikrotik5-uplink-trunk` script, disabled factory DHCP clients, `router` static DNS, RouterOS
+6-era port names, a CAP target on mikrotik3, and `post-renumber` comments.
+
+**S19 is closed** (with the earlier part of this entry: one address, no static DNS,
+`allow-remote-requests: no`, both sharing settings `no`, no `WAN` list). **S20 is closed**:
+mikrotik2 and mikrotik3 were verified above, and mikrotik4's `mgmt` comments too.

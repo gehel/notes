@@ -1,29 +1,24 @@
 # Config review — home MikroTik network
 
 Covers every MikroTik on the network. Round 1 reviewed 2026-09-03, round 2 from 2026-09-04,
-re-verified 2026-09-05 against [dumps/](dumps/), collected with
-[dump-configs.sh](scripts/dump-configs.sh). **Round 3: 2026-09-08**, against fresh dumps taken
-after Phase 4's firewall policy went live — the post-migration pass this document had flagged as
-still needed. **Addresses below updated 2026-09-07** after the
-VLAN segmentation renumber (Phases 0-2, see [vlan.md](vlan.md) / [changelog.md](changelog.md)) —
-everything else in this document is a historical record from the original review dates and
-intentionally still shows the addresses as they were *at the time each finding was made*.
+round 3 on 2026-09-08 (after the VLAN firewall went live). **Round 4: 2026-10-20**, after the
+RB5009 cutover, against the 11:43-11:46 dumps: findings 37-39, S19 and S20, plus the device
+rename. Findings keep the device names and addresses they had when they were written. The
+README maps the old `mikrotik<N>` names to the new ones.
 
-The live firewall ruleset itself — every chain, in order, on all three devices — is documented
-separately in [firewall.md](firewall.md), regenerated 2026-09-10 after Phase 5's jump-chain
-reorg (see [changelog.md](changelog.md)) — a dump refresh, not a new full review round.
+The live firewall ruleset itself (every chain, in order) is documented separately in
+[firewall.md](firewall.md).
 
 | Device | Model | Address | Role |
 |---|---|---|---|
-| mikrotik1 | RB2011UiAS-2HnD — 128 MB, 600 MHz single-core MIPS | `192.168.10.1/24`; `ether1` dynamic from the Internet-Box | edge router, CAPsMAN manager |
-| mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2/24` static on `bridge-local` | L2 bridge, 24 ports + SFP; CAPsMAN CAP (wlan1) |
-| mikrotik3 | RB750Gr3 (hEX) — 256 MB, 880 MHz quad-core | `192.168.10.3/24` static on `bridge` | L2 bridge, 5 ports |
-| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` | Standalone `wifi-qcom-ac`, dual-band, not CAPsMAN-managed — built 2026-10-06/07, see `wifi.md`; not yet reviewed (see below) |
-| mikrotik5 | RB750Gr3 (hEX), same as mikrotik3 | `192.168.10.5/24` static on `bridge` | L2 bridge, 5 ports — living-room switch, built and hardened 2026-10-08, in place and connected to mikrotik2's `ether12-slave-local` the same day, see `vlan.md` |
+| router (was mikrotik6) | RB5009UPr+S+IN, arm64, 4 cores | `192.168.10.1/24` (and `.10.6` until the rollback week ends); `ether1` `192.168.1.103` from the Internet-Box | edge router, firewall, DHCP, NTP, CAPsMAN manager, WireGuard |
+| switch-main (was mikrotik2) | CRS125-24G-1S-2HnD | `192.168.10.2/24` on `vlan-users` | L2 bridge, 24 ports + SFP; CAPsMAN CAP (wlan1) |
+| switch-office (was mikrotik3) | RB750Gr3 (hEX) | `192.168.10.3/24` on `vlan-users` | L2 bridge, 5 ports, office |
+| ap-main (was mikrotik4) | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4/24` on `bridge` | Standalone `wifi-qcom-ac`, dual-band, not CAPsMAN-managed (`wifi.md`) |
+| switch-livingroom (was mikrotik5) | RB750Gr3 (hEX) | `192.168.10.5/24` on `bridge` | L2 bridge, 5 ports, living room |
 
-All three reachable devices run RouterOS 7.24.2, current as of 2026-09-08 (RouterBOOT current
-on mikrotik1 too — re-checked this round). `bridge-fon` (`192.168.2.0/24`) no longer exists —
-removed in Phase 0 of the VLAN work.
+All five run RouterOS 7.24.5 (stable, 2026-10-19). The RB2011 (was mikrotik1) is off the LAN
+since 2026-10-20 and is not reviewed any more.
 
 **Open findings only.** A finding leaves this document once it has been fixed **and**
 verified against device output — never when it is reported done. Closed items move to
@@ -218,7 +213,7 @@ lease was bound), look at its lease in `/ip/dhcp-server/lease/print detail`. If
 `expires-after` is close to 1 day, the unicast renewal worked and this finding closes as
 not-a-problem. If it is below 12 h, add the same accept for `vlan-services` and `vlan-iot`.
 
-### 39. Migration and naming leftovers on the router (low, fix prepared 2026-10-20)
+### 39. Migration and naming leftovers on the router (low, partly fixed 2026-10-20)
 
 Found 2026-10-20 in the post-cutover review of mikrotik6. None of these break anything. They
 make the config say things that are no longer true.
@@ -237,7 +232,8 @@ make the config say things that are no longer true.
 - A static DNS name `router` → `192.168.10.1` (no domain). A factory leftover. Clients resolve
   through Pi-hole.
 
-**Fix:** typed commands, together with the device rename (see below). Logged in `changelog.md`.
+**Fixed 2026-10-20** with the device rename, verified (`changelog.md`, "Device rename and review
+clean-up applied"). What keeps this finding open is the deferred part below.
 
 Deferred to the end of the rollback week (not before 2026-10-27, after mikrotik1 is wiped),
 because `rollback` matches on them: the `cutover`/`rollback` scripts, the `production, enabled
@@ -256,54 +252,6 @@ Also removed with the rename:
   randomization) has a reservation and no comment. Decision 2026-10-20: remove the
   reservation now, and review all DHCP leases later.
 
-### S19. mikrotik5 still carries factory-default config from its build (medium, fix prepared 2026-10-20)
-
-Found 2026-10-20. The 2026-10-08 build hardened mikrotik5 (S1-S17 baseline) but left parts
-of the RouterOS defconf in place:
-- `192.168.88.1/24` (comment `defconf`) on `bridge`, the same bridge as the management address,
-  and a static DNS `router.lan` → `192.168.88.1`.
-- `/ip/dns allow-remote-requests=yes`. The input firewall limits it to `mgmt` hosts, so this is
-  not an open resolver (S4's concern), but a switch has no reason to answer DNS.
-- `/disk/settings auto-media-sharing=yes auto-smb-sharing=yes`: any USB disk plugged in gets
-  shared over SMB and media on `bridge`.
-- Six defconf `chain=forward` rules (ipsec, fasttrack, "drop all from WAN not DSTNATed"). The
-  bridge does not use the IP firewall, so they never match. mikrotik3 has no equivalent.
-- The whole defconf IPv6 firewall and `bad_ipv6` list, on a device with `disable-ipv6=yes`.
-- An empty `WAN` interface list.
-
-**Fix:** typed commands with the rename. Verify: one address
-(`192.168.10.5/24`), no static DNS, `allow-remote-requests: no`, both sharing settings `no`, no
-forward or IPv6 rules.
-
-### S20. Leftovers and old names on mikrotik2, mikrotik3 and mikrotik4 (low, fix prepared 2026-10-20)
-
-Found 2026-10-20.
-- **mikrotik2:**
-  - The `mikrotik5-uplink-trunk` system script, a one-shot from the 2026-10-08 mikrotik5 build.
-  - A disabled factory DHCP client on `bridge-local`.
-  - A static DNS `router` → `192.168.10.2`.
-  - RouterOS 6-era port names (`ether1-gateway`, `ether2-master-local`,
-    `etherN-slave-local`, `sfp1-gateway`) from before the switch chip config moved into the
-    bridge. Decision 2026-10-20: rename them to the default names, with comments on the ports
-    in use.
-- **mikrotik3:**
-  - A disabled factory DHCP client.
-  - An empty `WAN` list (S16 moved `ether1` out of it).
-  - `/interface/wireless/cap caps-man-addresses=192.168.10.1` on a device with no radio.
-- **All three:**
-  - `mgmt` comments that say `post-renumber` (mikrotik2, mikrotik3) or name the old numbers.
-  - `HA API access (post-renumber)` (mikrotik2, mikrotik3).
-
-**Fix:** typed commands with the rename.
-
-Checked and left as they are:
-- mikrotik2's `ether1`/`sfp1` bridge ports have `hw=no`. The speed test through
-  `ether1` gave 865/858 Mbps (2026-10-20), so it costs nothing measurable.
-- mikrotik4's bridge VLAN entry, while `vlan-filtering` is off. It documents the intent and does
-  nothing.
-- mikrotik2, mikrotik3 and mikrotik4 have plain `chain=forward` rules (established/related/
-  invalid). These are as inert as mikrotik5's, but harmless.
-
 ### Device rename (decided 2026-10-20)
 
 Each device gets a role-location name, used for the RouterOS identity, the Pi-hole hostname
@@ -320,7 +268,7 @@ names, and the README maps old to new.
 | mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
 | mikrotik1 (RB2011) | named when redeployed | — |
 
-Apart from 36-39 and S19-S20 above, nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
+Apart from 36-39 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
@@ -345,6 +293,13 @@ See [vlan.md](vlan.md) for the design, decisions and migration plan, and
 VLAN migration didn't need and hasn't touched.
 
 ### Hardware for the edge role
+
+**Done 2026-10-20: the RB5009UPr+S+IN is the edge router (`router`)**, see
+[rb5009-migration.md](rb5009-migration.md). Outcome against the reasoning below: download went
+from 181 to 865 Mbps on the same path (the RB2011 was the limit after all, see
+[performance.md](performance.md)), and ap-main gets PoE and 1 Gbps on `ether3`. Point 4 did not
+happen: the box still has no bridge mode, so NAT66 stays. QoS is still not needed until the
+bufferbloat re-measurement says otherwise. The text below is the decision record as written.
 
 **Recommendation (2026-09-04): RB5009UG+S+IN. Corrected 2026-10-07: ordered
 RB5009UPr+S+IN instead — the PoE-out variant.** The original recommendation missed that
@@ -398,15 +353,13 @@ handoff is ever fibre, is already satisfied by the RB5009's SFP+ cage (reasoning
 
 ### Redeployment: nothing is retired
 
-| Device | New role |
+| Device | Role (2026-10-20) |
 |---|---|
-| RB5009 (new) | edge router |
-| CRS125-24G (mikrotik2) | main switch — real switch chip, hardware VLAN support, right device to carry tagged VLANs at line rate |
-| RB2011UiAS (current main) | media switch by the TV, or CAPsMAN-only box |
-| RB750Gr3 (mikrotik3) | office switch, unchanged |
-
-This likely removes the need to buy the CSS610-8G-2S+IN suggested earlier for the media
-segment — the RB2011 can fill that role.
+| RB5009UPr+S+IN (`router`) | edge router |
+| CRS125-24G (`switch-main`) | main switch: real switch chip, carries the tagged VLANs |
+| RB750Gr3 (`switch-office`) | office switch |
+| RB750Gr3 (`switch-livingroom`) | living-room switch (bought 2026-10-07; this took the "media switch by the TV" role planned for the RB2011) |
+| RB2011UiAS (old mikrotik1) | open: rollback path until about 2026-10-27, then wiped. Options are a workshop switch or a spare, see `rb5009-migration.md` Phase 5. Its 2.4 GHz radio was flapping, so not a CAP without investigation |
 
 ### Physical wiring: patch panel and room runs
 
