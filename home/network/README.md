@@ -9,7 +9,7 @@ Written so that work can resume from these documents alone, with no session hist
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
 mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
 **Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
-(37-40 as of 2026-10-20).
+(37-39 and S21 as of 2026-10-20).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -94,12 +94,12 @@ review, then the end of the rollback week (wipe the RB2011, then remove `cutover
 the `.10.6` address and the `router<N>` aliases). The throughput re-baseline is done.
 
 **Findings** — [config-review.md](config-review.md):
-- 40: the router's log buffer held under an hour. Fixed 2026-10-20 (36 closed, `memory-lines`
-  raised); verify with the next `dump-logs.sh`.
+- S21: switch-main and switch-office accept tagged frames for any VLAN (`ingress-filtering=no`).
+  Fix prepared.
 - 37: the lease-script race. Fixed 2026-10-20; closes when a log dump shows no `dhcp-lease`
   script error.
-- 38: DHCP renewals on `services`/`iot` may be dropped by `chain=input`. Check one lease after
-  T1.
+- 38: DHCP renewals on `services`/`iot` may be dropped by `chain=input`. Fix prepared (two
+  accepts).
 - 39: the router's leftovers. The deferred part runs at the end of the rollback week.
 - Older, informational: 22 (`connection-state=new` on `chain=input`), 25 (`home.ledcom.fr`
   DDNS, reported fixed, not reconciled), 28 and 33 (conntrack drops, need more data).

@@ -3761,3 +3761,29 @@ the profiler itself**. kernel 1.6%. The WireGuard crypto (`chacha_neon`, `poly13
 since the cutover), last handshake 1m35s. (`print stats` is not a valid option on this menu;
 my mistake.) Reading: the tunnel costs nothing measurable on the RB5009. That closes
 `vpn.md`'s open CPU check, with the caveat that the phone's throughput number is missing.
+
+## Review pass on the 16:51 dumps; finding 40 closed (2026-10-20)
+
+**Finding 40 (router log buffer under an hour) is closed.** `logs/router.txt` at 16:51 holds
+**1010 lines from 15:26:05**. That is more than the old 1000-line cap, so `memory-lines=20000`
+(set at 16:20:30, `log action changed` in the same log) is in effect. The 992 firewall lines are
+all `.10.195` drops from before 16:15:36. **Since HA's TV change, not a single firewall drop
+in 35 minutes.** The log can now cover the night for check 11.
+
+Configs: the exports match the 16:16 ones, except the router's lease churn. switch-livingroom is
+off with the TV (`UNREACHABLE`, normal). No lease-script error (finding 37 still waits for
+overlapping events).
+
+Opened **S21**: switch-main and switch-office have `ingress-filtering=no` on every port, so a
+host on an access port can inject frames tagged for another VLAN (one way). The router has it on.
+Prepared commands for **finding 38** (DHCP accepts for `vlan-services`/`vlan-iot`).
+
+Checked and left as they are:
+- SSH `password-authentication=yes` on the router, switch-main and switch-office was kept on
+  purpose as a fallback (S14, `changelog.md`). Not re-raised.
+- `bogons` has `10.0.0.0/8`, `192.168.0.0/16` and `224.0.0.0/4` disabled, as in the forum
+  script it came from. `192.168.0.0/16` must stay off (the LAN). Enabling `10.0.0.0/8` would
+  gain almost nothing.
+- `www` (plain-HTTP WebFig) stays enabled; it is part of the parked TLS question.
+- The router's CAPsMAN interfaces are still named `ap-MikroTik-Switch-1*`. Forcing a
+  re-provision to rename them would drop wifi clients (IotaWatt risk), for a cosmetic gain.

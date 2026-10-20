@@ -182,6 +182,16 @@ lease was bound), look at its lease in `/ip/dhcp-server/lease/print detail`. If
 `expires-after` is close to 1 day, the unicast renewal worked and this finding closes as
 not-a-problem. If it is below 12 h, add the same accept for `vlan-services` and `vlan-iot`.
 
+**Fix prepared 2026-10-20** (cheaper than waiting for T1, and harmless if renewals already
+work): add the two missing accepts next to the existing one.
+```
+/ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-services comment="DHCP server (vlan-services)" place-before=[find comment="services: NTP from gateway"]
+/ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-iot comment="DHCP server (vlan-iot)" place-before=[find comment="services: NTP from gateway"]
+/ip/firewall/filter/print where chain=input
+```
+Verify: both rules sit right after `DHCP server (vlan-users)`. After the next T1 of a services/iot
+client, their counters are above zero.
+
 ### 39. Migration and naming leftovers on the router (low, partly fixed 2026-10-20)
 
 Found 2026-10-20 in the post-cutover review of mikrotik6. None of these break anything. They
@@ -221,32 +231,35 @@ Also removed with the rename:
   randomization) has a reservation and no comment. Decision 2026-10-20: remove the
   reservation now, and review all DHCP leases later.
 
-### 40. The router's log buffer holds under an hour, so a next-day log review is impossible (medium, fix applied 2026-10-20, to verify)
+### S21. switch-main and switch-office accept tagged frames for any VLAN on every port (low-medium, fix prepared 2026-10-20)
 
-Found 2026-10-20 in the 15:26 `dump-logs.sh`. `logs/router.txt` has 1005 lines covering only
-14:39:33-15:26:03, and 932 of them are a single repeated drop: finding 36's HA → `192.168.10.195:8002`,
-logged by `services2users: deny everything else` 20 times a minute (HA retries every 15 s, and
-each retry is 5 SYNs). `/system/logging` uses the default `memory` action, which keeps
-1000 lines. So the buffer rotates in about 50 minutes, and anything else is pushed out within
-the hour. Phase 3 check 11 ("run `dump-logs.sh` the next day") cannot work like this, and
-neither can the routine firewall log review in the README.
+Found 2026-10-20 in the 16:51 dumps. Every bridge port on switch-main (26) and switch-office (5)
+has `ingress-filtering=no` and `frame-types=admit-all` (the bridges themselves too). With
+ingress filtering off, a frame that arrives **tagged** with a VLAN the port is not a member of is
+still accepted into that VLAN. So a host on an access port can inject frames straight into
+another VLAN at layer 2, bypassing the router's firewall. For example, OctoPrint on switch-main
+`ether24` (`iot`) could tag frames with VLAN 20 and reach HA's and Pi-hole's segment, or any
+`users` port could reach `services`/`iot`. Egress still respects membership, so the replies do
+not come back on the access port: it is a one-way injection (UDP, broadcasts), not a full
+session. That limits it, but it is still a policy bypass.
 
-**Fix, two parts:**
-1. Stop the noise at its source: point HA's `samsungtv` integration at the TV's current address
-   (`.10.50` wired or `.10.51` wifi). That is finding 36's open half. It removes ~1200 lines an
-   hour.
-2. Give the buffer room. The RB5009 has 858 MiB free; 20 000 lines is a few MB:
-   ```
-   /system/logging/action/set [find name=memory] memory-lines=20000
-   /system/logging/action/print
-   ```
-   The memory log is still lost on reboot, which is acceptable for review. Writing to flash
-   (`disk` action) would survive reboots, but at the cost of flash wear. Not proposed.
+The router does it right: every `bridge-main` port has `ingress-filtering=yes`. Since VLAN 30
+left `ether3` on 2026-10-20, ap-main (whose own bridge has `vlan-filtering=no` on purpose,
+`wifi.md`) can only deliver VLAN 10 into the router. switch-livingroom's ports were created
+with the RouterOS 7 default (`ingress-filtering=yes`); confirm on the next dump taken while the
+TV is on.
 
-**Applied 2026-10-20:** HA's `samsungtv` host changed to `.10.51` (finding 36, closed), and
-`memory-lines=20000` (verified with `/system/logging/action/print`). **To verify:** the next
-`dump-logs.sh` covers several hours (or the whole time since the last reboot) with no
-`.10.195` drops.
+**Fix:** turn on ingress filtering on the Ethernet/SFP ports. switch-main's `wlan1` is left
+alone: CAPsMAN forwarding means it carries no traffic locally, and it is not a VLAN 10 member, so
+filtering it could only cause surprises. The commands, switch-office first (only the desktop and
+printer are behind it), then switch-main:
+```
+:foreach i in=[/interface/bridge/port/find] do={:if ([/interface/bridge/port/get $i interface]~"^(ether|sfp)") do={/interface/bridge/port/set $i ingress-filtering=yes}}
+/interface/bridge/port/print detail
+```
+Verify: every `ether*`/`sfp*` port shows `ingress-filtering=yes`. Then check that the trunks still
+carry all three VLANs: DNS from a `users` host (VLAN 20 via the router), the HA web UI, the
+printer, OctoPrint's web UI, and switch-main's CAP still in `/caps-man/remote-cap/print`.
 
 ### Device rename (decided 2026-10-20)
 
@@ -264,7 +277,7 @@ names, and the README maps old to new.
 | mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
 | mikrotik1 (RB2011) | named when redeployed | — |
 
-Apart from 37-40 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
+Apart from 37-39 and S21 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
