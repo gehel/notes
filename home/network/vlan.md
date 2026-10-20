@@ -166,7 +166,7 @@ names in Pi-hole). Naming: the wired interface gets the plain name, the wifi int
 |---|---|---|
 | TV (Samsung) | `.10.50` `tv` (`4C:57:39:2C:20:2C`) | `.10.51` `tv-wifi` (`F4:DD:06:2A:FB:AF`) |
 | Amp (Onkyo) | `.10.52` `amp` (MAC to read from switch-livingroom's host table) | `.10.53` `amp-wifi` (`00:09:B0:B6:A9:69`) |
-| Nintendo Switch | `.10.54` `nintendo` (MAC to read from the host table) | `.10.55` `nintendo-wifi` (`BC:CE:25:5E:7F:8A`, Nintendo's OUI, likely) |
+| Nintendo Switch | `.10.54` `nintendo` (`BC:CE:25:64:E2:C5`, switch-livingroom `ether3`) | `.10.55` `nintendo-wifi` (`BC:CE:25:5E:7F:8A`) |
 
 All under `.home.ledcom.fr`. The router's `dhcp-to-dns` lease names (`Samsung`, `am335x-opt`)
 still exist next to these; they come from the devices' own hostnames.

@@ -3871,3 +3871,30 @@ DNS entries were re-added. The `on-error={}` fix works.
 
 **Router log since 16:16: no firewall drops at all.** Finding 38: no renewals from
 `services`/`iot` yet to show in the new rules' counters.
+
+## Living-room reservations: wifi interfaces, Nintendo wired MAC found (2026-10-20, evening)
+
+**Router, wifi reservations for the amp and the console:**
+```
+/ip/dhcp-server/lease/make-static [find mac-address=00:09:B0:B6:A9:69]
+/ip/dhcp-server/lease/set [find mac-address=00:09:B0:B6:A9:69] address=192.168.10.53 comment="Amp (Onkyo), wifi"
+/ip/dhcp-server/lease/make-static [find mac-address=BC:CE:25:5E:7F:8A]
+/ip/dhcp-server/lease/set [find mac-address=BC:CE:25:5E:7F:8A] address=192.168.10.55 comment="Nintendo Switch, wifi"
+```
+`/ip/dhcp-server/lease/print` → both static and **already bound at their new addresses**:
+`.10.53` `00:09:B0:B6:A9:69` `am335x-opt` (was dynamic `.10.102`), `.10.55`
+`BC:CE:25:5E:7F:8A` (no host name). TV `.10.50` (wired) still `waiting`/`never`; TV `.10.51`
+(wifi) bound.
+
+**switch-livingroom**, with the TV, amp and console on:
+- `/interface/ethernet/monitor ether2,ether3,ether4 once` → `ether2` link-ok 100M (TV),
+  **`ether3` link-ok 1G**, `ether4` no-link.
+- `/interface/bridge/host/print` → on `ether2`: `4C:57:39:2C:20:2C` (TV wired, VLAN 10). On
+  `ether3`: **`BC:CE:25:64:E2:C5`** (VLAN 10). Nothing learned on `ether4`/`ether5`. The amp's
+  wifi MAC is seen via `ether1` (the trunk), as expected.
+- `BC:CE:25:64:E2:C5` holds the router's dynamic lease `.10.101` (bound). Same Nintendo OUI as
+  the console's wifi MAC. Guillaume confirms the console is cabled and set to wired: **this is the
+  Nintendo Switch's wired MAC, on `ether3`.**
+- Amp: cabled, but its network setting is still wifi. Its LAN port shows no link (Onkyo turns
+  the port off while wifi is selected). Wired MAC still unknown.
+- The TV's wired MAC is learned on `ether2`, but the TV takes no lease on it: it still uses wifi.
