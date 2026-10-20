@@ -5,208 +5,150 @@ Written so that work can resume from these documents alone, with no session hist
 
 ## Start here
 
-**Active work: [rb5009-migration.md](rb5009-migration.md) — replacing mikrotik1 (RB2011) with
-mikrotik6 (RB5009) as the edge router.** **Phase 3, the cutover, is done (2026-10-20): mikrotik6
-is the edge router** (`.10.1`, DMZ host, 865/858 Mbps). mikrotik1 is off the LAN, kept as the
-rollback path for a week. **Next: Phase 4 (clean-up), and the next-day `dump-logs.sh` review.**
-Read that file's **Status** and **Resume here** first. The device table below still describes
-mikrotik1 as the edge router until Phase 4's doc pass.
+**Active work: Phase 4 (clean-up) of [rb5009-migration.md](rb5009-migration.md).** The RB5009
+became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
+mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
+**Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
+(36-39 as of 2026-10-20).
 
-The previous active work, [vlan.md](vlan.md) (VLAN segmentation, Phases 0-5, and finding 21's
-IPv6), is complete. See its **Status** section and `changelog.md`.
+The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
+names:
+
+| Name (identity, `<name>.home.ledcom.fr`) | Was | Model |
+|---|---|---|
+| `router` | mikrotik6 (and mikrotik1's role) | RB5009UPr+S+IN |
+| `switch-main` | mikrotik2 | CRS125-24G-1S-2HnD |
+| `switch-office` | mikrotik3 | RB750Gr3 (hEX) |
+| `ap-main` | mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) |
+| `switch-livingroom` | mikrotik5 | RB750Gr3 (hEX) |
+| — | mikrotik1 | RB2011UiAS-2HnD, off the LAN, named when redeployed |
+
+The `router1`-`router6` Pi-hole records stay as aliases until 2026-10-27.
 
 ## The network as it stands
 
-| Device | Model | Address | Role |
-|---|---|---|---|
-| mikrotik1 | RB2011UiAS-2HnD | `192.168.10.1` | edge router, CAPsMAN manager, NAT44 + NAT66 |
-| mikrotik2 | CRS125-24G-1S-2HnD | `192.168.10.2` | L2 switch, 24×GE + SFP, CAPsMAN CAP |
-| mikrotik3 | RB750Gr3 (hEX) | `192.168.10.3` | L2 switch, office, 5×GE |
-| mikrotik4 | RBcAPGi-5acD2nD (cAP XL ac) | `192.168.10.4` | CAPsMAN CAP, dual-band — built 2026-10-06, see `wifi.md`; final location, powered from mikrotik1 `ether10`; baseline hardening (S17) closed 2026-10-07 |
-| mikrotik5 | RB750Gr3 (hEX) | `192.168.10.5` | L2 switch, living room, 5×GE — built and hardened 2026-10-08, in place and connected to mikrotik2 the same day; TV wired to `ether2`. Uplink was capped at 100Mbps on the original patch cable, root-caused and confirmed fixable with a spare cable (full Gigabit) — permanent replacement still needed |
-| mikrotik6 | RB5009UPr+S+IN | `192.168.10.6` (WAN `192.168.1.103`, reserved) | future edge router, staged; becomes mikrotik1/`.10.1` at cutover, see `rb5009-migration.md` |
+| Device | Address | Role |
+|---|---|---|
+| router | `192.168.10.1` (also `.10.6` until the rollback week ends); WAN `ether1` `192.168.1.103` | edge router: firewall, NAT44 + NAT66, DHCP, DNS forwarder, NTP, WireGuard (`192.168.50.1`), legacy CAPsMAN manager |
+| switch-main | `192.168.10.2` | L2 switch, 24×GE + SFP, VLAN trunks to router (`ether1`), switch-office (`ether16`) and switch-livingroom (`ether12`); Pi-hole, HA, OctoPrint wired; CAPsMAN CAP (2.4 GHz, `LEDCOM` + `LEDCOM-IoT`) |
+| switch-office | `192.168.10.3` | L2 switch, office, 5×GE: desktop, printer |
+| ap-main | `192.168.10.4` | standalone `wifi-qcom-ac` AP, 2.4 + 5 GHz, `LEDCOM` only; router `ether3`, 1 Gbps + PoE |
+| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. The uplink patch cable is a spare: buy a permanent replacement |
 
-All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with `scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
-(`192.168.20.0/24`), `iot` (`192.168.30.0/24`) — see [vlan.md](vlan.md) for the full design.
-Upstream is a Swisscom Internet-Box at `192.168.1.1` (mikrotik1 holds `192.168.1.101` on
-`ether1`, as the box's DMZ host) doing a second layer of NAT. The old box was at `10.1.1.1`.
+All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with
+`scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
+(`192.168.20.0/24`), `iot` (`192.168.30.0/24`), plus `wireguard1` (`192.168.50.0/24`) — see
+[vlan.md](vlan.md). Upstream is a Swisscom Internet-Box at `192.168.1.1` with no bridge mode:
+the router is its DMZ host, so IPv4 is double-NATed and IPv6 uses NAT66 on the delegated
+`2a02:1210:7621:9ac0::/58` (see [ipv6.md](ipv6.md)).
 
-**DNS and NTP are both fully self-contained as of 2026-09-10** — no LAN device should ever
-need to reach the public internet for either. Pi-hole (`192.168.20.40`) is every device's
-resolver; for anything it doesn't already know, it conditionally forwards to mikrotik1
-(`192.168.0.0/16` → `192.168.10.1`), which in turn maintains a live DNS entry
-(`<hostname>.home.ledcom.fr`, both directions — forward and reverse) for every currently-bound
-DHCP lease via a `lease-script` on all three DHCP servers. NTP works the same way: mikrotik1
-runs its own NTP server, `chain=input` accepts it from all three VLANs, and every device should
-be pointed at its own VLAN's gateway address for time (DHCP option 42 provides this but isn't
-reliably honored by every OS — see `README.md`'s hard-won lessons and `changelog.md`'s finding
-23 closure for why explicit configuration beat relying on it, at least for Pi-hole).
+**DNS and NTP are self-contained** — no LAN device needs the public internet for either.
+Pi-hole (`192.168.20.40`) is every device's resolver. For anything it doesn't know, it
+conditionally forwards to the router (`192.168.0.0/16` → `192.168.10.1`), which keeps a live
+`<hostname>.home.ledcom.fr` entry for every bound DHCP lease, via a `lease-script` on all three
+DHCP servers. NTP works the same way: the router runs an NTP server, `chain=input` accepts it
+from all three VLANs, and every device should use its own VLAN's gateway for time (DHCP option
+42 provides it but not every OS honors it, see finding 23's closure in `changelog.md`).
 
 Raw device output lives in [dumps/](dumps/), collected with
-[dump-configs.sh](scripts/dump-configs.sh). Regenerate it before any review — the files are a
-snapshot, not a source of truth.
+[dump-configs.sh](scripts/dump-configs.sh) (one `<name>.txt` per device). Regenerate it
+before any review — the files are a snapshot, not a source of truth.
 
-Firewall log evidence — the `log=yes` deny-all rules at the end of every Phase 5 jump chain,
-see [firewall.md](firewall.md) — lives in `logs/` (also gitignored), collected with
-[dump-logs.sh](scripts/dump-logs.sh) — since 2026-10-09 this collects the full log (all
-topics) from every MikroTik, one file per device; firewall entries are in the edge router's
-file. RouterOS's own log buffer is small and rotates, so run
-this regularly rather than only once something's already suspected.
+Logs live in `logs/` (gitignored), collected with [dump-logs.sh](scripts/dump-logs.sh): the
+full log of every device, one file each. Firewall entries (the `log=yes` deny-all rules at
+the end of every jump chain, see [firewall.md](firewall.md)) are in `logs/router.txt`.
+RouterOS's log buffer is small and rotates, so run this regularly.
 
 Pi-hole's own on-disk logs (no API token configured, so this reads straight off disk via
-rsync+sudo instead of the web UI's API) land in `logs/pihole/` (also gitignored), collected
-with [dump-pihole-logs.sh](scripts/dump-pihole-logs.sh). `pihole.log` is the per-query
-dnsmasq-style log (shows `from <client-ip>` on query lines); `FTL.log` is Pi-hole v6's own
-consolidated log (matches the web UI's Diagnosis/Messages view) but doesn't show the
-requesting client — check `pihole.log` when tracking down who's generating particular
-queries.
+rsync+sudo) land in `logs/pihole/`, collected with
+[dump-pihole-logs.sh](scripts/dump-pihole-logs.sh). `pihole.log` is the per-query log (shows
+`from <client-ip>`); `FTL.log` matches the web UI's Diagnosis view but doesn't show the client.
 
 ## Documents
 
 | File | What it holds |
 |---|---|
-| [vlan.md](vlan.md) | **Phases 0-5 done, finding 21 (IPv6) closed 2026-09-11.** VLAN design, device inventory, address plan, migration reference |
-| [wifi.md](wifi.md) | Wireless: the channel fix already applied, the 5 GHz plan, mikrotik4 build |
+| [rb5009-migration.md](rb5009-migration.md) | **Active.** Runbook for moving the edge role to the RB5009. Phases 0-3 done 2026-10-20, Phase 4 (clean-up) in progress |
 | [config-review.md](config-review.md) | Open findings and the hardware/architecture decisions |
-| [firewall.md](firewall.md) | Every live firewall rule, in evaluation order, on all three devices |
-| [changelog.md](changelog.md) | Every closed finding, with the output that verified it |
-| [network.md](network.md) | The two diagrams and how to regenerate them |
-| [performance.md](performance.md) | Throughput investigation — the MikroTik is not the cause |
-| [qos.md](qos.md) | Closed by measurement: there is no bufferbloat to fix |
+| [changelog.md](changelog.md) | Every change and closed finding, with the output that verified it |
+| [vlan.md](vlan.md) | VLAN design, device inventory, address plan, port plans (done 2026-09-11) |
+| [firewall.md](firewall.md) | Every live firewall rule on the router, in evaluation order |
+| [wifi.md](wifi.md) | Wireless: channels, ap-main's build, the 5 GHz and CAPsMAN plans |
 | [ipv6.md](ipv6.md) | IPv6 via DHCPv6-PD and the NAT66 workaround |
-| [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone — applied and verified 2026-09-22 |
-| [rb5009-migration.md](rb5009-migration.md) | **Next active work.** Runbook for moving the edge role from mikrotik1 to the RB5009UPr+S+IN — written 2026-10-09, not started |
+| [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone |
+| [network.md](network.md) | The two diagrams and how to regenerate them |
+| [performance.md](performance.md) | Throughput investigation — resolved 2026-10-20: the RB2011 was the limit |
+| [qos.md](qos.md) | Bufferbloat measurement (on the RB2011; to redo on the router) |
 
 Diagrams live in [diagrams/](diagrams/): [network.svg](diagrams/network.svg) is physical
-topology (Graphviz), [network-addressing.svg](diagrams/network-addressing.svg) is the VLAN
-address plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`; render with
-`dot` and [render-nwdiag.py](diagrams/render-nwdiag.py) respectively — see
-[network.md](network.md) for the exact commands.
+topology (Graphviz), [network-addressing.svg](diagrams/network-addressing.svg) is the address
+plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`; see
+[network.md](network.md) for the commands.
 
 ## Everything currently open
 
-**VLAN work** — [vlan.md](vlan.md). Phases 0-5 done, OctoPrint and IotaWatt both verified.
-Finding 21 (IPv6 for every VLAN) closed 2026-09-11. The "second laptop" from
-the device inventory is still
-unidentified.
+**RB5009 migration, Phase 4** — [rb5009-migration.md](rb5009-migration.md): the next-day log
+review, the throughput and bufferbloat re-baseline, the end of the rollback week (wipe the
+RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>` aliases).
 
-**Routine reviews, no urgency — good places to start a fresh session, not things that broke:**
-- Re-run `dump-logs.sh` and read through the mikrotik firewall log for anything else worth
-  tuning (silencing expected noise, like the ceiling fan 2026-09-11, or catching a real gap,
-  like Pi-hole's IPv6 DNS the same day). Last full pass: **2026-09-22** — covered
-  2026-09-17 through 2026-09-22, found three things: the finding-32 TCP/53-to-Pi-hole gap
-  (already fixed and closed the same day, see `changelog.md`), finding 28's connection-tracking
-  drop recurring for a third time (now in every log collection since 2026-09-13 — see
-  `config-review.md`, still needs someone with Home Assistant access to check its Nabu Casa
-  log), and a new one, finding 33: a short burst of Samsung-TV-to-Home-Assistant return traffic
-  also dropped as `connection-state:new`, same shape as finding 28 but a different path —
-  one episode so far, watch for recurrence.
-- Review Pi-hole's own query log to confirm DNS is working well for every device generally —
-  not chasing a specific known problem, just a health check. Not yet done as a general pass;
-  `dump-pihole-logs.sh` now exists for pulling `pihole.log`/`FTL.log` offline for this. One
-  specific thing already checked this way (2026-10-07): the `DNSMASQ_WARN` about hitting the
-  150-concurrent-query cap for `168.192.in-addr.arpa` PTR lookups — traced to Home Assistant
-  (`192.168.20.60`) doing a complete, sequential reverse-DNS sweep of its own `services`
-  subnet every hour (confirmed from a full day's `pihole.log`; see `changelog.md` — a first,
-  narrower sample pointed at the desktop instead and was wrong). Which HA-side mechanism
-  causes the sweep isn't identified yet — see `home/home-assistant`'s finding 17.
+**Findings** — [config-review.md](config-review.md):
+- 36: HA → Samsung TV. The router rule is fixed; HA's `samsungtv` integration may still point
+  at `.10.195`. Check it in HA.
+- 37: the lease-script race. Fixed 2026-10-20; closes when a log dump shows no `dhcp-lease`
+  script error.
+- 38: DHCP renewals on `services`/`iot` may be dropped by `chain=input`. Check one lease after
+  T1.
+- 39: the router's leftovers. The deferred part runs at the end of the rollback week.
+- Older, informational: 22 (`connection-state=new` on `chain=input`), 25 (`home.ledcom.fr`
+  DDNS, reported fixed, not reconciled), 28 and 33 (conntrack drops, need more data).
+
+**Routine reviews, no urgency — good places to start a fresh session:**
+- Re-run `dump-logs.sh` and read the router's firewall log for anything worth tuning. Last full
+  pass before the cutover: 2026-09-22.
+- Review all DHCP leases and reservations: name every known device, drop stale reservations
+  (decided 2026-10-20, when `.10.91` was removed unnamed).
+- Review Pi-hole's query log as a general health check (`dump-pihole-logs.sh`). One known item:
+  HA's hourly reverse-DNS sweep of its own subnet, see `home/home-assistant`'s finding 17.
 - Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had
-  (finding 21's `ha-v6` address-list) — never checked either way, since no
-  `services2users`-triggering traffic from HA has been observed in a log yet.
+  (finding 21's `ha-v6` address-list) — never checked.
 
 **Wireless** — [wifi.md](wifi.md).
-- **The cAP XL ac is now mikrotik4, built 2026-10-06/07.** Driver question resolved for real
-  this time: it needs `wifi-qcom-ac`, standalone — not legacy `wireless` (which looked like a
-  working fix, reporting `running-ap` on 5 GHz with full VHT rates, but never actually
-  transmitted anything; only caught by insisting on real client tests). Standalone means **not**
-  CAPsMAN-managed — mikrotik1 only has legacy `/caps-man`, which can't manage a `wifi-qcom-ac`
-  device, so this is Branch B, not A, until the RB5009 exists. Needed an unplanned `netinstall`
-  recovery along the way — see `wifi.md` for the full account. Final location: mikrotik1
-  `ether10` (not mikrotik3 — that plan was superseded; it still applies to the SXTsq).
-  **`LEDCOM-IoT` is not offered on this AP** — VLAN tagging for multi-SSID virtual interfaces is
-  confirmed unsupported on this hardware/driver combination, every documented mechanism
-  exhausted (see `wifi.md`); only plain `LEDCOM` is served, on both bands. SSH key auth added
-  for `admin`. **Baseline hardening (S17) closed 2026-10-07** — see `changelog.md`.
-- The SXTsq Lite2 (garden AP) has **no device number yet** — it was previously, incorrectly,
-  recorded as mikrotik4 with the cAP's MAC. Check its own label for its real MAC before building
-  it; see `wifi.md`.
-- Both 2.4 GHz-only original APs' TX power rose 16 -> 20 dBm as a side effect of the channel fix;
-  deliberately not adjusted yet.
-
-**Main router** — [config-review.md](config-review.md). Open findings: a minor
-`connection-state=new` inconsistency on `chain=input` (22, informational, no known impact),
-and finding 25 (`home.ledcom.fr` DNS staleness) — reported fixed 2026-09-22 via the Home
-Assistant Let's Encrypt add-on's Gandi DDNS (an expired API key, renewed), but this directly
-contradicts a 2026-09-11 investigation that ruled that exact mechanism out; not yet
-reconciled, see `config-review.md`. mikrotik4's full baseline pass (S17) closed 2026-10-07 —
-see `changelog.md`. mikrotik2/mikrotik3 have no open findings either as of the same review.
+- ap-main serves only `LEDCOM`: VLAN-tagged multi-SSID is unsupported on its hardware/driver.
+  `LEDCOM-IoT` is only on switch-main's 2.4 GHz radio.
+- ap-main under the new `/interface/wifi/capsman` on the router (target B3) is possible now, but
+  low value (`rb5009-migration.md` Phase 5).
+- The SXTsq Lite2 (garden AP) is not built and has no name yet. Check its own label for its real
+  MAC first; see `wifi.md`.
+- switch-main's 2.4 GHz TX power rose from 16 to 20 dBm as a side effect of the channel fix.
+  Deliberately not adjusted yet.
 
 **Hardware.**
-- Swisscom box replaced 2026-09-11 (10G-capable, no bridge mode, mikrotik1 set as its DMZ
-  host) — broke the HA HTTPS NAT rule and IPv6 delegation, both fixed same day, see
-  `changelog.md`. **RB5009UPr+S+IN** (the PoE-out variant — corrected 2026-10-07 from the
-  original `RB5009UG+S+IN` recommendation, which missed that mikrotik4 needs PoE from the edge
-  role) ordered for the edge role, still a separate, not-yet-arrived step — see
-  `config-review.md`'s hardware section for what the box swap did and didn't resolve.
-  **This also resolves the mikrotik4 uplink speed trade-off**: `ether10` is Fast-Ethernet-only
-  on mikrotik1 (confirmed 2026-10-07, a real hardware ceiling, not a bug — see `wifi.md`),
-  capping mikrotik4's link at 100M despite mikrotik4's own port being gigabit-capable. Every
-  `RB5009UPr+S+IN` port is Gigabit, so once it lands mikrotik4 gets both PoE and full Gigabit
-  from the same cable — no separate injector needed, no trade-off to make. **2026-10-07: the
-  wrong unit (`RB5009UG+S+IN`) arrived and was returned; the correct `RB5009UPr+S+IN` is
-  in transit, expected 2026-10-08.**
-  **Arrived; migration plan written 2026-10-09 — see [rb5009-migration.md](rb5009-migration.md).**
-  Not started.
-- Office PoE switch — **dropped 2026-10-06**, a PoE injector covers the SXTsq permanently, no
-  purchase needed. mikrotik3 stays in the office; see `config-review.md`'s hardware section.
-- Living room switch (second RB750Gr3/hEX, originally for the TV/Nintendo Switch/amp, all
-  wireless before this — see `config-review.md`) — **received 2026-10-07, built 2026-10-08,
-  moved to the living room and connected the same day.** Assigned mikrotik5, `192.168.10.5`,
-  built VLAN-aware (fleet consistency, Guillaume's call) despite not strictly needing it.
-  Config build verified on every device involved (mikrotik1-5) — see `vlan.md`'s "Living room
-  and workshop" section and `changelog.md`'s "mikrotik5 build" entry (2026-10-08), which also
-  records two real RouterOS scripting bugs found and fixed along the way (now in this file's
-  hard-won lessons below). TV is wired to `ether2`, confirmed working (verified `vlan-users`
-  DHCP lease). Nintendo Switch and amp still wireless.
-- **Living-room patch cable — root-caused 2026-10-08, replacement needed.** The
-  mikrotik2-mikrotik5 trunk's 100Mbps-instead-of-Gigabit cap (see `changelog.md`) turned out to
-  be a bad patch cable at the living-room end, not the in-wall run or either device's port —
-  confirmed by swapping in a spare cable, which immediately negotiated a full Gigabit link. A
-  permanent replacement is still needed; the spare isn't meant to stay in place.
-- Workshop still needs a switch too, VLAN-aware if it carries more than just `iot`.
+- Buy a permanent patch cable for the switch-livingroom uplink (the spare in place gives full
+  Gigabit; the original was capped at 100M).
+- The workshop still needs a switch, VLAN-aware if it carries more than `iot`. The RB2011 is a
+  candidate once wiped.
 
-**Backup internet (future idea, not yet designed).** Noted 2026-09-08: use a phone in
-access-point/tethering mode as a failover WAN on mikrotik1 if the Swisscom line goes down.
-Likely shape — a second `/ip/dhcp-client` on whatever interface reaches the phone's hotspot
-(wireless, or wired if tethered by USB/cable), plus `/tool/netwatch` or check-gateway-based
-distance/route metrics so mikrotik1 prefers the primary WAN and only fails over when it's
-actually down. Not scoped further than this — revisit before starting.
+**Backup internet (future idea, not yet designed).** Noted 2026-09-08: a phone in tethering mode
+as a failover WAN on the router — a second `/ip/dhcp-client` on the interface that reaches the
+phone, plus `/tool/netwatch` or check-gateway route distances so the primary WAN is preferred.
+Revisit before starting.
 
 **DNS-over-TLS from clients to Pi-hole (future idea, not yet designed).** Noted 2026-09-18:
-firewall logs show `users`/`iot` clients (most likely Android's "Private DNS: Automatic"
-opportunistic probe) attempting TCP/853 to Pi-hole (`192.168.20.40`), currently dropped by
-`users2services`/`iot2services`'s catch-all. **Checked same day: Pi-hole doesn't serve DoT** —
-its FTL resolver only speaks plain DNS; the existing 853 firewall exceptions
-(`services2internet`'s Pi-hole rule, `pihole-v6`) are for Pi-hole's own *outbound* upstream
-queries only, unrelated to this. Opening the firewall alone would do nothing but let the TCP
-SYN through to a closed TLS handshake. Needed first: a TLS-terminating layer in front of FTL
-(`stunnel`, `dnsdist`, or `cloudflared`, handing plaintext to FTL's `53`) on the Pi-hole host —
-not yet designed or scoped. Once that exists, the firewall side is a small, well-understood
-addition (`users2services`/`iot2services` each get one `dst-address=192.168.20.40 dst-port=853`
-accept, mirroring `services2internet`'s existing Pi-hole DoT rule) — IPv6 has no
-`users2services`/`iot2services` chains at all yet, so DoT over IPv6 would be new scope on top
-of that, not just extending an existing rule.
-
-**Throughput** — [performance.md](performance.md). Download runs at roughly 30% of upload
-(169.6 vs 565.3 Mbps, measured back-to-back) and is not caused by the MikroTik. The
-outstanding test is a host plugged directly into the Internet-Box.
+clients (most likely Android's "Private DNS: Automatic") try TCP/853 to Pi-hole, and the
+firewall rejects it quietly. Pi-hole's FTL does not serve DoT, so a TLS-terminating layer on the
+Pi-hole host (`stunnel`, `dnsdist` or `cloudflared`) is needed first. Then the firewall side is
+one accept each in `users2services`/`iot2services`. IPv6 has no such chains yet.
 
 ## Conventions
 
 - A finding leaves a review document only when it is fixed **and** verified against device
   output — never when it is reported done. Closed items move to
   [changelog.md](changelog.md) with the evidence.
-- Finding numbers are stable and never reused. `<n>` for the main router, `S<n>` for switches.
+- Finding numbers are stable and never reused. `<n>` for the main router, `S<n>` for switches
+  and APs.
+- Device names are role-location (`router`, `switch-<place>`, `ap-<place>`), used for the
+  RouterOS identity, the Pi-hole hostname and the dump file. A new device gets a name in the
+  same scheme, not a number.
 - Assumptions that have not been verified are labelled as such rather than stated as fact.
 - **Every change to any MikroTik, in any session, gets logged to
   [changelog.md](changelog.md) as it happens** — not batched at the end, and not skipped for
@@ -218,8 +160,8 @@ outstanding test is a host plugged directly into the Internet-Box.
   `changelog.md`'s entry (commands, output, verification) is the durable record, not the file.
   A filename referenced from `changelog.md` or `vlan.md` may therefore no longer exist on disk;
   that's expected, not a broken link to chase down. Keep only genuinely reusable tools
-  (`dump-configs.sh`, `dump-logs.sh`, `fetch-backups.sh`, `measure-bufferbloat.sh`,
-  `dump-pihole-logs.sh` in `scripts/`, [render-nwdiag.py](diagrams/render-nwdiag.py) in
+  (`dump-configs.sh`, `dump-logs.sh`, `fetch-backups.sh`, `upgrade-fleet.sh`,
+  `measure-bufferbloat.sh`, `dump-pihole-logs.sh` in `scripts/`, [render-nwdiag.py](diagrams/render-nwdiag.py) in
   `diagrams/` as of this writing) — anything written for a single migration step gets cleaned
   up after.
 
@@ -516,3 +458,19 @@ outstanding test is a host plugged directly into the Internet-Box.
   `HTTP/1.1 200 OK` right away. It is not a routing or MTU problem: the multi-KB certificate
   chain came back fine. The AAAA is in public DNS (`dig AAAA @1.1.1.1` and Pi-hole both
   return it), so this happens from any client with IPv6.
+- **`remove [find ...]` fails as a whole if the match includes a dynamic entry.** Every
+  `/ip/firewall/filter` and `/ipv6/firewall/filter` has a dynamic "special dummy rule to show
+  fasttrack counters" in `chain=forward`. On switch-livingroom (2026-10-20),
+  `/ip/firewall/filter/remove [find chain=forward]` and `/ipv6/firewall/filter/remove [find]`
+  each removed nothing, because the dummy rule cannot be removed. Match on something that
+  excludes it, such as `comment~"defconf"`. This is the same shape as the bridge-port lesson
+  above. Always print afterwards.
+- **After a CAPsMAN manager change or a CAP re-join, ESP-based IoT devices may not reconnect
+  on their own.** After the 2026-10-20 cutover, IotaWatt stayed off `LEDCOM-IoT` for 47 minutes,
+  with no association attempt in the router's log, until it was power-cycled. The Tasmota
+  light rejoined by itself. Before any change that restarts CAPsMAN, save
+  `/caps-man/registration-table/print`, then compare against it after the change.
+- **Renaming an interface does not bounce its link, and RouterOS updates every reference** to
+  it (bridge ports, the bridge VLAN table, interface lists). switch-main's 25 ports were renamed
+  in one loop on 2026-10-20 with no disruption. A CAP's identity change does not make it re-join
+  either: the router's dynamic `ap-*` interfaces keep their old names until the next re-join.
