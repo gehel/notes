@@ -124,7 +124,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | mikrotik3 | `.10.3` | mikrotik2 `ether16` | |
 | mikrotik4 (cAP XL ac) | `.10.4` | mikrotik1 `ether10` (final location) | Standalone `wifi-qcom-ac`, not CAPsMAN — `LEDCOM` only, no `LEDCOM-IoT`; built 2026-10-06/07, see `wifi.md` |
 | mikrotik5 (RB750Gr3, living room) | `.10.5` | mikrotik2 `ether12-slave-local` | Built and hardened 2026-10-08; moved to the living room and connected 2026-10-08 — see "Living room and workshop" below |
-| mikrotik6 (RB5009UPr+S+IN) | `.10.6` | mikrotik2 `ether18-slave-local` | Staging for the edge-router swap, base build 2026-10-19 — see `rb5009-migration.md` |
+| mikrotik6 (RB5009UPr+S+IN) | `.10.6` | mikrotik2 `ether1-gateway` | Edge router since the 2026-10-20 cutover (holds `.10.1`/`.20.1`/`.30.1` too) — see `rb5009-migration.md` |
 
 ### services — VLAN 20, 192.168.20.0/24
 
@@ -221,10 +221,9 @@ Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikr
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether1-gateway` | trunk to mikrotik1 | 10 | 20, 30 |
+| `ether1-gateway` | trunk to mikrotik6 (RB5009, edge router since 2026-10-20) `ether2`. Was the trunk to mikrotik1 | 10 | 20, 30 |
 | `ether16-slave-local` | trunk to mikrotik3 | 10 | 20, 30 |
 | `ether12-slave-local` | trunk to mikrotik5 (living room) — **100Mbps on the current cable, bad patch cable, replacement needed** | 10 | 20, 30 |
-| `ether18-slave-local` | trunk to mikrotik6 (RB5009) `ether2`, staging link that becomes the production link at cutover — see `rb5009-migration.md`. Added 2026-10-19 | 10 | 20, 30 |
 | `ether21-slave-local` | Home Assistant | 20 | — |
 | `ether23-slave-local` | Pi-hole | 20 | — |
 | `ether24-slave-local` | OctoPrint wired (cable down) | 30 | — |

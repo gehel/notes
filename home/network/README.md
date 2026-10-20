@@ -6,10 +6,11 @@ Written so that work can resume from these documents alone, with no session hist
 ## Start here
 
 **Active work: [rb5009-migration.md](rb5009-migration.md) — replacing mikrotik1 (RB2011) with
-mikrotik6 (RB5009) as the edge router.** Phases 0, 1, 2 and 2b are done (2026-10-19): mikrotik6
-holds mikrotik1's whole config (IPv4, IPv6 with its own delegated `/58`, firewall, DHCP,
-CAPsMAN, WireGuard), staged disabled, with `cutover`/`rollback` scripts stored on it. **Next:
-Phase 3, the cutover.** Read that file's **Status** and **Resume here** first.
+mikrotik6 (RB5009) as the edge router.** **Phase 3, the cutover, is done (2026-10-20): mikrotik6
+is the edge router** (`.10.1`, DMZ host, 865/858 Mbps). mikrotik1 is off the LAN, kept as the
+rollback path for a week. **Next: Phase 4 (clean-up), and the next-day `dump-logs.sh` review.**
+Read that file's **Status** and **Resume here** first. The device table below still describes
+mikrotik1 as the edge router until Phase 4's doc pass.
 
 The previous active work, [vlan.md](vlan.md) (VLAN segmentation, Phases 0-5, and finding 21's
 IPv6), is complete. See its **Status** section and `changelog.md`.

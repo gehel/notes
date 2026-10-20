@@ -7,7 +7,8 @@ carries VLANs 10/20/30, `.10.6` in `mgmt` on mikrotik1-5. Phase 2 done 2026-10-1
 IPv4, CAPsMAN and WireGuard: export diff clean, `cutover`/`rollback` stored, not run. See
 `changelog.md`. Phase 2b done 2026-10-19: IPv4 through mikrotik6 tested, and the box
 delegates mikrotik6 its own `2a02:1210:7621:9ac0::/58`. IPv6 is ported, with addresses and
-ND disabled until `cutover`. Next: Phase 3 (cutover).** The `RB5009UPr+S+IN` has arrived.
+ND disabled until `cutover`. Phase 3 (cutover) done 2026-10-20: mikrotik6 is the edge
+router. All 12 checks pass except the next-day log review (check 11). Next: Phase 4.** The `RB5009UPr+S+IN` has arrived.
 It is **mikrotik6**, hostname `router6.home.ledcom.fr` → `192.168.10.6` (needs a Pi-hole local
 DNS record, the same way as `router1`-`router5`). It is already in `dump-configs.sh` and
 `dump-logs.sh`.
@@ -21,35 +22,33 @@ Built from the 2026-10-09 11:00 dumps (`dumps/mikrotik1-main.txt` etc.). mikroti
 had not changed since 2026-10-08 except the two TV reservations (`.10.50`/`.10.51`).
 **Regenerate the dumps again right before Phase 1 and Phase 3.** They are snapshots.
 
-## Resume here (written 2026-10-19 end of day)
+## Resume here (written 2026-10-20, after the cutover)
 
-Next session starts at **Phase 3**. Everything before it is done and verified (see
-`changelog.md`, 2026-10-19 entries). State to rely on:
+**Phase 3 is done** (2026-10-20, see `changelog.md` "Phase 3: cutover from mikrotik1 to
+mikrotik6"). Next session starts at **Phase 4**. State to rely on:
 
-- mikrotik6 is up at `.10.6` (`ssh admin@router6.home.ledcom.fr`, key auth, now serving
-  **mikrotik1's SSH host key**). WAN `ether1` = `192.168.1.103`, reserved in the box.
-- Staged and **disabled**: `.10.1`/`.20.1`/`.30.1`/`.50.1`, the three IPv6 from-pool
-  addresses, the three ND entries, `wireguard1`, the three DHCP servers, and the CAPsMAN manager.
-  Live: the 89 IPv4 filter rules, 2 NAT, 28 IPv6 filter rules, NAT66, the DHCPv6-PD client
-  (bound to `2a02:1210:7621:9ac0::/58`) and the three `staging` routes.
-- `/system/script` `cutover` and `rollback` are stored, `run-count=0`. Their source is in
-  `scripts/mikrotik6-p2-cutover.rsc` (delete it once Phase 3 is verified).
-- Secrets globals are removed from mikrotik6. The filled secrets file is only in `backups/`.
+- mikrotik6 holds `.10.1`/`.20.1`/`.30.1`/`.50.1` and `.10.6`. `router1.home.ledcom.fr` and
+  `router6.home.ledcom.fr` both reach it. Its trunk is `ether2` → mikrotik2 **`ether1-gateway`**
+  (moved off `ether18-slave-local`, which is an access port again). mikrotik4 is on `ether3`,
+  1 Gbps, PoE.
+- Internet-Box DMZ → `192.168.1.103` (mikrotik6). IPv6 from `2a02:1210:7621:9ac0::/58`.
+- mikrotik1 is powered and off the LAN, with `wireguard1` still enabled (harmless, the DMZ no
+  longer points at it). It is the rollback path until about 2026-10-27: on mikrotik6
+  `/system/script/run rollback`, plug mikrotik1 `ether2-master` into mikrotik2 `ether1-gateway`,
+  point the DMZ back to `192.168.1.101`. The `cutover`/`rollback` scripts are still on
+  mikrotik6. The local `.rsc` copy is deleted.
+- Speed test: 865 Mbps down / 858 Mbps up (was 181 / 842 through mikrotik1).
+- `ha-mikrotik-targets` on mikrotik6 now also holds `.10.4`/`.10.5`. The HA MikroTik integration
+  covers all five devices as `homeassistant`.
 
-Before starting Phase 3:
-1. **Re-check that the prefix is still `9ac0::/58`** (`/ipv6/dhcp-client/print detail` on
-   mikrotik6). If it changed, recompute the 5 EUI-64 entries in `/ipv6/firewall/address-list`
-   (see the Phase 2b result below and `ipv6.md`) before the cutover.
-2. Check that mikrotik6 still has `192.168.1.103` (`/ip/dhcp-client/print`).
-3. Run `dump-configs.sh` and `dump-logs.sh` (step 0).
-4. Have ready: an SSH session to `router6` from the desktop, the phone on mobile data with
-   WireGuard, and the box UI open at **`https://192.168.1.1`** (the hostname hangs over IPv6,
-   see the README lesson).
+Still to do from Phase 3: **check 11, second half.** Run `dump-logs.sh` on 2026-10-21 and
+review it. Expected noise: HA → `192.168.10.195:8002` (finding 36, parked) and none of the
+old-prefix `9a41` IPv6 drops, which should have expired by then.
 
-Then follow the Phase 3 table and the 12 checks, and log each one in `changelog.md` as it
-happens. Parked until after the migration: finding 36's functional check (HA → TV, and HA's
-`samsungtv` host still at `.10.195`), in `config-review.md`. Phase 4 (clean-up) follows
-within the week.
+Phase 4 next. **The fleet scripts first**: `dump-configs.sh` and `dump-logs.sh` now hit
+mikrotik6 twice (as `mikrotik1-main` via `router1` and as `mikrotik6`). After that, the doc
+updates and the throughput re-baseline. Parked: finding 36's functional check (HA → TV, HA's
+`samsungtv` host still at `.10.195`).
 
 ## Strategy in one paragraph
 
@@ -405,9 +404,8 @@ Log the cutover in `changelog.md` **as it happens**, with the output of each che
 
 ## Phase 4 — clean-up (within the week)
 
-- [ ] Decide whether the new mikrotik2 trunk port stays as is, or whether the cable moves to
-      `ether1-gateway` (cosmetic, its name says "gateway"). If it moves, return the old
-      port to access-only.
+- [x] ~~Decide whether the new mikrotik2 trunk port stays.~~ Done 2026-10-20: the cable moved to
+      `ether1-gateway`, and `ether18-slave-local` is an access port again (`changelog.md`).
 - [ ] If the CAPsMAN-cert import was skipped (fallback path): re-pin mikrotik2's
       `caps-man-certificate-common-names` to the new manager's CN.
 - [ ] `/ipv6/address/print` etc. on the RB5009 against `ipv6.md`'s verification list.

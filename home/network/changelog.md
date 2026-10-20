@@ -3224,3 +3224,182 @@ the fleet.
 - Getting to the box's UI: `internetbox.swisscom.ch` hung in the browser. `curl -4` → `HTTP/1.1
   200 OK`, `curl -6` (`2a02:a90:400e::1`) → TLS handshake OK, then a timeout with 0 bytes, and
   `https://192.168.1.1` → `200`. The UI is reachable over IPv4 only (README lesson added).
+
+## Phase 3: cutover from mikrotik1 to mikrotik6 (2026-10-20)
+
+- **Step 0 (pre-checks and baseline):**
+  - mikrotik6 `/ipv6/dhcp-client/print detail` → `bound`, `prefix=2a02:1210:7621:9ac0::/58`,
+    5h46m. This is the Phase 2b prefix, so the EUI-64 lists did not need to change.
+  - mikrotik1 → `bound`, `prefix=2a02:1210:7621:9a40::/58`.
+  - mikrotik6 `/ip/dhcp-client/print` → `client1` on `ether1`, `bound`, `192.168.1.103/24`.
+  - `dump-configs.sh` and `dump-logs.sh` were run at 2026-10-20 10:08. **mikrotik5 was
+    unreachable on port 22 again**, and mikrotik2 `ether12-slave-local` was inactive (`I`) in
+    the bridge. Not caused by the migration (the dump was taken before step 1). See the
+    "Before starting" section of `rb5009-migration.md` for the 2026-10-09 occurrence.
+- **Steps 1-4:** Guillaume did all four: mikrotik1 `ether2-master` unplugged,
+  `/system/script/run cutover` on mikrotik6, the Internet-Box DMZ host changed from
+  `192.168.1.101` to `192.168.1.103`, and mikrotik4 moved from mikrotik1 `ether10` to mikrotik6
+  `ether3`.
+- **Step 5 not done:** mikrotik1 is off the LAN and cannot be reached for management, so
+  `wireguard1` on it stays enabled. This is harmless: the DMZ no longer points at mikrotik1,
+  so the box does not forward the tunnel's UDP port to it. mikrotik1 gets a full reset later
+  (Phase 4).
+- **Step 6:** done. mikrotik1 stays powered, off the LAN.
+
+Verification:
+
+1. `ssh admin@router1.home.ledcom.fr /system/routerboard/print` from the desktop →
+   `model: RB5009UPr+S+`, `serial-number: HN10BPHQ1JD`, firmware 7.24.5. Run
+   non-interactively and it connected, so the host key matched (ssh refuses a changed
+   key). **Pass.**
+2. `/ip/route/print where dst-address=0.0.0.0/0` → `DAd 0.0.0.0/0 192.168.1.1`, distance 1.
+   The DMZ was changed in the box UI (step 3). **Pass.**
+3. Internet works from `users` (Guillaume, and a speed test, see below). For `services`,
+   Pi-hole resolves public names (`wikipedia.org` → `185.15.58.224`), so its upstream IPv4 DNS
+   works. **Pass for `users` and `services`; `iot` not tested separately.**
+4. `dig +short @192.168.20.40 router1.home.ledcom.fr` → `192.168.10.1`, and `wikipedia.org`
+   → `185.15.58.224`. `/ip/dns/static/print count-only where comment~"dhcp"` → `2` (the two
+   leases bound so far). **Pass.**
+5. `/ip/dhcp-server/lease/print` about 8 minutes after the cutover: every reservation is
+   present, two are `bound` (the desktop `.10.90` and the Tasmota light `.30.61`), the others
+   are `waiting`. Clients renew at T1 (half the 1d lease), so the table fills over the day.
+   **Pass** (DHCP serves on `dhcp-home` and `dhcp-iot`).
+6. `/caps-man/remote-cap/print` → mikrotik2 (`192.168.10.2`, `[4C:5E:0C:91:51:80]`), `Run`,
+   1 radio. mikrotik4 is standalone on `wifi-qcom-ac` (`wifi.md`), so it is correctly absent.
+   `/caps-man/registration-table/print` → one client, the Tasmota light
+   `D8:BC:38:99:44:68` on `LEDCOM-IoT`, uptime 7m36s. Before the cutover (10:08 dump), mikrotik2
+   had 4 clients: IotaWatt `A8:48:FA:F2:40:4D` and OctoPrint wifi `E4:5F:01:DA:22:96` on
+   `LEDCOM-IoT`, and `BC:CE:25:5E:7F:8A` on `LEDCOM`. **Partial: IotaWatt has not
+   reconnected yet.** Checked again at uptime 47m: still only the Tasmota light. IotaWatt
+   has no registration at all (and its `.30.50` lease is `waiting`/`never`), so it fails at
+   the wifi layer, not DHCP. The SSID itself works (Tasmota joined it).  `/log/print where message~"A8:48:FA"`
+   → nothing, and `/caps-man/access-list/print` → empty (as on mikrotik1). So IotaWatt is not
+   even trying to associate: the ESP is probably stuck after the old manager went away.
+   Next: power-cycle it. Open.
+7. mikrotik6 `/interface/ethernet/monitor ether3 once` → `rate: 1Gbps`, full duplex (was
+   100M on mikrotik1 `ether10`). `/interface/ethernet/poe/monitor ether3 once` →
+   `poe-out: auto-on`, `powered-on`, 48.6V, 85mA, 4.1W. **Pass.**
+8. `/ipv6/address/print` → `9ac0::1` (`vlan-users`), `9ac1::1` (`vlan-services`) and
+   `9ac2::1` (`vlan-iot`), all `G`, from `swisscom-pd`, valid 5h33m. **Addresses pass.** But
+   from the desktop, `ping -6 -c3 2a00:1450:4001::200e` → **3/3 lost. Open.** The first
+   guess (a stale default route through mikrotik1) is **wrong**. On the desktop,
+   `ip -6 route show default` → only `via fe80::3a32:7aff:fe44:b446` (mikrotik6), and the
+   only global addresses are in `9ac0::/64`. `ip -6 route get` → via mikrotik6, `src
+   2a02:1210:7621:9ac0:249:d7b3:9971:27d2` (temporary). So RA and SLAAC from mikrotik6 work,
+   and the old `9a40` addresses are already gone. The test address was simply not a pingable
+   host. Re-tested with a known one:
+   - Desktop: `ping -6 -c3 2606:4700:4700::1111` → 3/3, about 5.9 ms.
+     `curl -6 https://www.wikipedia.org` → `200`.
+   - mikrotik6: `/ping 2606:4700:4700::1111 count=3` → 3/3, about 5.3 ms. Two default routes
+     `::/0` via `fe80::3a06:e6ff:fed9:c720%ether1` (DHCP and SLAAC, ECMP).
+   - NAT66 masquerade: 1 041 packets. Forward filter: `dispatch: users -> internet` 962
+     packets, `services -> internet` 302, `iot -> internet` 0 so far, `drop inbound from WAN` 0,
+     `drop invalid` 65.
+   - `/ipv6/nd/print` → all three entries enabled (no `X`), `ra-lifetime=30m`, `vlan-users`
+     is the default entry with `ra-interval=20s-1m`.
+
+   **Pass for `users`.** `services` still uses its old `9a41` addresses (see check 11).
+9. From the phone on mobile data: the WireGuard tunnel connects and reaches `192.168.10.2`,
+   and `https://home.ledcom.fr` loads with the tunnel off. **Pass.**
+10. Not checked yet.
+11. Firewall log, 10:12-10:19, two known patterns only:
+    - `services2users` drops from HA (`192.168.20.60`) to `192.168.10.195:8002`, every 15 s.
+      This is finding 36's parked item: HA's `samsungtv` host is still at `.10.195`. Not
+      caused by the migration.
+    - `services2internet-v6` drops from HA and Pi-hole using their **old** SLAAC addresses
+      (`2a02:1210:7621:9a41:…`, mikrotik1's prefix). The EUI-64 lists now hold the `9ac1`
+      addresses, so these do not match. Check 8 expected this: it stops when the `9a4x`
+      addresses expire (at most about 6 h), and these paths fall back to IPv4 until then.
+
+    **Pass for now.** Run `dump-logs.sh` again the next day.
+12. `/system/ntp/client/print` → `synchronized`, `3.pool.ntp.org`, stratum 1, offset
+    -0.04 ms. **Router side passes.** `iot` internet: on OctoPrint, `curl -4 -sI https://www.wikipedia.org`
+    → `HTTP/2 200`, so `iot -> internet` and NAT work over IPv4.
+    NTP from `iot`: on OctoPrint, `timedatectl show-timesync` → `ServerAddress=192.168.30.1`,
+    `System clock synchronized: yes`. **Pass.**
+
+**Throughput:** speed test from the desktop → **850 Mbps down, 858 Mbps up.** In
+`performance.md` (2026-09-04), the same speedtest.net run through mikrotik1 gave 181 Mbps
+down and 842 Mbps up. So the download limit was the RB2011. A full re-baseline is still a
+Phase 4 task.
+
+Still open: 11 (next-day log dump).
+
+**Phase 4 item 1 decided: the trunk moved to `ether1-gateway`.** Guillaume moved the
+mikrotik6 `ether2` cable from mikrotik2 `ether18-slave-local` to `ether1-gateway` (mikrotik1's
+old trunk port, which already has `pvid=10` and is tagged on VLANs 20 and 30). He reports that
+it works. `ether18-slave-local` then went back to its pre-2026-10-19 state (access port,
+`pvid=10`). On mikrotik2, the prints before the change showed one entry each for VLAN 20 and
+VLAN 30:
+```
+/interface/bridge/vlan/set [find vlan-ids=20] tagged=ether1-gateway,ether12-slave-local,ether16-slave-local
+/interface/bridge/vlan/set [find vlan-ids=30] tagged=ether1-gateway,ether12-slave-local,ether16-slave-local
+```
+Verified (`/interface/bridge/vlan/print detail where dynamic=no`):
+- VLAN 20 → `tagged=ether1-gateway,ether12-slave-local,ether16-slave-local`, untagged
+  `ether21`/`ether23` unchanged.
+- VLAN 30 → the same tagged list, untagged `ether24` unchanged.
+- VLAN 10 → still untagged on `ether18-slave-local`, and `current-untagged` includes
+  `ether1-gateway`.
+
+`current-tagged` lacks `ether12` because mikrotik5 is down, as expected. `/interface/bridge/port/print`:
+`ether1-gateway` has `hw=no`, pvid 10, active. `ether18-slave-local` has `hw=yes`, pvid 10,
+`I` (no cable). Neither line shows an `H` flag. Whether the CRS125 offloads any port with
+`vlan-filtering=yes` is not yet checked. `ether1-gateway` was mikrotik1's trunk with
+`hw=no` for months, so nothing changed for that port.
+
+Speed test from the desktop again, after the trunk moved to `ether1-gateway`: **865 Mbps
+down, 858 Mbps up**, the same as the first run. The software-bridged `ether1-gateway`
+(`hw=no`) is not a bottleneck at this rate.
+
+IotaWatt: Guillaume power-cycled it. **Check 6 now passes.** `/caps-man/registration-table/print`
+→ 6 clients on mikrotik2: IotaWatt `A8:48:FA:F2:40:4D` (`LEDCOM-IoT`, uptime 4m20s), the Tasmota
+light and OctoPrint wifi `E4:5F:01:DA:22:96` on `LEDCOM-IoT`, and three on `LEDCOM` (including
+`BC:CE:25:5E:7F:8A`). Every uptime is under 10 minutes, so all of mikrotik2's clients
+re-associated when the trunk cable moved (the CAP lost its manager for a moment). IotaWatt's
+lease: `192.168.30.50`, `dhcp-iot`, `bound`. Takeaway: an ESP device does not always rejoin
+after a CAPsMAN manager change, so power-cycle it.
+
+**Check 10 (HA MikroTik integration):** Guillaume reports router1 (now mikrotik6), mikrotik2
+and mikrotik3 connected in HA. **Pass.** He then tried to add mikrotik4 and mikrotik5, which
+were never in the integration, and both failed:
+- mikrotik5 is down (see step 0).
+- mikrotik4 has the `homeassistant` user (`192.168.20.60/32`) and the `HA API access` input
+  rule. But HA → `.10.4` crosses the router (`services` → `users`). The router's
+  `services2users: HA MikroTik integration API` rule matches `dst-address-list=ha-mikrotik-targets`,
+  and that list (ported verbatim from mikrotik1) only holds `.10.2` and `.10.3`. So
+  `services2users: deny everything else` drops the connection. This is not a regression from the
+  migration: mikrotik1 had the same list. The fix is to add `.10.4` and `.10.5` to the list on
+  mikrotik6.
+
+**`ha-mikrotik-targets` extended on mikrotik6 (2026-10-20 11:34):**
+```
+/ip/firewall/address-list/add list=ha-mikrotik-targets address=192.168.10.4 comment=mikrotik4
+/ip/firewall/address-list/add list=ha-mikrotik-targets address=192.168.10.5 comment=mikrotik5
+```
+Verified (`/ip/firewall/address-list/print where list=ha-mikrotik-targets`): 4 entries, `.10.2`,
+`.10.3`, `.10.4` and `.10.5`. **But HA still fails to add mikrotik4 and mikrotik5.** Investigation showed that the firewall part is fixed, and the remaining failure is the
+credential HA uses:
+- mikrotik6: every logged `services2users` drop to `.10.4:8728`/`.10.5:8728` is from 11:29:47 to
+  11:30:55, before the list change at 11:34:33. After it, the `services2users: HA MikroTik
+  integration API` accept rule shows 13 packets.
+- mikrotik4 and mikrotik5: `api` is enabled on 8728, and the `HA API access` input rule
+  counts 4 and 2 packets. Each log has **`login failure for user admin from 192.168.20.60 via
+  api`** (mikrotik4 at 11:35:01/11:35:15, mikrotik5 at 11:35:27/28).
+
+So HA's "add device" form was filled in with `admin`, not `homeassistant`. `admin` is restricted
+to `192.168.10.0/24,192.168.50.0/24`, so it is refused from `.20.60`. That restriction works
+as intended (finding 3). Fix in HA: re-add both with user `homeassistant` and the same password
+as on the other routers.
+
+Also reported by Guillaume: **mikrotik5 is up again**, and **HA → printer works** (check 10's
+device paths: printer OK, IotaWatt back since the power cycle; the TV is finding 36).
+
+Guillaume re-added mikrotik4 and mikrotik5 in HA with user `homeassistant`: **both connected.**
+HA's MikroTik integration now covers all five devices: router1 (mikrotik6) and mikrotik2-5.
+
+**Phase 3 is complete.** Every check passes, except the second half of check 11: run
+`dump-logs.sh` on 2026-10-21 and review it. Deleted `scripts/mikrotik6-p2-cutover.rsc`. Its
+content is in the 2026-10-19 Phase 2 entries above, and the `cutover`/`rollback` scripts are
+still stored on mikrotik6 (`/system/script`). `rollback` stays usable for the rest of the
+rollback week.
