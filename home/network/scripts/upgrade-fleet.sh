@@ -5,8 +5,8 @@
 # fully come back up and confirming it reports working internet/DNS
 # connectivity before moving on to the next one.
 #
-# A device that is unreachable *before* anything is done to it (mikrotik5
-# is often powered off) is skipped with a warning, and the run continues.
+# A device that is unreachable *before* anything is done to it
+# (switch-livingroom is sometimes powered off) is skipped with a warning, and the run continues.
 # Skipped devices are listed at the end; re-run once they are up.
 #
 # Once an upgrade has started on a device, any failure stops the run
@@ -27,12 +27,10 @@
 # to confirm what the real latest version actually is -- this script
 # trusts the version you pass it, it doesn't look it up itself.
 #
-# Order matters and is deliberate: mikrotik4 first (low stakes -- it's standalone, nothing else depends on it,
-# and it's usually already current, making it a cheap smoke test of the
+# Order matters and is deliberate: ap-main first (low stakes -- it's
+# standalone, nothing else depends on it, and it's usually already current, making it a cheap smoke test of the
 # skip-logic below), then the switches
 # (smaller blast radius if something goes wrong), edge router last.
-# mikrotik1 (RB2011) left the LAN at the 2026-10-20 cutover, and router1
-# now reaches mikrotik6, so it is listed once, as router6.
 #
 # A device already on the target version is skipped (safe to re-run after
 # a partial failure without re-upgrading devices that already succeeded).
@@ -46,11 +44,11 @@ fi
 EXPECTED_VERSION="$1"
 
 HOSTS=(
-    "router4.home.ledcom.fr"   # mikrotik4 -- cAP XL ac, standalone
-    "router3.home.ledcom.fr"   # mikrotik3 -- office switch
-    "router5.home.ledcom.fr"   # mikrotik5 -- living room switch
-    "router2.home.ledcom.fr"   # mikrotik2 -- main switch
-    "router6.home.ledcom.fr"   # mikrotik6 -- RB5009, edge router, last on purpose
+    "ap-main.home.ledcom.fr"             # cAP XL ac, standalone
+    "switch-office.home.ledcom.fr"       # hEX, office
+    "switch-livingroom.home.ledcom.fr"   # hEX, living room
+    "switch-main.home.ledcom.fr"         # CRS125, main switch, CAPsMAN CAP
+    "router.home.ledcom.fr"              # RB5009, edge router, last on purpose
 )
 SSH_USER="admin"
 SSH_OPTS=(-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
@@ -131,7 +129,7 @@ get_routerboard_field() {
 # RouterOS package version and RouterBOARD firmware are independent -- a
 # device can be fully package-current while its firmware still lags, and a
 # plain reboot does NOT apply a pending firmware upgrade on its own
-# (confirmed live on mikrotik4: current-firmware stayed behind
+# (confirmed live on ap-main, then mikrotik4: current-firmware stayed behind
 # upgrade-firmware through several ordinary reboots until
 # /system/routerboard/upgrade was run explicitly). So this always runs,
 # regardless of whether the package itself needed upgrading above.

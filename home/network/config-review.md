@@ -199,8 +199,7 @@ first run has already removed. `remove` then fails, and the script stops before 
 host can stay without its `<hostname>.home.ledcom.fr` entry until its next lease event. The
 same script ran on mikrotik1 (ported verbatim), so this is not new.
 
-**Fix:** wrap the `remove` in `:do { } on-error={}`. This is in `scripts/rename-router.rsc`
-(step 9). Verify: `/ip/dhcp-server/print detail` shows the new script on all three servers, and
+**Fix:** wrap the `remove` in `:do { } on-error={}`. The commands are in the 2026-10-20 rename entry in `changelog.md`. Verify: `/ip/dhcp-server/print detail` shows the new script on all three servers, and
 no `dhcp-lease` script error appears in the next `dump-logs.sh`.
 
 ### 38. `chain=input` accepts DHCP only on `vlan-users` (informational, needs a check)
@@ -238,7 +237,7 @@ make the config say things that are no longer true.
 - A static DNS name `router` → `192.168.10.1` (no domain). A factory leftover. Clients resolve
   through Pi-hole.
 
-**Fix:** `scripts/rename-router.rsc`, together with the device rename (see below).
+**Fix:** typed commands, together with the device rename (see below). Logged in `changelog.md`.
 
 Deferred to the end of the rollback week (not before 2026-10-27, after mikrotik1 is wiped),
 because `rollback` matches on them: the `cutover`/`rollback` scripts, the `production, enabled
@@ -252,9 +251,10 @@ Checked and deliberately left as they are:
 - CAPsMAN `manager interface` on `bridge-main` as well as `vlan-users`. The CAP's traffic
   arrives on `vlan-users` only. Removing the entry gains nothing and risks a CAP re-join
   (2026-10-20: IotaWatt needed a power cycle after the last one).
+Also removed with the rename:
 - `.10.91` (`F6:42:66:E4:55:03`, a locally administered MAC, so a phone or laptop with MAC
-  randomization) has a reservation and no comment. **Who it is is Guillaume's call:** name it
-  or remove the reservation.
+  randomization) has a reservation and no comment. Decision 2026-10-20: remove the
+  reservation now, and review all DHCP leases later.
 
 ### S19. mikrotik5 still carries factory-default config from its build (medium, fix prepared 2026-10-20)
 
@@ -271,7 +271,7 @@ of the RouterOS defconf in place:
 - The whole defconf IPv6 firewall and `bad_ipv6` list, on a device with `disable-ipv6=yes`.
 - An empty `WAN` interface list.
 
-**Fix:** `scripts/rename-switch-livingroom.rsc`. Verify with the prints at its end: one address
+**Fix:** typed commands with the rename. Verify: one address
 (`192.168.10.5/24`), no static DNS, `allow-remote-requests: no`, both sharing settings `no`, no
 forward or IPv6 rules.
 
@@ -294,7 +294,7 @@ Found 2026-10-20.
   - `mgmt` comments that say `post-renumber` (mikrotik2, mikrotik3) or name the old numbers.
   - `HA API access (post-renumber)` (mikrotik2, mikrotik3).
 
-**Fix:** `scripts/rename-switch-main.rsc`, `rename-switch-office.rsc`, `rename-ap-main.rsc`.
+**Fix:** typed commands with the rename.
 
 Checked and left as they are:
 - mikrotik2's `ether1`/`sfp1` bridge ports have `hw=no`. The speed test through

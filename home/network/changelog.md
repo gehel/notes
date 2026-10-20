@@ -3426,10 +3426,10 @@ the cutover, so the fleet scripts reached the same box twice:
 Reviewed the 11:43-11:46 dumps and logs of all five devices. No device changes in this entry.
 Opened in `config-review.md`: 37 (lease-script race), 38 (DHCP input only on `vlan-users`,
 needs a check), 39 (migration and naming leftovers on the router), S19 (mikrotik5 factory
-defaults), S20 (leftovers and old names on mikrotik2/3/4). The fixes are prepared as
-`scripts/rename-<new-name>.rsc` (one per device), plus
-`scripts/cleanup-router-after-rollback.rsc` for the end of the rollback week. All pass the
-skill's linter.
+defaults), S20 (leftovers and old names on mikrotik2/3/4). The fixes were first prepared as
+`scripts/rename-<new-name>.rsc` (one per device). Guillaume preferred plain typed commands, so
+those files were deleted unused. `scripts/cleanup-router-after-rollback.rsc` stays for the end
+of the rollback week.
 
 Decided with Guillaume: role-location names (`router`, `switch-main`, `switch-office`,
 `ap-main`, `switch-livingroom`; table in `config-review.md`), applied to everything live:
@@ -3443,3 +3443,133 @@ Also seen in the logs, informational:
   logged `ether16` link down at 09:42:36.
 - mikrotik5's uplink (mikrotik2 `ether12`) went down at 2026-10-19 23:20 and was back at about
   11:20 on 2026-10-20 (Guillaume restored it).
+
+## Device rename and review clean-up applied (2026-10-20, afternoon)
+
+Guillaume added the Pi-hole records `router`, `switch-main`, `switch-office`, `ap-main` and
+`switch-livingroom` (`.home.ledcom.fr`, `.10.1`-`.10.5`). The `router1`-`router6` records stay
+until 2026-10-27. Then he typed these commands per device. On every device, the `mgmt` comments
+were set by address:
+```
+/ip/firewall/address-list/set [find address=192.168.10.1] comment=router
+/ip/firewall/address-list/set [find address=192.168.10.2] comment=switch-main
+/ip/firewall/address-list/set [find address=192.168.10.3] comment=switch-office
+/ip/firewall/address-list/set [find address=192.168.10.4] comment=ap-main
+/ip/firewall/address-list/set [find address=192.168.10.5] comment=switch-livingroom
+/ip/firewall/address-list/set [find address=192.168.10.6] comment="router, staging address"
+/ip/firewall/address-list/set [find address=192.168.10.90] comment=desktop
+/ip/firewall/address-list/set [find address=192.168.10.92] comment="gimli, work laptop"
+/ip/firewall/address-list/set [find address=192.168.50.2] comment="phone, via wireguard1"
+```
+Verified on all five with `/ip/firewall/address-list/print`: 9 `mgmt` entries with exactly these
+comments. On the router, `find address=` also renamed the matching `ha-mikrotik-targets` and
+`ssh-hosts` entries (`switch-main`, `switch-office`, `ap-main`, `switch-livingroom`,
+`desktop`), as intended.
+
+**ap-main (mikrotik4):**
+```
+/system/identity/set name=ap-main
+/interface/ethernet/set ether1 comment="uplink to router ether3, PoE"
+```
+Verified: identity `ap-main`. `ether1` has the comment and is `RS`.
+
+**switch-office (mikrotik3):**
+```
+/system/identity/set name=switch-office
+/interface/ethernet/set ether1 comment="trunk to switch-main ether16"
+/ip/dhcp-client/remove [find interface=bridge]
+/interface/list/remove WAN
+/interface/wireless/cap/set caps-man-addresses=""
+/ip/firewall/filter/set [find comment="HA API access (post-renumber)"] comment="HA API access"
+```
+Verified: identity `switch-office`. `/ip/dhcp-client/print` is empty. `/interface/list/print` has
+only the built-ins and `LAN`. The CAP has an empty `caps-man-addresses` and `enabled: no`. Filter
+rule 7 is `HA API access`. **S20's mikrotik3 part is fixed.**
+
+**switch-livingroom (mikrotik5), partial:**
+```
+/interface/ethernet/set ether1 comment="trunk to switch-main ether12"
+/interface/ethernet/set ether2 comment="TV (Samsung), wired"
+/ip/address/remove [find address="192.168.88.1/24"]
+/ip/dns/static/remove [find name=router.lan]
+/ip/dns/set allow-remote-requests=no
+/disk/settings/set auto-media-sharing=no auto-smb-sharing=no
+/ip/firewall/filter/remove [find chain=forward]
+/ipv6/firewall/filter/remove [find]
+/ipv6/firewall/address-list/remove [find list=bad_ipv6]
+/interface/list/remove WAN
+```
+Verified: one address, `192.168.10.5/24` on `bridge`. No static DNS. `allow-remote-requests: no`.
+`auto-smb-sharing: no` and `auto-media-sharing: no`. `WAN` is gone. Both `ether` comments are set.
+**Not done:**
+- **The identity reads `ap-main`.** The ap-main block's identity line was pasted on this device
+  by mistake.
+- **All six defconf forward rules and the whole IPv6 filter are still there.** `[find chain=forward]` and
+  `[find]` also match the dynamic "special dummy rule to show fasttrack counters". That rule
+  cannot be removed, so each `remove` failed as a whole. Since `WAN` is gone, forward rule 6
+  now shows `in-interface-list=*2000010`.
+
+**switch-main (mikrotik2):**
+```
+/system/identity/set name=switch-main
+:foreach i in=[/interface/ethernet/find] do={/interface/ethernet/set $i name=[/interface/ethernet/get $i default-name]}
+/interface/ethernet/set ether1 comment="trunk to router ether2"
+/interface/ethernet/set ether12 comment="trunk to switch-livingroom ether1"
+/interface/ethernet/set ether16 comment="trunk to switch-office ether1"
+/interface/ethernet/set ether21 comment="Home Assistant (services)"
+/interface/ethernet/set ether23 comment="Pi-hole (services)"
+/interface/ethernet/set ether24 comment="OctoPrint wired (iot)"
+/system/script/remove mikrotik5-uplink-trunk
+/ip/dhcp-client/remove [find interface=bridge-local]
+/ip/dns/static/remove [find name=router]
+/ip/firewall/filter/set [find comment="HA API access (post-renumber)"] comment="HA API access"
+```
+Verified:
+- Identity `switch-main`. `/interface/ethernet/print` → `ether1`-`ether24`, `sfp1`, the six
+  comments, and `R` on 1, 12, 16, 21, 23 and 24.
+- Bridge VLAN table, with the references updated by RouterOS: VLAN 20
+  `tagged=ether1,ether12,ether16 untagged=ether23,ether21`. VLAN 30 the same tagged list,
+  `untagged=ether24`. VLAN 10 untagged on every other port.
+- `/system/script/print`, `/ip/dhcp-client/print` and `/ip/dns/static/print` are all empty.
+  Filter rule 7 is `HA API access`.
+
+The CAP did not re-join after the identity change: the router's dynamic ports are still
+`ap-MikroTik-Switch-1`/`-1-1`. They take the `ap-switch-main-*` names at the next re-join.
+**S20's mikrotik2 part is fixed.**
+
+**router (mikrotik6):**
+```
+/system/identity/set name=router
+/interface/bridge/set bridge-main comment=LAN
+/interface/list/set WAN comment="WAN-facing interface(s), used by firewall and NAT"
+/interface/bridge/port/set [find interface=ether2] comment="trunk to switch-main ether1"
+/interface/bridge/port/set [find interface=ether3] comment="ap-main (cAP XL ac), PoE"
+/ip/firewall/filter/set [find comment="HA API access (post-renumber)"] comment="HA API access"
+/ip/firewall/filter/set [find comment="Drop all other forward traffic"] log-prefix=""
+/interface/bridge/vlan/set [find vlan-ids=30] tagged=bridge-main,ether2
+/caps-man/channel/remove ch6
+/ip/dhcp-server/lease/remove [find address=192.168.10.3]
+/ip/dhcp-server/lease/remove [find address=192.168.10.4]
+/ip/dhcp-server/lease/remove [find address=192.168.10.91]
+/ip/dhcp-server/lease/set [find address=192.168.10.90] comment=desktop
+/ip/dhcp-server/lease/set [find address=192.168.10.92] comment="gimli, work laptop"
+/ip/dhcp-server/lease/set [find address=192.168.10.50] comment="TV (Samsung), wired to switch-livingroom ether2"
+/ip/dns/static/remove [find name=router]
+```
+plus finding 37's lease script, built from six short `:global` pieces (`a`-`f`) and set with
+`/ip/dhcp-server/set [find] lease-script=($a.$b.$c.$d.$e.$f)`. The globals were then removed.
+Verified:
+- Identity `router`. The bridge ports carry the two comments, and `ether2`-`ether8`/`sfp-sfpplus1`
+  are `H` (hardware offload).
+- `/interface/bridge/vlan/print` → VLAN 30 `current-tagged=bridge-main,ether2`, so no `ether3`.
+- `HA API access`, and `Drop all other forward traffic` with `log-prefix=""`.
+- `/caps-man/channel/print` → `ch1`, `ch11` only.
+- Lease table: no `.10.3`, `.10.4` or `.10.91`. `.10.90` is `desktop`, `.10.92` is `gimli,
+  work laptop`, `.10.50` is `TV (Samsung), wired to switch-livingroom ether2`.
+- Static DNS: only `dhcp-to-dns` entries, so `router` is gone.
+- `/ip/dhcp-server/print detail` → all three servers have the script with
+  `:do { /ip/dns/static/remove [find where name=$dnsName] } on-error={}`.
+
+**Finding 39's immediate part and the router side of finding 37 are applied.** 37 closes once a
+`dump-logs.sh` shows no `dhcp-lease` script error. For 38, HA's lease (`.20.60`) was last seen
+3h22m before this print. Check it again after T1.

@@ -8,7 +8,7 @@
 # Three ping targets are probed simultaneously in every phase, which is the
 # point of the exercise:
 #
-#   192.168.10.1  edge router     - the LAN side of the router (mikrotik6 since 2026-10-20)
+#   192.168.10.1  edge router     - the LAN side of the router
 #   192.168.1.1   Internet-Box    - one hop further, across the router's WAN port
 #   1.1.1.1       the internet    - everything beyond
 #

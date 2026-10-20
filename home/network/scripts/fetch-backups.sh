@@ -21,16 +21,15 @@ CTLDIR="$(mktemp -d)"
 trap 'rm -rf "$CTLDIR"' EXIT
 
 # name:hostname — keep in sync with dump-configs.sh. Hostnames resolve via
-# Pi-hole's local DNS records (router<N>.home.ledcom.fr), not IP addresses.
-# mikrotik1 (RB2011) is off the LAN since the 2026-10-20 cutover, and
-# router1 (.10.1) now reaches mikrotik6, so mikrotik1 has no entry here.
-# Add it back under its new address if it is redeployed.
+# Pi-hole's local DNS records (<name>.home.ledcom.fr), not IP addresses.
+# Names are the device identities (README maps the old mikrotik<N> names).
+# The RB2011 (old mikrotik1) is off the LAN. Add it here if it is redeployed.
 HOSTS=(
-  "mikrotik2-switch:router2.home.ledcom.fr"
-  "mikrotik3-office:router3.home.ledcom.fr"
-  "mikrotik4:router4.home.ledcom.fr"
-  "mikrotik5-livingroom:router5.home.ledcom.fr"
-  "mikrotik6:router6.home.ledcom.fr"
+  "router:router.home.ledcom.fr"
+  "switch-main:switch-main.home.ledcom.fr"
+  "switch-office:switch-office.home.ledcom.fr"
+  "ap-main:ap-main.home.ledcom.fr"
+  "switch-livingroom:switch-livingroom.home.ledcom.fr"
 )
 
 mkdir -p "$OUTDIR"
