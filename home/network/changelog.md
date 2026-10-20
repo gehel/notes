@@ -3913,3 +3913,10 @@ the console may still hold `.10.101` until it renews. To confirm in ARP.
 
 **HA:** Guillaume moved the Samsung TV integration to host `tv.home.ledcom.fr` (`.10.50`, the
 TV's wired address).
+
+**TV still on wifi:** `/ip/dhcp-server/lease/print where comment~"TV"` → `.10.50` (wired)
+`waiting`/`never`, `.10.51` (wifi) bound. HA's new host `tv.home.ledcom.fr` (`.10.50`) is not
+in use yet: the TV must be set to wired, or HA pointed back at `tv-wifi` until then.
+
+**Amp:** Guillaume set its network connection to wired (LAN). Wired MAC to read from
+switch-livingroom.
