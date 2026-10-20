@@ -231,7 +231,7 @@ Port names went back to the defaults on 2026-10-20 (they were `ether1-gateway`,
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
 | `ether1` | trunk to router `ether2` (until 2026-10-20 the trunk to mikrotik1) | 10 | 20, 30 |
-| `ether12` | trunk to switch-livingroom `ether1`. Spare patch cable in place at Gigabit; buy a permanent one | 10 | 20, 30 |
+| `ether12` | trunk to switch-livingroom `ether1`. **At 100M on 2026-10-20 and dropping** (old bad-cable symptom); see `changelog.md` | 10 | 20, 30 |
 | `ether16` | trunk to switch-office `ether1` | 10 | 20, 30 |
 | `ether21` | Home Assistant | 20 | — |
 | `ether23` | Pi-hole | 20 | — |

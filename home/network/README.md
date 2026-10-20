@@ -33,7 +33,7 @@ The `router1`-`router6` Pi-hole records stay as aliases until 2026-10-27.
 | switch-main | `192.168.10.2` | L2 switch, 24×GE + SFP, VLAN trunks to router (`ether1`), switch-office (`ether16`) and switch-livingroom (`ether12`); Pi-hole, HA, OctoPrint wired; CAPsMAN CAP (2.4 GHz, `LEDCOM` + `LEDCOM-IoT`) |
 | switch-office | `192.168.10.3` | L2 switch, office, 5×GE: desktop, printer |
 | ap-main | `192.168.10.4` | standalone `wifi-qcom-ac` AP, 2.4 + 5 GHz, `LEDCOM` only; router `ether3`, 1 Gbps + PoE |
-| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. The uplink patch cable is a spare: buy a permanent replacement |
+| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. **Uplink unreliable (2026-10-20): down overnight and again since 15:26, and at 100M when up**, see `changelog.md` |
 
 All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with
 `scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
@@ -124,8 +124,10 @@ RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>
   purpose: check client signal before deciding whether to pin `tx-power`.
 
 **Hardware.**
-- Buy a permanent patch cable for the switch-livingroom uplink (the spare in place gives full
-  Gigabit; the original was capped at 100M).
+- **switch-livingroom's uplink.** On 2026-10-20 it came up at 100M (the old bad-cable symptom)
+  and dropped twice (2026-10-19 23:20, 2026-10-20 15:26). Check the cable at the living-room
+  end and the switch's power (is it on a switched power strip with the TV?). Then buy a
+  permanent patch cable.
 - The workshop still needs a switch, VLAN-aware if it carries more than `iot`. The RB2011 is a
   candidate once wiped.
 

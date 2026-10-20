@@ -3644,3 +3644,25 @@ to regenerate). Counts: 89 IPv4 filter rules, 2 NAT, 28 IPv6 filter rules, match
 port. Added the wireguard dispatch rules and an `internet`/`wireguard` row to the quick
 reference, and a switches and ap-main section. Corrected the README: HA's IPv6 privacy
 extensions were already fixed under finding 31 (2026-09-15), not "never checked".
+
+## HA Samsung TV host changed; 16:17 dump and log review (2026-10-20)
+
+Guillaume changed HA's `samsungtv` integration host from `192.168.10.195` to `192.168.10.51`
+(the TV's wifi address, finding 36). Old-name files in `dumps/` and `logs/` were deleted, and
+both dumps were re-run at 16:16-16:17.
+
+- **Router log:** 1004 lines, 15:26:04-16:17:04, 993 of them still `services2users` drops to
+  `.10.195:8002`, 20 a minute, **until 16:15:36**. Nothing after it, up to the 16:17:04
+  collection. This matches the HA change around 16:15, but 90 seconds is not proof. Still to
+  check: rule 72 (`services2users: HA -> Samsung TV`) counters, and a later log with no
+  `.10.195` lines. **Finding 36 stays open until then.**
+- **Finding 40 not applied yet:** the router export has no `memory-lines` setting, so it is still
+  the default 1000.
+- **switch-livingroom unreachable again** (`UNREACHABLE on port 22` in both dumps). switch-main's
+  log: `ether12` link up at 11:29:42 **at 100M**, then **link down at 15:26:12**, 11 s after
+  the 15:25-15:26 dump had read switch-livingroom (its `/log/print` was the last command, at
+  15:26:01). The dump commands are read-only, so a link drop 11 s later is most likely a
+  coincidence, but it is noted. The earlier outage started 2026-10-19 23:20. **The 100M link
+  is the original bad-cable symptom** (`vlan.md`, 2026-10-08): the spare that gave Gigabit is
+  either not in place or has failed the same way.
+- switch-office: no new link events since 14:54. ap-main, switch-main: nothing new.
