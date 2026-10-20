@@ -3689,3 +3689,44 @@ coverage.
 it is on the same switched power strip as the TV and is only on while the TV is. Its "outages"
 (2026-10-19 23:20, 2026-10-20 15:26) are the TV being switched off, not failures. The 100M
 uplink is the known bad living-room patch cable, which he still has to replace.
+
+## Phase 4 re-baseline: router CPU under load (2026-10-20)
+
+During `measure-bufferbloat.sh` from the desktop, `/tool/profile duration=15s` on the router:
+- Download phase: **total 9.7%** (ethernet 1.8%, kernel 1.5%, networking 1.2%, profiling itself
+  4%, firewall 0%).
+- Upload phase: **total 7.4%** (ethernet 2.2%, networking 1.7%, kernel 1.3%, console 1.3%).
+
+These phases ran at 150.8 Mbps down and 484.3 Mbps up (the script's own count, below), not at
+line rate. For comparison, the RB2011 ran at 30-50% CPU for 111 Mbps (`performance.md`,
+2026-09-04). A
+Google Meet call ran during the test and Guillaume noticed no degradation, a first qualitative
+sign of no bufferbloat. The script's own output, the IPv4/IPv6 comparison and the WireGuard test
+are still to come.
+
+**IPv4 vs IPv6, single stream** (desktop, `curl` to `fsn1-speed.hetzner.com/1GB.bin`, 20 s):
+- IPv4 `14328541` B/s = **114.6 Mbps** (RB2011, 2026-09-04: 111.1 Mbps).
+- IPv6 `18079625` B/s = **144.6 Mbps** (RB2011: 82.8 Mbps).
+
+The IPv6 penalty (~25% on the RB2011, NAT66 in the CPU path) is gone: IPv6 is now faster than
+IPv4 on this one sample. Single-stream IPv4 is unchanged at ~115 Mbps although the router now
+passes 865 Mbps with parallel streams. So one stream to this server is limited by the path or
+the server (TCP window over the RTT), not by the router.
+
+**`measure-bufferbloat.sh` (4 streams, 20 s per phase):**
+
+| Target | idle avg | download avg | upload avg | loss (upload) |
+|---|---|---|---|---|
+| edge-router (`192.168.10.1`) | 0.388 ms | 0.471 ms (+0.1) | 0.599 ms (+0.2) | 1% |
+| internet-box (`192.168.1.1`) | 0.642 ms | 0.777 ms (+0.1) | 1.080 ms (+0.4) | 1% |
+| internet (`1.1.1.1`) | 5.161 ms | 5.689 ms (+0.5) | 5.817 ms (+0.7) | 0% |
+
+Throughput the probes ran against: **150.8 Mbps down, 484.3 Mbps up**. Worst single samples were
+3.7 ms (router, download) and 7.7 ms (internet, upload).
+
+Reading: no latency rise worth the name, at any hop. But **the link was not full**: speedtest.net
+reaches 865/858 Mbps, and 4 streams from these test servers only reached 150/484. The 2026-09-05
+run's "link full" claim held only because the RB2011 capped everything at ~170 Mbps. So this run
+shows no bufferbloat up to ~150 Mbps down / ~480 Mbps up, not at line rate. To be re-run with more
+streams (`STREAMS=16`). The router's own ICMP no longer degrades under load (max 1.5 ms during
+upload, vs 9.8 ms with 2% loss on the RB2011), consistent with its 7-10% CPU.
