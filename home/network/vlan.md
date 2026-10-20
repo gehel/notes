@@ -155,6 +155,22 @@ migrated.
 - **The second laptop.** Never seen in any capture.
 - **The Nintendo Switch identity.** Strongly indicated for `BC:CE:25:5E:7F:8A`, not confirmed.
 
+### Living-room block and DNS names (decided 2026-10-20)
+
+`.10.50`-`.10.59` are reserved for living-room devices. Each device gets a DHCP reservation
+per interface on the router, and a **Pi-hole local DNS record** (Guillaume keeps all local
+names in Pi-hole). Naming: the wired interface gets the plain name, the wifi interface gets
+`-wifi`.
+
+| Device | Wired | Wifi |
+|---|---|---|
+| TV (Samsung) | `.10.50` `tv` (`4C:57:39:2C:20:2C`) | `.10.51` `tv-wifi` (`F4:DD:06:2A:FB:AF`) |
+| Amp (Onkyo) | `.10.52` `amp` (MAC to read from switch-livingroom's host table) | `.10.53` `amp-wifi` (`00:09:B0:B6:A9:69`) |
+| Nintendo Switch | `.10.54` `nintendo` (MAC to read from the host table) | `.10.55` `nintendo-wifi` (`BC:CE:25:5E:7F:8A`, Nintendo's OUI, likely) |
+
+All under `.home.ledcom.fr`. The router's `dhcp-to-dns` lease names (`Samsung`, `am335x-opt`)
+still exist next to these; they come from the devices' own hostnames.
+
 ### Static reservations: one caveat
 
 Several clients (Galaxy S24 Ultra, phone `EA:84:28`) use randomised MACs (locally-administered
