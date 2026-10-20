@@ -14,6 +14,12 @@ mikrotik1) in Phase 2 of [rb5009-migration.md](rb5009-migration.md). The only ch
 are the WireGuard rules (already on mikrotik1 before), finding 36's `samsung-tv` list, and the
 2026-10-20 clean-up (finding 39: `HA API access` renamed, the stray `log-prefix` removed).
 
+**Since this was generated (2026-10-20 evening):** two `chain=input` accepts were added after rule
+13, `DHCP server (vlan-services)` and `DHCP server (vlan-iot)` (finding 38). Every `#` from 14 on
+is therefore 2 higher on the device until the next regeneration. On the switches,
+`ingress-filtering=yes` was set on every Ethernet/SFP port (S21, a bridge setting, not a
+firewall rule).
+
 RouterOS evaluates each chain top to bottom and stops at the first match, so **position is
 part of the rule** — a correct-looking rule in the wrong place is a bug.
 
@@ -52,6 +58,8 @@ internet. This is a deliberate widening (Phase 5, see `changelog.md`).
 | 11 | accept | `protocol=udp port=53` | Accept DNS - UDP |
 | 12 | accept | `protocol=tcp port=53` | Accept DNS - TCP |
 | 13 | accept | `protocol=udp in-interface=vlan-users dst-port=67` | DHCP server (vlan-users) |
+| (+) | accept | `protocol=udp in-interface=vlan-services dst-port=67` | DHCP server (vlan-services), added 2026-10-20 |
+| (+) | accept | `protocol=udp in-interface=vlan-iot dst-port=67` | DHCP server (vlan-iot), added 2026-10-20 |
 | 14 | accept | `connection-state=new protocol=udp in-interface=vlan-services dst-port=123` | services: NTP from gateway |
 | 15 | accept | `connection-state=new protocol=udp in-interface=vlan-users dst-port=123` | users: NTP from gateway |
 | 16 | accept | `connection-state=new protocol=udp in-interface=vlan-iot dst-port=123` | iot: NTP from gateway |

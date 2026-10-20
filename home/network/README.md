@@ -9,7 +9,7 @@ Written so that work can resume from these documents alone, with no session hist
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
 mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
 **Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
-(37-39 and S21 as of 2026-10-20).
+(37-39 as of 2026-10-20).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -94,12 +94,10 @@ review, then the end of the rollback week (wipe the RB2011, then remove `cutover
 the `.10.6` address and the `router<N>` aliases). The throughput re-baseline is done.
 
 **Findings** — [config-review.md](config-review.md):
-- S21: switch-main and switch-office accept tagged frames for any VLAN (`ingress-filtering=no`).
-  Fix prepared.
 - 37: the lease-script race. Fixed 2026-10-20; closes when a log dump shows no `dhcp-lease`
   script error.
-- 38: DHCP renewals on `services`/`iot` may be dropped by `chain=input`. Fix prepared (two
-  accepts).
+- 38: DHCP renewals on `services`/`iot` may have been dropped by `chain=input`. Two accepts
+  added 2026-10-20; check their counters after a renewal.
 - 39: the router's leftovers. The deferred part runs at the end of the rollback week.
 - Older, informational: 22 (`connection-state=new` on `chain=input`), 25 (`home.ledcom.fr`
   DDNS, reported fixed, not reconciled), 28 and 33 (conntrack drops, need more data).
@@ -268,8 +266,11 @@ one accept each in `users2services`/`iot2services`. IPv6 has no such chains yet.
   - **Not evaluated at all on `disabled=yes` rules.** A rule created disabled looks clean and
     only reveals the flag once enabled for real — enable and re-check, don't trust a print from
     while it was off.
-  - **Does not apply to `chain=input`** — confirmed clean on an otherwise-equivalent input rule,
-    consistent with `input` having no `out-interface=` concept to be incomplete about.
+  - **Not limited to `chain=forward`.** An equivalent input rule was once confirmed clean,
+    consistent with `input` having no `out-interface=` concept to be incomplete about. But on
+    2026-10-20, `DHCP server (vlan-iot)` (`chain=input`) printed `I - INVALID` right after it was
+    added, while its twin for `vlan-services` did not, then cleared on its own. So the
+    transient flag (below) happens on `input` too.
   - **Reusing a cached `find` result across multiple sequential `/add` calls in one script.**
     Caching `:local catchall [find where comment=...]` and reusing it as `place-before=$catchall`
     across nine `/add`s produced `I - INVALID` on the last one, despite it being structurally

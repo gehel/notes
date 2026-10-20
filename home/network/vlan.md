@@ -238,6 +238,10 @@ Port names went back to the defaults on 2026-10-20 (they were `ether1-gateway`,
 | `ether24` | OctoPrint wired | 30 | — |
 | all other ports | unused | 10 | — |
 
+On switch-main and switch-office, every Ethernet/SFP port has `ingress-filtering=yes` since
+2026-10-20 (S21): a frame tagged with a VLAN the port is not a member of is dropped. The router
+and switch-livingroom already had it.
+
 ### switch-office — `bridge`
 
 | Port | Role | PVID | Tagged |

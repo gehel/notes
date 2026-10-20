@@ -3818,3 +3818,23 @@ On the router (finding 38):
 interface. This contradicts the README lesson that `I - INVALID` "does not apply to
 `chain=input`". To re-print: if it clears on its own, it is the known transient flag (and the
 lesson needs a correction); if it stays, investigate.
+
+**Re-prints, same evening:**
+- switch-office `/interface/bridge/port/print` → `ether1` and `ether3` active (`H`). `ether2`
+  (printer, off), `ether4` and `ether5` inactive. `/interface/ethernet/monitor ether1 once` →
+  `link-ok`, `rate: 1Gbps`, full duplex. The earlier `I` on `ether1` was the port
+  reinitializing after the change.
+- router `/ip/firewall/filter/print where comment~"DHCP server"` → all three DHCP accepts, **none
+  flagged**. Rule 14's `I - INVALID` cleared on its own, with no action taken. So it was the known
+  transient flag, and it **does** happen on `chain=input` too. README lesson corrected.
+
+**S21 is closed.** S21 (found earlier today): switch-main and switch-office had
+`ingress-filtering=no` on every port, so a host on an access port could inject frames tagged for
+another VLAN (one way), bypassing the router's firewall. Fixed and verified above: every
+`ether*`/`sfp*` port on both switches has `ingress-filtering=yes`, the trunks carry all three
+VLANs (DNS, HA, OctoPrint and the CAP still work), and the switch-office trunk is at 1 Gbps.
+switch-livingroom's ports were created with the RouterOS 7 default (`yes`); confirm on a dump
+taken while the TV is on.
+
+**Finding 38: fix applied, finding stays open** until a `services`/`iot` client's renewal shows
+in the counters of `DHCP server (vlan-services)`/`(vlan-iot)`.

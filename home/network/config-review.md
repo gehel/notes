@@ -166,7 +166,7 @@ same script ran on mikrotik1 (ported verbatim), so this is not new.
 **Fix:** wrap the `remove` in `:do { } on-error={}`. The commands are in the 2026-10-20 rename entry in `changelog.md`. Verify: `/ip/dhcp-server/print detail` shows the new script on all three servers, and
 no `dhcp-lease` script error appears in the next `dump-logs.sh`.
 
-### 38. `chain=input` accepts DHCP only on `vlan-users` (informational, needs a check)
+### 38. `chain=input` accepts DHCP only on `vlan-users` (informational, fix applied 2026-10-20, to verify)
 
 Found 2026-10-20. The input rule `DHCP server (vlan-users)` is `dst-port=67
 in-interface=vlan-users`. Nothing accepts UDP/67 from `vlan-services` or `vlan-iot`, so it
@@ -189,8 +189,10 @@ work): add the two missing accepts next to the existing one.
 /ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-iot comment="DHCP server (vlan-iot)" place-before=[find comment="services: NTP from gateway"]
 /ip/firewall/filter/print where chain=input
 ```
-Verify: both rules sit right after `DHCP server (vlan-users)`. After the next T1 of a services/iot
-client, their counters are above zero.
+**Applied 2026-10-20** (`changelog.md`): both rules sit right after `DHCP server (vlan-users)`.
+**To verify:** after the next T1 of a services/iot client, check
+`/ip/firewall/filter/print stats where comment~"DHCP server"`. Counters above zero on the two new
+rules mean renewals were being dropped before, and the finding closes.
 
 ### 39. Migration and naming leftovers on the router (low, partly fixed 2026-10-20)
 
@@ -231,36 +233,6 @@ Also removed with the rename:
   randomization) has a reservation and no comment. Decision 2026-10-20: remove the
   reservation now, and review all DHCP leases later.
 
-### S21. switch-main and switch-office accept tagged frames for any VLAN on every port (low-medium, fix prepared 2026-10-20)
-
-Found 2026-10-20 in the 16:51 dumps. Every bridge port on switch-main (26) and switch-office (5)
-has `ingress-filtering=no` and `frame-types=admit-all` (the bridges themselves too). With
-ingress filtering off, a frame that arrives **tagged** with a VLAN the port is not a member of is
-still accepted into that VLAN. So a host on an access port can inject frames straight into
-another VLAN at layer 2, bypassing the router's firewall. For example, OctoPrint on switch-main
-`ether24` (`iot`) could tag frames with VLAN 20 and reach HA's and Pi-hole's segment, or any
-`users` port could reach `services`/`iot`. Egress still respects membership, so the replies do
-not come back on the access port: it is a one-way injection (UDP, broadcasts), not a full
-session. That limits it, but it is still a policy bypass.
-
-The router does it right: every `bridge-main` port has `ingress-filtering=yes`. Since VLAN 30
-left `ether3` on 2026-10-20, ap-main (whose own bridge has `vlan-filtering=no` on purpose,
-`wifi.md`) can only deliver VLAN 10 into the router. switch-livingroom's ports were created
-with the RouterOS 7 default (`ingress-filtering=yes`); confirm on the next dump taken while the
-TV is on.
-
-**Fix:** turn on ingress filtering on the Ethernet/SFP ports. switch-main's `wlan1` is left
-alone: CAPsMAN forwarding means it carries no traffic locally, and it is not a VLAN 10 member, so
-filtering it could only cause surprises. The commands, switch-office first (only the desktop and
-printer are behind it), then switch-main:
-```
-:foreach i in=[/interface/bridge/port/find] do={:if ([/interface/bridge/port/get $i interface]~"^(ether|sfp)") do={/interface/bridge/port/set $i ingress-filtering=yes}}
-/interface/bridge/port/print detail
-```
-Verify: every `ether*`/`sfp*` port shows `ingress-filtering=yes`. Then check that the trunks still
-carry all three VLANs: DNS from a `users` host (VLAN 20 via the router), the HA web UI, the
-printer, OctoPrint's web UI, and switch-main's CAP still in `/caps-man/remote-cap/print`.
-
 ### Device rename (decided 2026-10-20)
 
 Each device gets a role-location name, used for the RouterOS identity, the Pi-hole hostname
@@ -277,7 +249,7 @@ names, and the README maps old to new.
 | mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
 | mikrotik1 (RB2011) | named when redeployed | — |
 
-Apart from 37-39 and S21 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
+Apart from 37-39 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
