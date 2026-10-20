@@ -9,7 +9,7 @@ Written so that work can resume from these documents alone, with no session hist
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
 mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
 **Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
-(36-39 as of 2026-10-20).
+(36-40 as of 2026-10-20).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -92,8 +92,10 @@ review, the throughput and bufferbloat re-baseline, the end of the rollback week
 RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>` aliases).
 
 **Findings** — [config-review.md](config-review.md):
-- 36: HA → Samsung TV. The router rule is fixed; HA's `samsungtv` integration may still point
-  at `.10.195`. Check it in HA.
+- 36: HA → Samsung TV. The router rule is fixed; HA's `samsungtv` integration still points at
+  `.10.195`. Change it to `.10.51` (the TV is on wifi) in HA.
+- 40: the router's log buffer holds under an hour (36's retries flood it). Fix 36 and raise
+  `memory-lines`; until then a "next-day" log review sees nothing.
 - 37: the lease-script race. Fixed 2026-10-20; closes when a log dump shows no `dhcp-lease`
   script error.
 - 38: DHCP renewals on `services`/`iot` may be dropped by `chain=input`. Check one lease after
