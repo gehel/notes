@@ -16,8 +16,13 @@ What is left:
   limit. The router's WAN port is 2.5G, but nothing behind it is faster than 1G.
 - The direct desktop-to-box test (paused below on a missing cable) is no longer needed to find
   the cause. It would still show what the box itself delivers on one port.
-- Phase 4 of [rb5009-migration.md](rb5009-migration.md) still has a full re-baseline:
-  `measure-bufferbloat.sh` and the router's `cpu-load` under load, with the WireGuard tunnel up.
+- **Re-baseline done 2026-10-20** (Phase 4 of [rb5009-migration.md](rb5009-migration.md)):
+  - Router CPU (`/tool/profile`): 8.2% at 829 Mbps upload, 9.7% at 150 Mbps down / 484 up,
+    firewall 0%. The RB2011 used 30-50% for 111 Mbps.
+  - Single stream to `fsn1-speed.hetzner.com`: IPv4 114.6 Mbps (was 111.1), **IPv6 144.6 Mbps
+    (was 82.8)**. The IPv6/NAT66 penalty is gone. Single-stream IPv4 did not move, so it is
+    limited by the path or the server, not the router.
+  - No bufferbloat, see [qos.md](qos.md).
 
 The rest of this document is the investigation as it stood on 2026-09-22, kept as written.
 

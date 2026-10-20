@@ -80,7 +80,7 @@ rsync+sudo) land in `logs/pihole/`, collected with
 | [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone |
 | [network.md](network.md) | The two diagrams and how to regenerate them |
 | [performance.md](performance.md) | Throughput investigation — resolved 2026-10-20: the RB2011 was the limit |
-| [qos.md](qos.md) | Bufferbloat measurement (on the RB2011; to redo on the router) |
+| [qos.md](qos.md) | Bufferbloat: none, re-measured on the router 2026-10-20. No QoS needed |
 
 Diagrams live in [diagrams/](diagrams/): [network.svg](diagrams/network.svg) is physical
 topology (Graphviz), [network-addressing.svg](diagrams/network-addressing.svg) is the address
@@ -90,8 +90,8 @@ plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`; see
 ## Everything currently open
 
 **RB5009 migration, Phase 4** — [rb5009-migration.md](rb5009-migration.md): the next-day log
-review, the throughput and bufferbloat re-baseline, the end of the rollback week (wipe the
-RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>` aliases).
+review, then the end of the rollback week (wipe the RB2011, then remove `cutover`/`rollback`,
+the `.10.6` address and the `router<N>` aliases). The throughput re-baseline is done.
 
 **Findings** — [config-review.md](config-review.md):
 - 40: the router's log buffer held under an hour. Fixed 2026-10-20 (36 closed, `memory-lines`

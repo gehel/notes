@@ -79,5 +79,7 @@ verification in [changelog.md](changelog.md)'s 2026-09-28 entry.
   Full-tunnel means *all* the phone's internet traffic now also pays a software-crypto cost on
   this CPU. Not expected to be a problem at one phone's worth of traffic, but worth checking
   `/system resource/print` CPU load with the tunnel active under real use. **Since 2026-10-20 the
-  tunnel runs on the RB5009** (4 × Cortex-A72). The CPU check under real use is still a Phase 4
-  item in `rb5009-migration.md`.
+  tunnel runs on the RB5009** (4 × Cortex-A72). Checked 2026-10-20 with a speed test on the
+  phone through the tunnel: `/tool/profile` showed the WireGuard crypto (`chacha_neon`,
+  `poly1305_neon`) at 0% and 9.7% total, 7% of it the profiler itself. The tunnel costs nothing
+  measurable.

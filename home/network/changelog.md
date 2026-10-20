@@ -3752,3 +3752,12 @@ Reading:
   (4 streams gave 150), so the server or its per-client rate is the limit. `DOWN_URL` is now an
   environment override in `measure-bufferbloat.sh` so a faster server can be used.
 - Router CPU at 829 Mbps upload: 8.2%.
+
+**WireGuard under load** (phone on mobile data, tunnel up, speed test on the phone; the phone's
+own result was not pasted). Router `/tool/profile duration=15s`: **total 9.7%, of which 7% is
+the profiler itself**. kernel 1.6%. The WireGuard crypto (`chacha_neon`, `poly1305_neon`,
+`libchacha20poly1305`) and `udp_tunnel` all show 0%. `/interface/wireguard/peers/print detail`:
+`peer1` (MrG Galaxy S24), endpoint `178.197.196.84:22558`, `rx=184.1MiB tx=857.5MiB` (totals
+since the cutover), last handshake 1m35s. (`print stats` is not a valid option on this menu;
+my mistake.) Reading: the tunnel costs nothing measurable on the RB5009. That closes
+`vpn.md`'s open CPU check, with the caveat that the phone's throughput number is missing.

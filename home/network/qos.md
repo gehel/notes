@@ -9,11 +9,26 @@ network is downloading hard — game updates, OS updates, backups, large file tr
 
 ## Status: measured 2026-09-05 — there is no bufferbloat to fix
 
-**2026-10-20: these measurements were taken through the RB2011 (old mikrotik1), at about
-180 Mbps down.** The RB5009 (`router`) now passes about 860 Mbps both ways, so the queues fill
-at a different point. Re-measure with `measure-bufferbloat.sh` (its targets were updated for the
-current addresses on 2026-10-20) before relying on the conclusion below. This is a Phase 4 item in
-[rb5009-migration.md](rb5009-migration.md).
+**Re-measured 2026-10-20 on the RB5009 (`router`): still no bufferbloat, so the conclusion
+stands.** `STREAMS=16 ./measure-bufferbloat.sh` from the desktop:
+
+| Target | idle avg | download avg | upload avg (max) |
+|---|---|---|---|
+| router (`192.168.10.1`) | 0.39 ms | 0.46 ms | 1.15 ms (3.3) |
+| Internet-Box (`192.168.1.1`) | 0.67 ms | 0.79 ms | 1.72 ms (10.0) |
+| internet (`1.1.1.1`) | 5.71 ms | 5.37 ms | 6.11 ms (9.8) |
+
+- **Upload ran at 829 Mbps**, essentially line rate (~858). At most +1.1 ms on average. The 2%
+  loss was the same towards all three targets, so it happens in the desktop's own transmit
+  queue, not in the network.
+- **Download only reached 190 Mbps**: the test server (`fsn1-speed.hetzner.com`) is the limit
+  even with 16 streams, while speedtest.net reaches 865 Mbps. So download is shown clean up to
+  190 Mbps only. `DOWN_URL=` now selects another server for a line-rate run.
+- **The router is no longer CPU-bound**: 8.2% total CPU at 829 Mbps upload (`/tool/profile`),
+  and its own ICMP replies stay under 3.4 ms (the RB2011 reached 9.8 ms with 2% loss). The
+  "CPU, not queueing" section below is history.
+
+Everything below is the 2026-09-05 measurement through the RB2011, at about 170 Mbps down.
 
 **The premise of this document did not survive measurement.** Latency under load was probed
 at three hops simultaneously with [measure-bufferbloat.sh](scripts/measure-bufferbloat.sh), and the

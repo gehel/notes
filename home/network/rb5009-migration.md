@@ -38,8 +38,7 @@ Next, in order:
    and review it. There should be no `.10.195` drops (finding 36, closed), no
    old-prefix `9a41` IPv6 drops and no `dhcp-lease` script error (closes finding 37). Also check
    HA's lease for finding 38.
-3. The remaining Phase 4 items below: the throughput/bufferbloat re-baseline, then the end of
-   the rollback week.
+3. The end of the rollback week (Phase 4's last item, not before 2026-10-27).
 
 ## Strategy in one paragraph
 
@@ -409,8 +408,11 @@ Log the cutover in `changelog.md` **as it happens**, with the output of each che
 - [x] ~~Docs.~~ Done 2026-10-20: README, `vlan.md`, `wifi.md`, `ipv6.md`, `vpn.md`,
       `performance.md`, `qos.md`, `config-review.md`, `network.md` and both diagrams.
       `firewall.md` is regenerated from the first post-rename dump.
-- [ ] Re-baseline throughput: `measure-bufferbloat.sh` (then update `qos.md`), and the router's
-      `cpu-load` under real load with the WireGuard tunnel up (`vpn.md`'s open item).
+- [x] ~~Re-baseline throughput.~~ Done 2026-10-20: no bufferbloat (upload measured at 829 Mbps;
+      download only up to 190 Mbps, the test server's limit), router CPU 8.2% at line-rate
+      upload, IPv6 now faster than IPv4 single-stream, WireGuard crypto at 0% CPU. `qos.md`,
+      `performance.md` and `vpn.md` updated. Optional: a line-rate download run with
+      `DOWN_URL=` pointing at a faster server.
 - [ ] **End of the rollback week (not before 2026-10-27).** First unplug the RB2011 from the
       Internet-Box and wipe it (it holds the WireGuard key and wifi passphrases). Keep its
       `show-sensitive` export only in `backups/`. Then, on the router:
