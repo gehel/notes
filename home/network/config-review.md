@@ -150,22 +150,6 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 
-### 37. The DHCP `lease-script` can abort before it adds the DNS entry (low, fix prepared 2026-10-20)
-
-Found 2026-10-20 in mikrotik6's log, the morning after the cutover:
-```
-11:22:21 script,error executing script from dhcp failed, please check it manually
-11:22:21 script,error,debug (dhcp-lease) no such item (4) (/ip/dns/static/remove *0) (/ip/dns/static/remove; line 3)
-```
-Two lease events for one host (a deassign then an assign in the same second, seen at 11:27:40
-for IotaWatt) run the script twice at once. The second run's `find` returns an entry that the
-first run has already removed. `remove` then fails, and the script stops before its `add`. The
-host can stay without its `<hostname>.home.ledcom.fr` entry until its next lease event. The
-same script ran on mikrotik1 (ported verbatim), so this is not new.
-
-**Fix:** wrap the `remove` in `:do { } on-error={}`. The commands are in the 2026-10-20 rename entry in `changelog.md`. Verify: `/ip/dhcp-server/print detail` shows the new script on all three servers, and
-no `dhcp-lease` script error appears in the next `dump-logs.sh`.
-
 ### 38. `chain=input` accepts DHCP only on `vlan-users` (informational, fix applied 2026-10-20, to verify)
 
 Found 2026-10-20. The input rule `DHCP server (vlan-users)` is `dst-port=67
@@ -249,7 +233,7 @@ names, and the README maps old to new.
 | mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
 | mikrotik1 (RB2011) | named when redeployed | — |
 
-Apart from 37-39 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
+Apart from 38-39 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
@@ -356,6 +340,14 @@ switch chip with hardware VLAN offload, not on which one happens to be reachable
 patch panel today.
 
 ### Office switch: PoE requirements — dropped, no purchase needed
+
+**Revisited 2026-10-20, same outcome.** Goal: switch off the office while switch-office and the
+garden SXTsq stay up. Neither the hEX (passive 8-30 V) nor the SXTsq Lite2 (passive 10-30 V)
+can take the router's 48 V PoE. A PoE-only chain would be a hEX S (2025) (802.3af/at in, passive
+out on `ether5`) plus a MikroTik RBGPOE-CON-HP (42-57 V in, 24 V out) at the garden end. Running
+the router on 24 V was rejected (no 802.3af, and a 48 V brick plugged back in would kill the hEX).
+**Decision: switch-office and the SXT's injector go on their own power strip**, separate from
+the other office equipment. No purchase.
 
 Recorded 2026-09-05, **dropped 2026-10-06**. mikrotik3 (RB750Gr3) has no PoE-out, and both
 planned access points — the cAP XL ac and the SXTsq Lite2 — hang off it. The original plan was

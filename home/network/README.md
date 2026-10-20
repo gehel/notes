@@ -9,7 +9,7 @@ Written so that work can resume from these documents alone, with no session hist
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
 mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
 **Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
-(37-39 as of 2026-10-20).
+(38-39 as of 2026-10-20).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -33,7 +33,7 @@ The `router1`-`router6` Pi-hole records stay as aliases until 2026-10-27.
 | switch-main | `192.168.10.2` | L2 switch, 24×GE + SFP, VLAN trunks to router (`ether1`), switch-office (`ether16`) and switch-livingroom (`ether12`); Pi-hole, HA, OctoPrint wired; CAPsMAN CAP (2.4 GHz, `LEDCOM` + `LEDCOM-IoT`) |
 | switch-office | `192.168.10.3` | L2 switch, office, 5×GE: desktop, printer |
 | ap-main | `192.168.10.4` | standalone `wifi-qcom-ac` AP, 2.4 + 5 GHz, `LEDCOM` only; router `ether3`, 1 Gbps + PoE |
-| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. **On the TV's switched power strip: only up while the TV is on, so "unreachable" is its normal state.** Uplink at 100M on a bad patch cable, to be replaced |
+| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. **On the TV's switched power strip: only up while the TV is on, so "unreachable" is its normal state.** Uplink at 1G since the cables were replaced (2026-10-20) |
 
 All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with
 `scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
@@ -94,8 +94,6 @@ review, then the end of the rollback week (wipe the RB2011, then remove `cutover
 the `.10.6` address and the `router<N>` aliases). The throughput re-baseline is done.
 
 **Findings** — [config-review.md](config-review.md):
-- 37: the lease-script race. Fixed 2026-10-20; closes when a log dump shows no `dhcp-lease`
-  script error.
 - 38: DHCP renewals on `services`/`iot` may have been dropped by `chain=input`. Two accepts
   added 2026-10-20; check their counters after a renewal.
 - 39: the router's leftovers. The deferred part runs at the end of the rollback week.
@@ -122,8 +120,6 @@ the `.10.6` address and the `router<N>` aliases). The throughput re-baseline is 
   purpose: check client signal before deciding whether to pin `tx-power`.
 
 **Hardware.**
-- Replace the living-room patch cables: switch-livingroom's uplink runs at 100M (the
-  2026-10-08 bad-cable symptom).
 - The workshop still needs a switch, VLAN-aware if it carries more than `iot`. The RB2011 is a
   candidate once wiped.
 

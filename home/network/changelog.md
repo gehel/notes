@@ -3838,3 +3838,36 @@ taken while the TV is on.
 
 **Finding 38: fix applied, finding stays open** until a `services`/`iot` client's renewal shows
 in the counters of `DHCP server (vlan-services)`/`(vlan-iot)`.
+
+## Office PoE decided; living-room cables replaced; 18:12 review; finding 37 closed (2026-10-20)
+
+**Office power: decided, no purchase.** The goal was to switch off the office equipment while
+switch-office and the garden SXTsq stay up. Options were checked against MikroTik's specs:
+- switch-office (RB750Gr3) takes passive PoE 8-30 V only.
+- The SXTsq Lite2 takes passive 10-30 V.
+- The router outputs 802.3af/at at its 48 V input (48.6 V measured on `ether3`).
+
+A PoE-only design would need a hEX S (2025) (802.3af/at in, passive out on `ether5`) plus a
+RBGPOE-CON-HP 48 V → 24 V converter in front of the SXT. Running the router on a 24 V supply
+was rejected: no more 802.3af, and a 48 V brick plugged back in would kill the hEX. **Guillaume
+chose the simple option: switch-office and the SXT's injector on their own power strip,
+separate from the rest of the office.** Recorded in `config-review.md`'s office PoE section.
+
+**Living room:** Guillaume replaced the patch cables and plugged the amp and the Nintendo Switch
+in by cable. From the 18:12 dumps (switch-livingroom's log timestamps before 18:02:10 are pre-NTP;
+the hEX has no RTC, so its "11:33" boot is really about 18:02):
+- `ether1` (trunk) **link up at 1G** (it was 100M on the old cable). **The cable fault is fixed.**
+- `ether2` (TV) link up at 100M. The TV's NIC is 100M, already accepted in `vlan.md`.
+- **`ether3`, `ether4`, `ether5`: no link.** No new DHCP lease on the router since the living room
+  powered up. The amp renewed **over wifi** at 18:02:19 (`00:09:B0:B6:A9:69`, `am335x-opt`,
+  `.10.102`), and the TV also over wifi (`.10.51`) at 18:01:47, although its cable has link.
+- All five bridge ports have `ingress-filtering=yes`, as S21's closure expected (RouterOS 7
+  default).
+
+**Finding 37 is closed.** At 18:01:47 and 18:02:19, the router logged a deassign plus a
+reassign in the same second, for the TV and the amp: the overlapping lease events that made the
+old script fail. `logs/router.txt` (1047 lines, 15:26-18:12) has **no `script,error`**, and both
+DNS entries were re-added. The `on-error={}` fix works.
+
+**Router log since 16:16: no firewall drops at all.** Finding 38: no renewals from
+`services`/`iot` yet to show in the new rules' counters.

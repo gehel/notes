@@ -231,7 +231,7 @@ Port names went back to the defaults on 2026-10-20 (they were `ether1-gateway`,
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
 | `ether1` | trunk to router `ether2` (until 2026-10-20 the trunk to mikrotik1) | 10 | 20, 30 |
-| `ether12` | trunk to switch-livingroom `ether1`. Link only while the TV's power strip is on; 100M on the bad patch cable, to be replaced | 10 | 20, 30 |
+| `ether12` | trunk to switch-livingroom `ether1`. Link only while the TV's power strip is on; 1G since the cables were replaced (2026-10-20) | 10 | 20, 30 |
 | `ether16` | trunk to switch-office `ether1` | 10 | 20, 30 |
 | `ether21` | Home Assistant | 20 | — |
 | `ether23` | Pi-hole | 20 | — |
