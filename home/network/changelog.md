@@ -3787,3 +3787,34 @@ Checked and left as they are:
 - `www` (plain-HTTP WebFig) stays enabled; it is part of the parked TLS question.
 - The router's CAPsMAN interfaces are still named `ap-MikroTik-Switch-1*`. Forcing a
   re-provision to rename them would drop wifi clients (IotaWatt risk), for a cosmetic gain.
+
+## S21 fix applied on switch-office and switch-main; finding 38's accepts added (2026-10-20)
+
+On switch-office, then switch-main:
+```
+:foreach i in=[/interface/bridge/port/find] do={:if ([/interface/bridge/port/get $i interface]~"^(ether|sfp)") do={/interface/bridge/port/set $i ingress-filtering=yes}}
+```
+`/interface/bridge/port/print detail`:
+- switch-office: `ether1`-`ether5` all `ingress-filtering=yes`, `H`. At the moment of the print,
+  `ether1` (trunk) and `ether2`/`ether5` showed `I` (inactive). `ether2`/`ether5` are unused or
+  idle, but `ether1` is the trunk, and switch-main's `ether16` showed active at the same time.
+  Most likely the port reinitializing after the change: the session to switch-office kept
+  working. To re-print.
+- switch-main: all 25 `ether*`/`sfp1` ports `ingress-filtering=yes`. `wlan1` left at `no`, as
+  intended. Active ports: `ether1`, `ether16`, `ether21`, `ether23`, `ether24` (`ether12` is off
+  with the TV).
+
+Guillaume: "connection still work". Not done: a negative test (sending VLAN-tagged frames from
+an access port).
+
+On the router (finding 38):
+```
+/ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-services comment="DHCP server (vlan-services)" place-before=[find comment="services: NTP from gateway"]
+/ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-iot comment="DHCP server (vlan-iot)" place-before=[find comment="services: NTP from gateway"]
+```
+`/ip/firewall/filter/print where chain=input` → rules 13 `DHCP server (vlan-services)` and 14
+`DHCP server (vlan-iot)`, right after 12 `DHCP server (vlan-users)` and before the NTP accepts.
+**Rule 14 printed `I - INVALID`; rule 13 did not.** The two rules are identical apart from the
+interface. This contradicts the README lesson that `I - INVALID` "does not apply to
+`chain=input`". To re-print: if it clears on its own, it is the known transient flag (and the
+lesson needs a correction); if it stays, investigate.
