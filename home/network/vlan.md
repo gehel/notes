@@ -9,6 +9,12 @@ document holds the design reference and current state, not the story of how it w
 Still open:
 
 - **Open, not blocking**: the "second laptop" in the device inventory is still unidentified.
+  Part of the DHCP lease review in `README.md`'s open items.
+
+**2026-10-20: the edge role moved to the RB5009, and the devices were renamed** (`router`,
+`switch-main`, `switch-office`, `ap-main`, `switch-livingroom`; the README maps the old names).
+The device inventory and the port plans below use the new names. The rest of this document is
+the design record and keeps the old names.
 
 Recently closed: finding 21 (IPv6 on every VLAN, 2026-09-11) and IotaWatt's connectivity
 (back online 2026-09-11, router-side config confirmed working, HA integration re-added) — see
@@ -67,8 +73,8 @@ vlan 20  vlan-services  192.168.20.0/24   Home Assistant, Pi-hole
 vlan 30  vlan-iot       192.168.30.0/24   Tasmota x2, ESPHome, Hombli fan, OctoPrint, ...
 ```
 
-Gateway is `.1` on each. All three VLAN interfaces live on `bridge-main` on mikrotik1;
-mikrotik2 and mikrotik3 stay pure L2 and simply carry the tags.
+Gateway is `.1` on each. All three VLAN interfaces live on `bridge-main` on the router (the
+RB2011 until 2026-10-20, the RB5009 since); the switches stay pure L2 and simply carry the tags.
 
 ### Policy matrix
 
@@ -109,29 +115,28 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 
 | Device | Address | Attachment | Notes |
 |---|---|---|---|
-| desktop "during" | `.10.90` | mikrotik3 `ether3` | |
+| desktop "during" | `.10.90` | switch-office `ether3` | |
 | laptop "gimli" | `.10.92` | wireless | |
 | second laptop | pool | wireless | **still not identified** |
 | Galaxy S24 Ultra | pool | wireless, randomised MAC | |
 | phone `EA:84:28` | pool | wireless, randomised MAC | |
-| TV (Samsung), wired `4C:57:39:2C:20:2C` | `.10.50` | mikrotik5 `ether2`, added 2026-10-08 — link is 100Mbps not Gigabit, accepted, see "Living room and workshop" | |
+| TV (Samsung), wired `4C:57:39:2C:20:2C` | `.10.50` | switch-livingroom `ether2`, added 2026-10-08 | |
 | TV (Samsung), wifi `F4:DD:06:2A:FB:AF` | `.10.51` | wireless | the MAC this file always called "the TV's" before 2026-10-08 — it's the wifi interface, not wired |
 | Nintendo Switch (likely) `BC:CE:25:5E:7F:8A` | pool | wireless | not 100% confirmed |
-| Onkyo amp `00:09:B0` | `.10.104`? | wireless | **address stale — no static reservation for this MAC found in a 2026-10-08 lease print; `.10.104` was instead held by the TV's wifi MAC at the time.** Not re-investigated, see `changelog.md`'s "mikrotik5 build" follow-ups |
-| Printer `NPI52346B` | `.10.110` | mikrotik3 `ether2` | reverted from `services` |
-| mikrotik1 | `.10.1` | gateway on all three VLANs | |
-| mikrotik2 | `.10.2` | mikrotik1 `ether2-master` | |
-| mikrotik3 | `.10.3` | mikrotik2 `ether16` | |
-| mikrotik4 (cAP XL ac) | `.10.4` | mikrotik1 `ether10` (final location) | Standalone `wifi-qcom-ac`, not CAPsMAN — `LEDCOM` only, no `LEDCOM-IoT`; built 2026-10-06/07, see `wifi.md` |
-| mikrotik5 (RB750Gr3, living room) | `.10.5` | mikrotik2 `ether12-slave-local` | Built and hardened 2026-10-08; moved to the living room and connected 2026-10-08 — see "Living room and workshop" below |
-| mikrotik6 (RB5009UPr+S+IN) | `.10.6` | mikrotik2 `ether1-gateway` | Edge router since the 2026-10-20 cutover (holds `.10.1`/`.20.1`/`.30.1` too) — see `rb5009-migration.md` |
+| Onkyo amp `00:09:B0:B6:A9:69` | pool | wireless | seen 2026-10-20 at `.10.102`, hostname `am335x-opt` (the `00:09:B0` prefix is Onkyo's). The old `.10.104` note was stale |
+| Printer `NPI52346B` | `.10.110` | switch-office `ether2` | reverted from `services` |
+| router (RB5009UPr+S+IN) | `.10.1` (and `.10.6` until the rollback week ends) | gateway on all VLANs | edge router since 2026-10-20, see `rb5009-migration.md` |
+| switch-main (CRS125) | `.10.2` | router `ether2` → `ether1` | |
+| switch-office (RB750Gr3) | `.10.3` | switch-main `ether16` → `ether1` | |
+| ap-main (cAP XL ac) | `.10.4` | router `ether3` (1 Gbps, PoE) | standalone `wifi-qcom-ac`, not CAPsMAN — `LEDCOM` only, no `LEDCOM-IoT`; see `wifi.md` |
+| switch-livingroom (RB750Gr3) | `.10.5` | switch-main `ether12` → `ether1` | built 2026-10-08, see "Living room and workshop" below |
 
 ### services — VLAN 20, 192.168.20.0/24
 
 | Device | Address | Attachment |
 |---|---|---|
-| Pi-hole | `.20.40` | mikrotik2 `ether23` |
-| Home Assistant | `.20.60` | mikrotik2 `ether21` |
+| Pi-hole | `.20.40` | switch-main `ether23` |
+| Home Assistant | `.20.60` | switch-main `ether21` |
 
 ### iot — VLAN 30, 192.168.30.0/24
 
@@ -140,7 +145,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | IotaWatt | `.30.50` | wireless | migrated, verified — back online 2026-09-11 after an extended outage |
 | Kids light (Tasmota) | `.30.61` | wireless | migrated, verified |
 | Hombli ceiling fan | `.30.63` | wireless | migrated, verified |
-| OctoPrint | `.30.81` (wifi), `.30.80` (wired) | wireless now; mikrotik2 `ether24` tagged for when the wired cable is fixed | migrated, verified (reimaged after a lost system password, reconfigured onto `LEDCOM-IoT`) |
+| OctoPrint | `.30.80` (wired), `.30.81` (wifi) | switch-main `ether24` (link up and lease bound 2026-10-20), and `LEDCOM-IoT` | migrated, verified (reimaged after a lost system password, reconfigured onto `LEDCOM-IoT`) |
 
 Kitchen light (Tasmota) is confirmed dead — its reservation was deleted in Phase 2, not
 migrated.
@@ -205,55 +210,57 @@ devices — decide what else goes there before buying.
 
 ## Trunk and access port plan
 
-Current state, all four devices (mikrotik2's `ether12-slave-local` trunk to mikrotik5 went live
-2026-10-08, see `changelog.md`).
+Current state, 2026-10-20 dumps, after the cutover and the rename.
 
-### mikrotik1 — `bridge-main`
+### router — `bridge-main`
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether2-master` | trunk to mikrotik2 | 10 | 20, 30 |
-| `ether3`-`ether10`, `sfp1` | unused | 10 | — |
-| `ap-MikroTik-1`, `ap-MikroTik-Switch-1` | wireless, CAPsMAN dynamic | — | 10, 30 |
+| `ether1` | WAN to the Internet-Box, not bridged | — | — |
+| `ether2` | trunk to switch-main `ether1` | 10 | 20, 30 |
+| `ether3` | ap-main, PoE `auto-on` | 10 | — (VLAN 30 removed 2026-10-20, unused) |
+| `ether4`-`ether8`, `sfp-sfpplus1` | unused, PoE off | 10 | — |
+| `ap-*` (dynamic) | switch-main's radio via CAPsMAN: `LEDCOM` and `LEDCOM-IoT` | 10 / 30 | — |
 | `bridge-main` itself | carries the VLAN interfaces | — | 10, 20, 30 |
 
-### mikrotik2 — `bridge-local`
+### switch-main — `bridge-local`
+
+Port names went back to the defaults on 2026-10-20 (they were `ether1-gateway`,
+`etherN-slave-local`, `sfp1-gateway`). The ports in use carry comments.
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether1-gateway` | trunk to mikrotik6 (RB5009, edge router since 2026-10-20) `ether2`. Was the trunk to mikrotik1 | 10 | 20, 30 |
-| `ether16-slave-local` | trunk to mikrotik3 | 10 | 20, 30 |
-| `ether12-slave-local` | trunk to mikrotik5 (living room) — **100Mbps on the current cable, bad patch cable, replacement needed** | 10 | 20, 30 |
-| `ether21-slave-local` | Home Assistant | 20 | — |
-| `ether23-slave-local` | Pi-hole | 20 | — |
-| `ether24-slave-local` | OctoPrint wired (cable down) | 30 | — |
+| `ether1` | trunk to router `ether2` (until 2026-10-20 the trunk to mikrotik1) | 10 | 20, 30 |
+| `ether12` | trunk to switch-livingroom `ether1`. Spare patch cable in place at Gigabit; buy a permanent one | 10 | 20, 30 |
+| `ether16` | trunk to switch-office `ether1` | 10 | 20, 30 |
+| `ether21` | Home Assistant | 20 | — |
+| `ether23` | Pi-hole | 20 | — |
+| `ether24` | OctoPrint wired | 30 | — |
 | all other ports | unused | 10 | — |
 
-### mikrotik3 — `bridge`
+### switch-office — `bridge`
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether1` | trunk to mikrotik2 | 10 | 20, 30 |
+| `ether1` | trunk to switch-main `ether16` | 10 | 20, 30 |
 | `ether2` | printer | 10 | — |
 | `ether3` | desktop | 10 | — |
 | `ether4`, `ether5` | unused | 10 | — |
 
-### mikrotik5 — `bridge`
-
-Config is live and verified (`pvid=10` confirmed on all five ports via `/interface/bridge/port/
-print detail`, 2026-10-08). The device is now physically in the living room, connected to
-mikrotik2's `ether12-slave-local` — confirmed working end-to-end (TV DHCP lease verified), but
-**currently at 100Mbps due to a bad patch cable, root-caused, replacement needed** (see "Living
-room and workshop" above for the diagnostic trail). The TV is plugged into `ether2`; Nintendo
-Switch and amp aren't plugged in yet.
+### switch-livingroom — `bridge`
 
 | Port | Role | PVID | Tagged |
 |---|---|---|---|
-| `ether1` | trunk to mikrotik2 `ether12-slave-local` — **100Mbps on the current cable, bad patch cable, replacement needed** | 10 | 20, 30 |
+| `ether1` | trunk to switch-main `ether12` | 10 | 20, 30 |
 | `ether2` | TV | 10 | — |
 | `ether3` | Nintendo Switch (not yet connected) | 10 | — |
 | `ether4` | amp (not yet connected) | 10 | — |
 | `ether5` | spare | 10 | — |
+
+### ap-main — `bridge`
+
+`ether1` (uplink, PoE in) and both radios untagged on VLAN 10. `vlan-filtering` is off; the
+bridge VLAN entry documents the intent.
 
 ## Migration reference
 
@@ -316,6 +323,7 @@ what the original checklist below turned into:
 
 ## Open technical question
 
-**RB2011 hardware offload for VLAN filtering** — not checked whether bridge VLAN filtering is
-offloaded to the switch chips; if not, forwarding moves to the 600 MHz single core. Watch CPU;
-`performance.md` has the throughput baseline. No symptoms of exhaustion observed so far.
+**RB2011 hardware offload for VLAN filtering** — closed by the hardware swap. On the router
+(RB5009), every bridge port shows `H` (hardware offload) with `vlan-filtering=yes`
+(2026-10-20). switch-main (CRS125) shows no `H` flag on its ports, but the 865/858 Mbps speed
+test runs through it, so it costs nothing measurable.
