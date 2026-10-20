@@ -3898,3 +3898,18 @@ DNS entries were re-added. The `on-error={}` fix works.
 - Amp: cabled, but its network setting is still wifi. Its LAN port shows no link (Onkyo turns
   the port off while wifi is selected). Wired MAC still unknown.
 - The TV's wired MAC is learned on `ether2`, but the TV takes no lease on it: it still uses wifi.
+
+**Router, wired reservation for the console:**
+```
+/ip/dhcp-server/lease/make-static [find mac-address=BC:CE:25:64:E2:C5]
+/ip/dhcp-server/lease/set [find mac-address=BC:CE:25:64:E2:C5] address=192.168.10.54 comment="Nintendo Switch, wired to switch-livingroom ether3"
+```
+`/ip/dhcp-server/lease/print where comment~"Nintendo"` → `.10.55` (wifi) and `.10.54` (wired)
+both static. The wired lease shows `bound` with last-seen 4m55s, so it is from before the change:
+the console may still hold `.10.101` until it renews. To confirm in ARP.
+
+**switch-livingroom:** `/interface/ethernet/set ether3 comment="Nintendo Switch, wired"` →
+`print where name=ether3` shows the comment, `RS` (running, bridge slave).
+
+**HA:** Guillaume moved the Samsung TV integration to host `tv.home.ledcom.fr` (`.10.50`, the
+TV's wired address).
