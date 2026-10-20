@@ -119,8 +119,9 @@ RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>
   low value (`rb5009-migration.md` Phase 5).
 - The SXTsq Lite2 (garden AP) is not built and has no name yet. Check its own label for its real
   MAC first; see `wifi.md`.
-- switch-main's 2.4 GHz TX power rose from 16 to 20 dBm as a side effect of the channel fix.
-  Deliberately not adjusted yet.
+- switch-main's radio reports 16 dBm again under the router's CAPsMAN (2026-10-20 dump). Under
+  mikrotik1 it had run at 20 dBm since the channel fix (`wifi.md`). Nothing was changed on
+  purpose: check client signal before deciding whether to pin `tx-power`.
 
 **Hardware.**
 - Buy a permanent patch cable for the switch-livingroom uplink (the spare in place gives full

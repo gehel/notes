@@ -2,6 +2,34 @@
 
 Opened 2026-09-05.
 
+## Current state (2026-10-20)
+
+After the RB5009 cutover and the device rename (README maps the old names). The sections below
+this one are the history, and keep the old names.
+
+| Radio | Manager | Band / channel | SSIDs | Uplink |
+|---|---|---|---|---|
+| switch-main `wlan1` (`4C:5E:0C:91:51:99`, was mikrotik2) | legacy `/caps-man` on the router, config `caps_ch11` | 2.4 GHz, ch 11 (2462/20), 16 dBm | `LEDCOM` (VLAN 10), `LEDCOM-IoT` (VLAN 30) | CAPsMAN forwarding to the router |
+| ap-main `wifi1`/`wifi2` (cAP XL ac, was mikrotik4) | standalone `wifi-qcom-ac` | 2.4 + 5 GHz | `LEDCOM` only | router `ether3`, 1 Gbps, PoE (4.1 W) |
+
+- **mikrotik1's own radio (cap6, ch 1) is gone** with the RB2011. Its CAPsMAN configuration
+  (`caps_config`, `ch1`) stays on the router as the catch-all provisioning rule for any new
+  legacy CAP. `ch6` was removed as unused.
+- **`LEDCOM-IoT` is only on switch-main's 2.4 GHz radio.** ap-main cannot serve it: VLAN-tagged
+  multi-SSID is not supported on its hardware/driver (see "Built 2026-10-06/07" below).
+- **ap-main's 100M trade-off is resolved.** On mikrotik1 `ether10` it was Fast-Ethernet only.
+  On router `ether3` it gets 1 Gbps and PoE from one cable (`changelog.md`, Phase 3 check 7).
+- **TX power:** switch-main's radio reports 16 dBm under the router's CAPsMAN. Under mikrotik1 it
+  ran at 20 dBm after the channel fix (see "Side effect" below). Nothing was set on purpose.
+- **Target B3 is now possible**: the router runs `wireless` (legacy `/caps-man`) and could also
+  run the new `/interface/wifi/capsman` for ap-main. Low value, real wifi risk; parked in
+  `rb5009-migration.md` Phase 5.
+- **After a CAPsMAN restart, check the IoT devices.** IotaWatt did not rejoin on its own after
+  the cutover and needed a power cycle (README lesson).
+- The **SXTsq Lite2** (garden AP) is still planned and unbuilt, with no name yet (see its
+  section below).
+
+
 ## Fixed 2026-09-05: both APs were on the same channel
 
 **Baseline, recorded before the fix** — from `/interface/wireless/print detail` on
