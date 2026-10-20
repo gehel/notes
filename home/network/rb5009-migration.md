@@ -1,17 +1,10 @@
 # RB5009 edge migration — replacing mikrotik1
 
-**Status: plan written 2026-10-09. Phase 1 done 2026-10-19 (WAN lease `192.168.1.103`
-reserved in the Internet-Box): RouterOS 7.24.5, `wireless` installed (B3
-prerequisite met), base build applied and checked, mikrotik2 `ether18-slave-local` trunk
-carries VLANs 10/20/30, `.10.6` in `mgmt` on mikrotik1-5. Phase 2 done 2026-10-19 for
-IPv4, CAPsMAN and WireGuard: export diff clean, `cutover`/`rollback` stored, not run. See
-`changelog.md`. Phase 2b done 2026-10-19: IPv4 through mikrotik6 tested, and the box
-delegates mikrotik6 its own `2a02:1210:7621:9ac0::/58`. IPv6 is ported, with addresses and
-ND disabled until `cutover`. Phase 3 (cutover) done 2026-10-20: mikrotik6 is the edge
-router. All 12 checks pass except the next-day log review (check 11). Next: Phase 4.** The `RB5009UPr+S+IN` has arrived.
-It is **mikrotik6**, hostname `router6.home.ledcom.fr` → `192.168.10.6` (needs a Pi-hole local
-DNS record, the same way as `router1`-`router5`). It is already in `dump-configs.sh` and
-`dump-logs.sh`.
+**Status: Phases 0-3 done, the RB5009 is the edge router since 2026-10-20. Phase 4 (clean-up)
+in progress.** The devices were renamed on 2026-10-20: mikrotik6 is now `router`
+(`router.home.ledcom.fr`, `.10.1`), and the README maps the other old names. This runbook keeps
+the names it was written with: mikrotik1 is the RB2011, mikrotik6 the RB5009.
+
 This document is the runbook for moving the edge role (routing, firewall, NAT, DHCP, DNS
 forwarder, NTP, WireGuard, CAPsMAN, IPv6 PD) from mikrotik1 (RB2011UiAS-2HnD) onto it, with
 the smallest possible disruption to the house. Hardware rationale is in
@@ -22,33 +15,29 @@ Built from the 2026-10-09 11:00 dumps (`dumps/mikrotik1-main.txt` etc.). mikroti
 had not changed since 2026-10-08 except the two TV reservations (`.10.50`/`.10.51`).
 **Regenerate the dumps again right before Phase 1 and Phase 3.** They are snapshots.
 
-## Resume here (written 2026-10-20, after the cutover)
+## Resume here (written 2026-10-20, end of day)
 
-**Phase 3 is done** (2026-10-20, see `changelog.md` "Phase 3: cutover from mikrotik1 to
-mikrotik6"). Next session starts at **Phase 4**. State to rely on:
+**Phase 3 is done** (see `changelog.md`, "Phase 3: cutover from mikrotik1 to mikrotik6"). The
+post-cutover review, the device rename and the doc pass are done too (`changelog.md`, 2026-10-20
+entries; `config-review.md` round 4). State to rely on:
 
-- mikrotik6 holds `.10.1`/`.20.1`/`.30.1`/`.50.1` and `.10.6`. `router1.home.ledcom.fr` and
-  `router6.home.ledcom.fr` both reach it. Its trunk is `ether2` → mikrotik2 **`ether1-gateway`**
-  (moved off `ether18-slave-local`, which is an access port again). mikrotik4 is on `ether3`,
-  1 Gbps, PoE.
-- Internet-Box DMZ → `192.168.1.103` (mikrotik6). IPv6 from `2a02:1210:7621:9ac0::/58`.
-- mikrotik1 is powered and off the LAN, with `wireguard1` still enabled (harmless, the DMZ no
-  longer points at it). It is the rollback path until about 2026-10-27: on mikrotik6
-  `/system/script/run rollback`, plug mikrotik1 `ether2-master` into mikrotik2 `ether1-gateway`,
-  point the DMZ back to `192.168.1.101`. The `cutover`/`rollback` scripts are still on
-  mikrotik6. The local `.rsc` copy is deleted.
-- Speed test: 865 Mbps down / 858 Mbps up (was 181 / 842 through mikrotik1).
-- `ha-mikrotik-targets` on mikrotik6 now also holds `.10.4`/`.10.5`. The HA MikroTik integration
-  covers all five devices as `homeassistant`.
+- `router` (RB5009) holds `.10.1`/`.20.1`/`.30.1`/`.50.1`, and `.10.6` until the rollback
+  week ends. Its trunk is `ether2` → switch-main `ether1`. ap-main is on `ether3`, 1 Gbps, PoE.
+- Internet-Box DMZ → `192.168.1.103`. IPv6 from `2a02:1210:7621:9ac0::/58`.
+- The RB2011 is powered and off the LAN, with `wireguard1` still enabled (harmless, the DMZ no
+  longer points at it). **Rollback until about 2026-10-27:** on the router
+  `/system/script/run rollback`, plug the RB2011's `ether2-master` into switch-main `ether1`,
+  point the DMZ back to `192.168.1.101`. The router's identity and comments changed since the
+  cutover, but `rollback` only matches on what was left in place for it.
+- Speed test: 865 Mbps down / 858 Mbps up (was 181 / 842 through the RB2011).
 
-Still to do from Phase 3: **check 11, second half.** Run `dump-logs.sh` on 2026-10-21 and
-review it. Expected noise: HA → `192.168.10.195:8002` (finding 36, parked) and none of the
-old-prefix `9a41` IPv6 drops, which should have expired by then.
-
-Phase 4 next. The fleet scripts are done (2026-10-20, mikrotik6 is listed once, as
-`router6`, and its output files are `mikrotik6.txt`). Next: the doc updates and the
-throughput re-baseline. Parked: finding 36's functional check (HA → TV, HA's
-`samsungtv` host still at `.10.195`).
+Next, in order:
+1. **2026-10-21: check 11's second half.** Run `dump-logs.sh` (now writes `logs/router.txt`)
+   and review it. Expected noise: HA → `192.168.10.195:8002` (finding 36). There should be no
+   old-prefix `9a41` IPv6 drops and no `dhcp-lease` script error (closes finding 37). Also check
+   HA's lease for finding 38.
+2. The remaining Phase 4 items below: the throughput/bufferbloat re-baseline, then the end of
+   the rollback week.
 
 ## Strategy in one paragraph
 
@@ -405,26 +394,42 @@ Log the cutover in `changelog.md` **as it happens**, with the output of each che
 ## Phase 4 — clean-up (within the week)
 
 - [x] ~~Decide whether the new mikrotik2 trunk port stays.~~ Done 2026-10-20: the cable moved to
-      `ether1-gateway`, and `ether18-slave-local` is an access port again (`changelog.md`).
-- [ ] If the CAPsMAN-cert import was skipped (fallback path): re-pin mikrotik2's
-      `caps-man-certificate-common-names` to the new manager's CN.
-- [ ] `/ipv6/address/print` etc. on the RB5009 against `ipv6.md`'s verification list.
-- [ ] Update the docs: README device table (mikrotik1 becomes RB5009UPr+S+IN), `vlan.md`'s
-      port plan for mikrotik1, `firewall.md` regenerated from the new dump (rule order should
-      be unchanged), `wifi.md` (mikrotik4 now on Gigabit + PoE, `ether10` trade-off
-      resolved), `config-review.md`'s hardware section, both diagrams (`network.dot`,
-      `network-addressing.nwdiag`).
-- [x] ~~Fleet scripts.~~ Done 2026-10-20: `mikrotik1-main`/`router1` dropped from
-      `dump-configs.sh`, `dump-logs.sh`, `fetch-backups.sh` and `upgrade-fleet.sh` (`router1`
-      now reaches mikrotik6). `router6` added to `fetch-backups.sh`, and it moved to last
-      in `upgrade-fleet.sh` as the edge router. `measure-bufferbloat.sh` now targets
-      `192.168.10.1`/`192.168.1.1`, not the pre-VLAN `192.168.1.1`/`10.1.1.1`. Add mikrotik1
-      back under its new address if it is redeployed.
-- [ ] Re-baseline throughput (`measure-bufferbloat.sh`, `performance.md`): the box was
-      CPU-bound at ~30-50% for 111 Mbps. Also re-check `cpu-load` under real load with the
-      WireGuard tunnel up (`vpn.md`'s open item).
-- [ ] After a week with no rollback: unplug mikrotik1 from the Internet-Box and wipe it (it holds the WireGuard key and wifi
-      passphrases) before Phase 5. Keep its `show-sensitive` export only in `backups/`.
+      `ether1-gateway` (now switch-main `ether1`), and `ether18` is an access port again.
+- [x] ~~CAPsMAN certificate.~~ The import worked: switch-main's CAP joined the router's manager
+      at cutover with the unchanged `caps-man-certificate-common-names` (Phase 3 check 6).
+- [x] ~~IPv6 on the RB5009.~~ Verified in Phase 3 check 8 (addresses, ND, NAT66, `ping -6` and
+      `curl -6` from a client). `ipv6.md` has a "Moved to the RB5009" section.
+- [x] ~~Fleet scripts.~~ Done 2026-10-20, then switched to the new names: every script uses
+      `<name>.home.ledcom.fr` and writes `<name>.txt`. `upgrade-fleet.sh` upgrades the router
+      last. `measure-bufferbloat.sh` targets `192.168.10.1`/`192.168.1.1`/`1.1.1.1`.
+- [x] ~~Post-cutover review and device rename.~~ Done 2026-10-20: `config-review.md` round 4
+      (37-39 open, S19/S20 closed), role-location names on all five devices.
+- [x] ~~Docs.~~ Done 2026-10-20: README, `vlan.md`, `wifi.md`, `ipv6.md`, `vpn.md`,
+      `performance.md`, `qos.md`, `config-review.md`, `network.md` and both diagrams.
+      `firewall.md` is regenerated from the first post-rename dump.
+- [ ] Re-baseline throughput: `measure-bufferbloat.sh` (then update `qos.md`), and the router's
+      `cpu-load` under real load with the WireGuard tunnel up (`vpn.md`'s open item).
+- [ ] **End of the rollback week (not before 2026-10-27).** First unplug the RB2011 from the
+      Internet-Box and wipe it (it holds the WireGuard key and wifi passphrases). Keep its
+      `show-sensitive` export only in `backups/`. Then, on the router:
+      ```
+      /system/script/remove cutover
+      /system/script/remove rollback
+      /ip/address/set [find address="192.168.10.1/24"] comment="users gateway"
+      /ip/address/set [find address="192.168.20.1/24"] comment="services gateway"
+      /ip/address/set [find address="192.168.30.1/24"] comment="iot gateway"
+      /ip/address/set [find address="192.168.50.1/24"] comment="wireguard gateway"
+      /ipv6/address/set [find from-pool=swisscom-pd] comment="gateway, from the delegated prefix"
+      /ip/address/remove [find address="192.168.10.6/24"]
+      /ip/firewall/address-list/remove [find address=192.168.10.6]
+      ```
+      Connect to `router.home.ledcom.fr` (`.10.1`) for this, not to `.10.6`. On switch-main,
+      switch-office, ap-main and switch-livingroom:
+      `/ip/firewall/address-list/remove [find address=192.168.10.6]`. In Pi-hole, delete the
+      `router1`-`router6` records. Checks: `/system/script/print` empty, `/ip/address/print`
+      and `/ipv6/address/print` with the new comments and no `.10.6`, and
+      `/ip/firewall/address-list/print where list=mgmt` with 8 entries on every device. This
+      also closes finding 39.
 
 ## Phase 5 — later, separate decisions (not part of the swap)
 

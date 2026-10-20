@@ -3428,8 +3428,8 @@ Opened in `config-review.md`: 37 (lease-script race), 38 (DHCP input only on `vl
 needs a check), 39 (migration and naming leftovers on the router), S19 (mikrotik5 factory
 defaults), S20 (leftovers and old names on mikrotik2/3/4). The fixes were first prepared as
 `scripts/rename-<new-name>.rsc` (one per device). Guillaume preferred plain typed commands, so
-those files were deleted unused. `scripts/cleanup-router-after-rollback.rsc` stays for the end
-of the rollback week.
+those files were deleted unused. `scripts/cleanup-router-after-rollback.rsc` was later replaced the
+same way, by commands in `rb5009-migration.md`'s Phase 4.
 
 Decided with Guillaume: role-location names (`router`, `switch-main`, `switch-office`,
 `ap-main`, `switch-livingroom`; table in `config-review.md`), applied to everything live:

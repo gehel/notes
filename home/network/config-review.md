@@ -239,7 +239,7 @@ Deferred to the end of the rollback week (not before 2026-10-27, after mikrotik1
 because `rollback` matches on them: the `cutover`/`rollback` scripts, the `production, enabled
 by cutover` comments on the 4 IPv4 and 3 IPv6 gateway addresses, and the staging address
 `192.168.10.6` with its `mgmt` entries (decision 2026-10-20: remove it, the router is reached
-at `.10.1` only). `scripts/cleanup-router-after-rollback.rsc` holds that step.
+at `.10.1` only). The commands are in `rb5009-migration.md`'s Phase 4.
 
 Checked and deliberately left as they are:
 - The second CAPsMAN provisioning rule (no `radio-mac`, `caps_config` on `ch1`). It was
