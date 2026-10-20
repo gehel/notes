@@ -9,6 +9,12 @@ network is downloading hard — game updates, OS updates, backups, large file tr
 
 ## Status: measured 2026-09-05 — there is no bufferbloat to fix
 
+**2026-10-20: these measurements were taken through the RB2011 (old mikrotik1), at about
+180 Mbps down.** The RB5009 (`router`) now passes about 860 Mbps both ways, so the queues fill
+at a different point. Re-measure with `measure-bufferbloat.sh` (its targets were updated for the
+current addresses on 2026-10-20) before relying on the conclusion below. This is a Phase 4 item in
+[rb5009-migration.md](rb5009-migration.md).
+
 **The premise of this document did not survive measurement.** Latency under load was probed
 at three hops simultaneously with [measure-bufferbloat.sh](scripts/measure-bufferbloat.sh), and the
 buffers are fine.
@@ -18,7 +24,7 @@ Two runs, 2026-09-05. The second recorded achieved throughput and reached 169.6 
 
 | Target | idle avg | download avg | upload avg |
 |---|---|---|---|
-| mikrotik1 (`192.168.1.1`) | 0.48 ms | 0.47 ms | 0.87 ms |
+| mikrotik1, then the router (`192.168.1.1` before the renumber) | 0.48 ms | 0.47 ms | 0.87 ms |
 | Internet-Box (`10.1.1.1`) | 1.68 ms | 1.34 ms | 2.16 ms |
 | internet (`1.1.1.1`) | 7.89 ms | 5.78 ms | 6.94 ms |
 

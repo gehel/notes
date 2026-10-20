@@ -1,14 +1,29 @@
 # Throughput investigation
 
-Open, paused 2026-09-22 on a missing cable. First measurements taken 2026-09-04; see
-[Measurements](#measurements) for results and the current leading hypothesis. **Next concrete
-step, once a long-enough known-good Cat5e/6 cable is on hand:** the direct desktop-to-box test
-in the "Direct-to-box test attempted" section below — the last attempt was confounded by an
-unexplained 100M link negotiation and needs redoing at a real 1G link to be decisive.
+**Resolved 2026-10-20 by the edge-router swap. The conclusion below ("the MikroTik is not
+the cause") was wrong.** Right after the RB5009 (`router`) replaced the RB2011 (old
+mikrotik1), speedtest.net from the desktop gave **850 Mbps down and 858 Mbps up** through switch-main
+`ether18`, then **865 and 858** through `ether1` (`changelog.md`, Phase 3).
+Before, on 2026-09-04, it gave 181 down and 842 up. The path is the same apart from the router:
+desktop → switch-office → switch-main → router → Internet-Box. So the download asymmetry was the
+RB2011, even though every check this document ran on it came back clean (fasttrack engaged,
+no link errors, CPU not saturated, no queues). Its RX/forwarding path was the limit, which the
+UDP `bandwidth-test` asymmetry below hinted at.
+
+What is left:
+- **~860 Mbps both ways is now close to a 1G link's ceiling** (~940 Mbps of TCP payload). The
+  desktop, the switches and the router's LAN ports are all 1G, so this is the expected
+  limit. The router's WAN port is 2.5G, but nothing behind it is faster than 1G.
+- The direct desktop-to-box test (paused below on a missing cable) is no longer needed to find
+  the cause. It would still show what the box itself delivers on one port.
+- Phase 4 of [rb5009-migration.md](rb5009-migration.md) still has a full re-baseline:
+  `measure-bufferbloat.sh` and the router's `cpu-load` under load, with the WireGuard tunnel up.
+
+The rest of this document is the investigation as it stood on 2026-09-22, kept as written.
 
 ## The observation
 
-speedtest.net from the desktop (`192.168.1.90`, wired on `eno2`):
+speedtest.net from the desktop (then `192.168.1.90`, now `192.168.10.90`, wired on `eno2`):
 
 | | Measured | Subscription |
 |---|---|---|
@@ -124,7 +139,7 @@ It also rules out one remaining explanation: with 565 Mbps demonstrated upward t
 RB2011, no plausible CPU or forwarding limit in that router explains a 170 Mbps ceiling
 downward. Whatever caps the download sits upstream of it.
 
-### Conclusion so far: the MikroTik is not the cause
+### Conclusion so far: the MikroTik is not the cause (wrong, see the top of this document)
 
 Every device-side candidate has been eliminated:
 
