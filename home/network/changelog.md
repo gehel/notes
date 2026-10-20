@@ -3420,3 +3420,26 @@ the cutover, so the fleet scripts reached the same box twice:
 
 `bash -n` passes on every script. Not yet run against the devices: the next
 `dump-logs.sh` (check 11) is the first real run.
+
+## Post-cutover config review, rename decided (2026-10-20)
+
+Reviewed the 11:43-11:46 dumps and logs of all five devices. No device changes in this entry.
+Opened in `config-review.md`: 37 (lease-script race), 38 (DHCP input only on `vlan-users`,
+needs a check), 39 (migration and naming leftovers on the router), S19 (mikrotik5 factory
+defaults), S20 (leftovers and old names on mikrotik2/3/4). The fixes are prepared as
+`scripts/rename-<new-name>.rsc` (one per device), plus
+`scripts/cleanup-router-after-rollback.rsc` for the end of the rollback week. All pass the
+skill's linter.
+
+Decided with Guillaume: role-location names (`router`, `switch-main`, `switch-office`,
+`ap-main`, `switch-livingroom`; table in `config-review.md`), applied to everything live:
+identity, Pi-hole hostnames, scripts, comments and the docs. `changelog.md` keeps the old
+names. `192.168.10.6` goes after the rollback week. mikrotik2's ports get their default names
+back.
+
+Also seen in the logs, informational:
+- mikrotik3 rebooted after a power loss at about 2026-10-20 09:42. Its log shows `10-19 10:34`
+  first, because the hEX has no RTC and only corrects its clock from NTP after boot. mikrotik2
+  logged `ether16` link down at 09:42:36.
+- mikrotik5's uplink (mikrotik2 `ether12`) went down at 2026-10-19 23:20 and was back at about
+  11:20 on 2026-10-20 (Guillaume restored it).

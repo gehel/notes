@@ -186,7 +186,141 @@ The mikrotik6 port (`scripts/mikrotik6-p2-firewall.rsc`) already has the fixed f
 diff: identical rule). The functional check (HA → TV working, counters, HA's host) is
 **deferred until the RB5009 migration is complete**, by Guillaume's decision.
 
-Apart from 36 above (2026-10-19), nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
+### 37. The DHCP `lease-script` can abort before it adds the DNS entry (low, fix prepared 2026-10-20)
+
+Found 2026-10-20 in mikrotik6's log, the morning after the cutover:
+```
+11:22:21 script,error executing script from dhcp failed, please check it manually
+11:22:21 script,error,debug (dhcp-lease) no such item (4) (/ip/dns/static/remove *0) (/ip/dns/static/remove; line 3)
+```
+Two lease events for one host (a deassign then an assign in the same second, seen at 11:27:40
+for IotaWatt) run the script twice at once. The second run's `find` returns an entry that the
+first run has already removed. `remove` then fails, and the script stops before its `add`. The
+host can stay without its `<hostname>.home.ledcom.fr` entry until its next lease event. The
+same script ran on mikrotik1 (ported verbatim), so this is not new.
+
+**Fix:** wrap the `remove` in `:do { } on-error={}`. This is in `scripts/rename-router.rsc`
+(step 9). Verify: `/ip/dhcp-server/print detail` shows the new script on all three servers, and
+no `dhcp-lease` script error appears in the next `dump-logs.sh`.
+
+### 38. `chain=input` accepts DHCP only on `vlan-users` (informational, needs a check)
+
+Found 2026-10-20. The input rule `DHCP server (vlan-users)` is `dst-port=67
+in-interface=vlan-users`. Nothing accepts UDP/67 from `vlan-services` or `vlan-iot`, so it
+reaches `Drop anything else!`. A first DISCOVER is a broadcast, and leases on both VLANs do get
+handed out (IotaWatt, the Tasmota light, HA). So RouterOS's DHCP server sees broadcasts before
+the firewall. **What is not known is whether a unicast renewal (at T1, 12 h into the 1-day
+lease) to `.20.1`/`.30.1` is dropped.** If it is, the client retries until T2 and then
+rebinds by broadcast, so it still works, but late. The rule's name suggests the other two VLANs
+were simply never added.
+
+**Check:** after a services or iot client has passed T1 (for example HA, 12 h after its
+lease was bound), look at its lease in `/ip/dhcp-server/lease/print detail`. If
+`expires-after` is close to 1 day, the unicast renewal worked and this finding closes as
+not-a-problem. If it is below 12 h, add the same accept for `vlan-services` and `vlan-iot`.
+
+### 39. Migration and naming leftovers on the router (low, fix prepared 2026-10-20)
+
+Found 2026-10-20 in the post-cutover review of mikrotik6. None of these break anything. They
+make the config say things that are no longer true.
+- Comments that name devices by their old numbers: the `mgmt` and `ha-mikrotik-targets`
+  entries call `.10.1` "mikrotik1" (it is now mikrotik6), the bridge is "mikrotik6 LAN", the
+  bridge ports say "trunk to mikrotik2" and "mikrotik4", and the TV reservation says "wired to
+  mikrotik5 ether2". `HA API access (post-renumber)` still carries the 2026-09 renumber in its
+  name.
+- `Drop all other forward traffic` has `log-prefix=dropped` without `log=yes`, so the prefix
+  does nothing.
+- CAPsMAN channel `ch6` is not used by any configuration.
+- VLAN 30 is still tagged on `ether3` (mikrotik4). mikrotik4 cannot serve `LEDCOM-IoT`
+  (`wifi.md`), so nothing uses it.
+- DHCP reservations for `.10.3` and `.10.4`: both switches have static addresses outside
+  the pool, so these reservations do nothing. `.10.90` and `.10.92` have no comment.
+- A static DNS name `router` → `192.168.10.1` (no domain). A factory leftover. Clients resolve
+  through Pi-hole.
+
+**Fix:** `scripts/rename-router.rsc`, together with the device rename (see below).
+
+Deferred to the end of the rollback week (not before 2026-10-27, after mikrotik1 is wiped),
+because `rollback` matches on them: the `cutover`/`rollback` scripts, the `production, enabled
+by cutover` comments on the 4 IPv4 and 3 IPv6 gateway addresses, and the staging address
+`192.168.10.6` with its `mgmt` entries (decision 2026-10-20: remove it, the router is reached
+at `.10.1` only). `scripts/cleanup-router-after-rollback.rsc` holds that step.
+
+Checked and deliberately left as they are:
+- The second CAPsMAN provisioning rule (no `radio-mac`, `caps_config` on `ch1`). It was
+  mikrotik1's own radio, which is gone, but it is also the catch-all for any new legacy CAP.
+- CAPsMAN `manager interface` on `bridge-main` as well as `vlan-users`. The CAP's traffic
+  arrives on `vlan-users` only. Removing the entry gains nothing and risks a CAP re-join
+  (2026-10-20: IotaWatt needed a power cycle after the last one).
+- `.10.91` (`F6:42:66:E4:55:03`, a locally administered MAC, so a phone or laptop with MAC
+  randomization) has a reservation and no comment. **Who it is is Guillaume's call:** name it
+  or remove the reservation.
+
+### S19. mikrotik5 still carries factory-default config from its build (medium, fix prepared 2026-10-20)
+
+Found 2026-10-20. The 2026-10-08 build hardened mikrotik5 (S1-S17 baseline) but left parts
+of the RouterOS defconf in place:
+- `192.168.88.1/24` (comment `defconf`) on `bridge`, the same bridge as the management address,
+  and a static DNS `router.lan` → `192.168.88.1`.
+- `/ip/dns allow-remote-requests=yes`. The input firewall limits it to `mgmt` hosts, so this is
+  not an open resolver (S4's concern), but a switch has no reason to answer DNS.
+- `/disk/settings auto-media-sharing=yes auto-smb-sharing=yes`: any USB disk plugged in gets
+  shared over SMB and media on `bridge`.
+- Six defconf `chain=forward` rules (ipsec, fasttrack, "drop all from WAN not DSTNATed"). The
+  bridge does not use the IP firewall, so they never match. mikrotik3 has no equivalent.
+- The whole defconf IPv6 firewall and `bad_ipv6` list, on a device with `disable-ipv6=yes`.
+- An empty `WAN` interface list.
+
+**Fix:** `scripts/rename-switch-livingroom.rsc`. Verify with the prints at its end: one address
+(`192.168.10.5/24`), no static DNS, `allow-remote-requests: no`, both sharing settings `no`, no
+forward or IPv6 rules.
+
+### S20. Leftovers and old names on mikrotik2, mikrotik3 and mikrotik4 (low, fix prepared 2026-10-20)
+
+Found 2026-10-20.
+- **mikrotik2:**
+  - The `mikrotik5-uplink-trunk` system script, a one-shot from the 2026-10-08 mikrotik5 build.
+  - A disabled factory DHCP client on `bridge-local`.
+  - A static DNS `router` → `192.168.10.2`.
+  - RouterOS 6-era port names (`ether1-gateway`, `ether2-master-local`,
+    `etherN-slave-local`, `sfp1-gateway`) from before the switch chip config moved into the
+    bridge. Decision 2026-10-20: rename them to the default names, with comments on the ports
+    in use.
+- **mikrotik3:**
+  - A disabled factory DHCP client.
+  - An empty `WAN` list (S16 moved `ether1` out of it).
+  - `/interface/wireless/cap caps-man-addresses=192.168.10.1` on a device with no radio.
+- **All three:**
+  - `mgmt` comments that say `post-renumber` (mikrotik2, mikrotik3) or name the old numbers.
+  - `HA API access (post-renumber)` (mikrotik2, mikrotik3).
+
+**Fix:** `scripts/rename-switch-main.rsc`, `rename-switch-office.rsc`, `rename-ap-main.rsc`.
+
+Checked and left as they are:
+- mikrotik2's `ether1`/`sfp1` bridge ports have `hw=no`. The speed test through
+  `ether1` gave 865/858 Mbps (2026-10-20), so it costs nothing measurable.
+- mikrotik4's bridge VLAN entry, while `vlan-filtering` is off. It documents the intent and does
+  nothing.
+- mikrotik2, mikrotik3 and mikrotik4 have plain `chain=forward` rules (established/related/
+  invalid). These are as inert as mikrotik5's, but harmless.
+
+### Device rename (decided 2026-10-20)
+
+Each device gets a role-location name, used for the RouterOS identity, the Pi-hole hostname
+(`<name>.home.ledcom.fr`, with the old `router<N>` names kept as aliases until 2026-10-27), the
+scripts and dump files, config comments and the live docs. `changelog.md` history keeps the old
+names, and the README maps old to new.
+
+| Old | New | Hostname |
+|---|---|---|
+| mikrotik6 (RB5009) | `router` | `router.home.ledcom.fr` → `.10.1` |
+| mikrotik2 (CRS125) | `switch-main` | `switch-main.home.ledcom.fr` → `.10.2` |
+| mikrotik3 (hEX) | `switch-office` | `switch-office.home.ledcom.fr` → `.10.3` |
+| mikrotik4 (cAP XL ac) | `ap-main` | `ap-main.home.ledcom.fr` → `.10.4` |
+| mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
+| mikrotik1 (RB2011) | named when redeployed | — |
+
+Apart from 36-39 and S19-S20 above, nothing is open on mikrotik1, mikrotik2, mikrotik3, mikrotik4, or mikrotik5 as of 2026-10-08 —
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
