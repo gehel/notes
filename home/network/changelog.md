@@ -3920,3 +3920,9 @@ in use yet: the TV must be set to wired, or HA pointed back at `tv-wifi` until t
 
 **Amp:** Guillaume set its network connection to wired (LAN). Wired MAC to read from
 switch-livingroom.
+
+**Amp wired MAC found.** switch-livingroom `/interface/ethernet/monitor ether4,ether5 once` →
+**`ether4` link-ok 100M** (the amp's NIC advertises up to 100M only), `ether5` no-link.
+`/interface/bridge/host/print where on-interface~"ether4|ether5"` → **`00:09:B0:E0:F3:F6`**
+(VLAN 10) on `ether4`, Onkyo's OUI. Router `/ip/dhcp-server/lease/print where dynamic` → it holds
+dynamic `.10.104`, host name `am335x-opt` (same as the wifi interface).
