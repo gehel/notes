@@ -1,483 +1,317 @@
 # Firewall rules — current live state
 
-Generated 2026-09-10 from that day's [dumps/](dumps/) (17:30 collection — post-Phase-5
-jump-chain reorg, the forward-chain hygiene reorder, Pi-hole's DNS/TCP accept, and the two new
-`chain=input` NTP rules); the IPv6 section below reflects 2026-09-11's finding 21 completion
-and log-review fixes on top of that. This is the actual ruleset, in the actual order it's
-evaluated in — not the design intent. For the intended policy and the reasoning behind it, see
-[vlan.md](vlan.md)'s policy matrix; for open issues, see [config-review.md](config-review.md).
+Generated 2026-10-20 from `dumps/router.txt` (15:25 collection), after the RB5009 cutover and
+the device rename. The rule tables are produced mechanically from the router's numbered
+`/ip/firewall/filter/print`, `/ip/firewall/nat/print` and `/ipv6/firewall/filter/print`, so
+the `#` column is RouterOS's print index at that moment. It shifts whenever a rule is added
+above, so **find rules by comment, not by number**. Regenerate this file from a fresh dump after
+any firewall change.
 
-**Not fully renumbered since finding 32 (2026-09-22, see `changelog.md`) added two rules** —
-`users2services: DNS (TCP)` and `iot2services: DNS to pi-hole (tcp)`, both shown below in their
-correct chain position but without a `#`, since inserting them would shift every downstream
-global number (`#` 56 onward) and that hasn't been redone by hand against a fresh dump yet.
-Find by comment, not number, until the next full `dump-configs.sh` regeneration.
+This is the actual ruleset, in evaluation order, not the design intent. For the intended policy
+and its reasoning, see [vlan.md](vlan.md)'s policy matrix; for open issues,
+[config-review.md](config-review.md). The ruleset was ported verbatim from the RB2011 (old
+mikrotik1) in Phase 2 of [rb5009-migration.md](rb5009-migration.md). The only changes since then
+are the WireGuard rules (already on mikrotik1 before), finding 36's `samsung-tv` list, and the
+2026-10-20 clean-up (finding 39: `HA API access` renamed, the stray `log-prefix` removed).
 
 RouterOS evaluates each chain top to bottom and stops at the first match, so **position is
-part of the rule** — a correct-looking rule in the wrong place is a bug. That's why this is a
-table in rule order, not a summary.
+part of the rule** — a correct-looking rule in the wrong place is a bug.
 
 ## Quick reference: what can reach what
 
-The steady-state policy, as actually implemented — `vlan-users` on mikrotik1's `bridge-main`
-is VLAN 10, `vlan-services` is VLAN 20, `vlan-iot` is VLAN 30. Since the Phase 5 reorg, every
-cell below corresponds to exactly one jump-chain, named the same way:
+`vlan-users` is VLAN 10, `vlan-services` VLAN 20, `vlan-iot` VLAN 30, all on the router's
+`bridge-main`. `wireguard1` is the phone's VPN. Every cell below is exactly one jump chain, named
+the same way:
 
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
-| **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53, UDP+TCP as of 2026-09-22, finding 32); HA web (443) for everyone else (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI, port 80 (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **services** | HTTPS from any services host; plain HTTP (80) for `http-outbound`-listed hosts only (HA today); Pi-hole's own DNS (53, UDP+TCP) and DoT (853) (`services2internet`; the DNS/DoT exception is IPv6-mirrored too as of 2026-09-11, the HTTP exception as of 2026-09-15, see below) | HA -> printer (CUPS/631), HA -> Samsung TV (8002), HA -> `ssh-hosts` SSH (22) (`services2users`) | — | HA: ESPHome/IotaWatt (6053, 80), Tuya local (6668), HA -> `ssh-hosts` SSH (22) (`services2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **iot** | DROP by default; named exceptions `octoprint`/`iotawatt` lists, both 80,443; `iotawatt` also gets NTP (123, firmware can't use the local server) (`iot2internet`) | deny by default, logged (`iot2users`) | ceiling fan's DNS explicitly dropped first, then Pi-hole DNS (53, UDP+TCP as of 2026-09-22, finding 32), MQTT to HA (1883) (`iot2services`) | — | NTP (123) to gateway only |
+| **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53, UDP+TCP); HA web (443) for everyone; DoT (853) rejected quietly (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI (80) (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
+| **services** | HTTPS from any host; HTTP (80) for `http-outbound` (HA); Pi-hole's own DNS (53) and DoT (853) (`services2internet`) | HA -> MikroTik API on `ha-mikrotik-targets` (8728), printer (631), Samsung TV (8002), `ssh-hosts` (22) (`services2users`) | — | HA -> Tuya (6668), Tasmota/IotaWatt (80), ESPHome (6053), `ssh-hosts` (22) (`services2iot`) | NTP (123) to gateway; HA API (8728) |
+| **iot** | deny by default; ceiling fan silenced first; `octoprint` and `iotawatt` 80/443; `iotawatt` NTP (123) (`iot2internet`) | deny, logged (`iot2users`) | ceiling fan's DNS dropped first; Pi-hole DNS (53); MQTT to HA (1883); DoT rejected quietly (`iot2services`) | — | NTP (123) to gateway only |
+| **wireguard** (phone) | as users (`users2internet`) | `mgmt` hosts only (`wireguard2users`; the phone is in `mgmt`) | as users (`users2services`) | as users (`users2iot`) | `mgmt` list (the phone is in it) |
+| **internet** | — | — | HA HTTPS (443) via dst-nat only (`internet2services`) | — | WireGuard (UDP 51820) only |
 
-Every VLAN now has its own NTP-to-gateway accept in `chain=input` (added 2026-09-10 — see
-`changelog.md`'s finding 23 closure; `vlan-iot`'s existed since Phase 3, `vlan-services`/
-`vlan-users` were a genuine gap until then).
+**ICMP is not governed by the table.** The `ICMP` chain is reached from `forward` rule 22,
+before the dispatch rules, so rate-limited ping works between every VLAN pair and to/from the
+internet. This is a deliberate widening (Phase 5, see `changelog.md`).
 
-**ICMP (ping) is not governed by the table above at all — it's handled uniformly for every
-cell**, VLAN-pair-blind, by the general `chain=ICMP` jump (moved ahead of the dispatch section
-on 2026-09-10, see below). Rate-limited ping now works between every VLAN pair and to/from the
-internet, including combinations the table would otherwise suggest are fully denied (e.g.
-`iot <-> services`/`users`) — a deliberate widening, not an oversight.
-
-**All three VLANs now have their own IPv6 dispatch chains, fully verified end-to-end as of
-2026-09-11** — see the IPv6 section below and `changelog.md` (finding 21, closed). `services`'s
-IPv6 policy is narrower than its IPv4 row only in `services2users` (HA-only access to the
-printer/TV, by port not by the destination's own address); its DNS/DoT exception now mirrors
-IPv4 fully. `iot`'s deny-by-default matches IPv4's intent deliberately rather than by accident,
-with the same `octoprint` internet exception mirrored — confirmed working end-to-end from
-OctoPrint itself.
-
-## mikrotik1 (RB2011UiAS, edge router) — `chain=input`
+## router — `chain=input`
 
 | # | Action | Match | Comment |
 |---|---|---|---|
 | 1 | accept | `connection-state=established,related` | defconf: accept established,related |
-| 2 | add-to-list | `protocol=tcp tcp-flags=syn connection-limit=30,32 in-interface-list=WAN` -> `Syn_Flooder` | Add Syn Flood IP to the list |
+| 2 | add-to-list `Syn_Flooder` | `tcp-flags=syn connection-limit=30,32 protocol=tcp in-interface-list=WAN` | Add Syn Flood IP to the list |
 | 3 | drop | `src-address-list=Syn_Flooder in-interface-list=WAN` | Drop to syn flood list |
-| 4 | add-to-list | `protocol=tcp psd=21,3s,3,1 in-interface-list=WAN` -> `Port_Scanner` | Port Scanner Detect |
+| 4 | add-to-list `Port_Scanner` | `protocol=tcp psd=21,3s,3,1 in-interface-list=WAN` | Port Scanner Detect |
 | 5 | drop | `src-address-list=Port_Scanner in-interface-list=WAN` | Drop to port scan list |
-| 6 | drop | `in-interface-list=WAN` | defconf: drop all from WAN |
-| 7 | jump -> `ICMP` | `protocol=icmp` | Jump for icmp input flow |
-| 8 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=8728` | HA API access (post-renumber) |
-| 9 | accept | `src-address-list=mgmt` | mgmt hosts to router |
-| 10 | accept | `protocol=udp port=53` | Accept DNS - UDP |
-| 11 | accept | `protocol=tcp port=53` | Accept DNS - TCP |
-| 12 | accept | `protocol=udp in-interface=vlan-users dst-port=67` | DHCP server (vlan-users) |
-| 13 | accept | `connection-state=new protocol=udp in-interface=vlan-services dst-port=123` | services: NTP from gateway |
-| 14 | accept | `connection-state=new protocol=udp in-interface=vlan-users dst-port=123` | users: NTP from gateway |
-| 15 | accept | `connection-state=new protocol=udp in-interface=vlan-iot dst-port=123` | iot: NTP from gateway |
-| 16 | drop | *(none — catch-all)* | Drop anything else! |
+| 6 | accept | `connection-state=new protocol=udp in-interface-list=WAN dst-port=51820` | Accept WireGuard road-warrior VPN |
+| 7 | drop | `in-interface-list=WAN` | defconf: drop all from WAN |
+| 8 | jump -> `ICMP` | `protocol=icmp` | Jump for icmp input flow |
+| 9 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=8728` | HA API access |
+| 10 | accept | `src-address-list=mgmt` | mgmt hosts to router |
+| 11 | accept | `protocol=udp port=53` | Accept DNS - UDP |
+| 12 | accept | `protocol=tcp port=53` | Accept DNS - TCP |
+| 13 | accept | `protocol=udp in-interface=vlan-users dst-port=67` | DHCP server (vlan-users) |
+| 14 | accept | `connection-state=new protocol=udp in-interface=vlan-services dst-port=123` | services: NTP from gateway |
+| 15 | accept | `connection-state=new protocol=udp in-interface=vlan-users dst-port=123` | users: NTP from gateway |
+| 16 | accept | `connection-state=new protocol=udp in-interface=vlan-iot dst-port=123` | iot: NTP from gateway |
+| 17 | drop | *(none, catch-all)* | Drop anything else! |
 
-Rules 8-12 don't declare `connection-state=new` — informational-only (finding 22, still open,
-low priority): rule 1's established/related accept already intercepts non-new traffic before
-any of these could ever see it, so there's no known live impact. Rules 13-15 (all three added
-with `connection-state=new` from the start) are consistent with the forward chain's standard.
-
-**Login also requires clearing the `admin` user account's own `address=` restriction** —
-`192.168.10.0/24,192.168.50.0/24` as of 2026-09-28 (widened to add the WireGuard tunnel subnet
-when the phone was added to `mgmt`, see `changelog.md`) — entirely separate from this chain and
-from the `mgmt` address-list. A source can pass every rule above and still be refused at login
-if it isn't inside this range.
-
-## mikrotik1 — `chain=forward`
+## router — `chain=forward`
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 17 | fasttrack-connection | `connection-state=established,related` | defconf: fasttrack |
-| 18 | accept | `connection-state=established,related` | defconf: accept established,related |
-| 19 | add-to-list | `protocol=tcp tcp-flags=syn connection-nat-state=dstnat connection-limit=30,32 in-interface-list=WAN` -> `Syn_Flooder` | Syn flood detect - any forwarded port |
-| 20 | drop | `src-address-list=Syn_Flooder in-interface-list=WAN` | Drop syn flooders - inbound |
-| 21 | jump -> `ICMP` | `protocol=icmp` | Jump for icmp forward flow |
-| 22 | drop | `dst-address-list=bogons` | Drop to bogon list |
-| 23 | add-to-list | `protocol=tcp connection-limit=30,32 dst-port=25,587 limit=30/1m,0` -> `spammers` | Add Spammers to the list for 3 hours |
-| 24 | drop | `protocol=tcp src-address-list=spammers dst-port=25,587` | Avoid spammers action |
-| 25 | drop | `connection-state=invalid` | defconf: drop invalid |
-| 26 | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
-| 27 | jump -> `users2services` | `in-interface=vlan-users out-interface=vlan-services` | dispatch: users -> services |
-| 28 | jump -> `users2iot` | `in-interface=vlan-users out-interface=vlan-iot` | dispatch: users -> iot |
-| 29 | jump -> `services2internet` | `in-interface=vlan-services out-interface-list=WAN` | dispatch: services -> internet |
-| 30 | jump -> `services2users` | `in-interface=vlan-services out-interface=vlan-users` | dispatch: services -> users |
-| 31 | jump -> `services2iot` | `in-interface=vlan-services out-interface=vlan-iot` | dispatch: services -> iot |
-| 32 | jump -> `iot2internet` | `in-interface=vlan-iot out-interface-list=WAN` | dispatch: iot -> internet |
-| 33 | jump -> `iot2users` | `in-interface=vlan-iot out-interface=vlan-users` | dispatch: iot -> users |
-| 34 | jump -> `iot2services` | `in-interface=vlan-iot out-interface=vlan-services` | dispatch: iot -> services |
-| 35 | jump -> `internet2services` | `connection-nat-state=dstnat out-interface=vlan-services in-interface-list=WAN` | dispatch: internet -> services |
-| 36 | drop | *(none — catch-all)* | Drop all other forward traffic |
+| 18 | fasttrack-connection | `connection-state=established,related` | defconf: fasttrack |
+| 19 | accept | `connection-state=established,related` | defconf: accept established,related |
+| 20 | add-to-list `Syn_Flooder` | `tcp-flags=syn connection-nat-state=dstnat connection-limit=30,32 protocol=tcp in-interface-list=WAN` | Syn flood detect - any forwarded port |
+| 21 | drop | `src-address-list=Syn_Flooder in-interface-list=WAN` | Drop syn flooders - inbound |
+| 22 | jump -> `ICMP` | `protocol=icmp` | Jump for icmp forward flow |
+| 23 | drop | `dst-address-list=bogons` | Drop to bogon list |
+| 24 | add-to-list `spammers` | `connection-limit=30,32 protocol=tcp dst-port=25,587 limit=30/1m,0` | Add Spammers to the list for 3 hours |
+| 25 | drop | `protocol=tcp src-address-list=spammers dst-port=25,587` | Avoid spammers action |
+| 26 | drop | `connection-state=invalid` | defconf: drop invalid |
+| 27 | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
+| 28 | jump -> `users2services` | `in-interface=vlan-users out-interface=vlan-services` | dispatch: users -> services |
+| 29 | jump -> `users2iot` | `in-interface=vlan-users out-interface=vlan-iot` | dispatch: users -> iot |
+| 30 | jump -> `services2internet` | `in-interface=vlan-services out-interface-list=WAN` | dispatch: services -> internet |
+| 31 | jump -> `services2users` | `in-interface=vlan-services out-interface=vlan-users` | dispatch: services -> users |
+| 32 | jump -> `services2iot` | `in-interface=vlan-services out-interface=vlan-iot` | dispatch: services -> iot |
+| 33 | jump -> `iot2internet` | `in-interface=vlan-iot out-interface-list=WAN` | dispatch: iot -> internet |
+| 34 | jump -> `iot2users` | `in-interface=vlan-iot out-interface=vlan-users` | dispatch: iot -> users |
+| 35 | jump -> `iot2services` | `in-interface=vlan-iot out-interface=vlan-services` | dispatch: iot -> services |
+| 36 | jump -> `internet2services` | `connection-nat-state=dstnat out-interface=vlan-services in-interface-list=WAN` | dispatch: internet -> services |
+| 37 | jump -> `users2internet` | `in-interface=wireguard1 out-interface-list=WAN` | dispatch: wireguard -> internet |
+| 38 | jump -> `users2services` | `in-interface=wireguard1 out-interface=vlan-services` | dispatch: wireguard -> services |
+| 39 | jump -> `users2iot` | `in-interface=wireguard1 out-interface=vlan-iot` | dispatch: wireguard -> iot |
+| 40 | jump -> `wireguard2users` | `in-interface=wireguard1 out-interface=vlan-users` | dispatch: wireguard -> users |
+| 41 | drop | *(none, catch-all)* | Drop all other forward traffic |
 
-Rules 19-25 (syn-flood, ICMP jump, bogon, spammer, invalid) were reordered ahead of the
-dispatch section on 2026-09-10 — they used to sit after it, where the dispatch jumps'
-unconditional termination made them dead or misattributed (see `changelog.md`'s Phase 5
-entries for the full story, including the deliberate ICMP-widening tradeoff this involved).
+Rules 20-26 (syn-flood, ICMP jump, bogons, spammers, invalid) sit ahead of the dispatch rules on
+purpose: behind them, the dispatch jumps' unconditional termination made them dead (Phase 5).
+Every dispatch jump (27-40) matches an interface on both sides. The wireguard jumps (37-39) reuse
+the `users*` chains, so the phone gets exactly the `users` policy, and 40 sends it into its
+own `wireguard2users` (mgmt hosts only).
 
-Every VLAN-pair jump (26-35) uses `WAN`/`vlan-*` on both sides, no exceptions, and no old
-individual per-relationship rule survives past the dispatch section — the reorg and its
-cleanup (Phase 5, see [changelog.md](changelog.md)) removed every one of them.
-
-## mikrotik1 — `chain=ICMP` (jump target)
-
-| # | Action | Match | Comment |
-|---|---|---|---|
-| 37 | accept | `protocol=icmp icmp-options=8:0 limit=10,50:packet` | Echo request - Avoiding Ping Flood |
-| 38 | accept | `protocol=icmp icmp-options=0:0` | Echo reply |
-| 39 | accept | `protocol=icmp icmp-options=11:0` | Time Exceeded |
-| 40 | accept | `protocol=icmp icmp-options=3:0-1` | Destination unreachable |
-| 41 | accept | `protocol=icmp icmp-options=3:4` | PMTUD |
-| 42 | drop | `protocol=icmp` | Drop to the other ICMPs |
-| 43 | jump (from `chain=output`) | `protocol=icmp` | Jump for icmp output |
-
-Reached directly from `chain=forward` rule 21, **before** the VLAN-pair dispatch section —
-every forwarded ICMP packet is fully decided here (rate-limited echo accepted, a few other
-types accepted, everything else dropped) regardless of which VLAN pair it belongs to. See the
-Quick reference section above for what this means in practice.
-
-## mikrotik1 — jump chains (Phase 5 reorg)
-
-One chain per VLAN-pair traffic relationship, dispatched into from `chain=forward` rules
-26-35 above. Every accept declares `connection-state=new`; every chain not otherwise noted
-ends in a logged deny-all (`log-prefix` matches the chain name, for log review — see
-`scripts/dump-logs.sh`).
-
-**`users2internet`** (# 44)
+## router — `chain=ICMP` and `chain=output`
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 44 | accept | `connection-state=new` | users2internet: internet |
-
-No deny-all — nothing else needed since this chain has one rule that accepts everything, by
-design (`vlan-users` keeps unrestricted internet access).
-
-**`services2internet`** (# 45-50)
-
-| # | Action | Match | Comment |
-|---|---|---|---|
-| 45 | accept | `protocol=tcp dst-port=443` | services2internet: HTTPS from any services host |
-| 46 | accept | `protocol=udp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS |
-| 47 | accept | `protocol=tcp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS (TCP) |
-| 48 | accept | `protocol=tcp src-address=192.168.20.40 dst-port=853` | services2internet: Pi-hole's own upstream DNS-over-TLS |
-| 49 | accept | `protocol=tcp src-address-list=http-outbound dst-port=80` | services2internet: HTTP exception (http-outbound list) |
-| 50 | drop, logged | *(catch-all)* | services2internet: deny everything else |
-
-Rule 45 narrowed from `dst-port=80,443` to `443`-only 2026-09-14 (Guillaume, applied directly)
-— see `changelog.md` for the fallout this surfaced (finding 29: Home Assistant needed plain
-HTTP for something). **The IPv6 equivalent (`services2internet-v6`) was narrowed to match the
-same day** — comment now `services2internet: HTTPS`, `dst-port=443` — confirmed in the fresh
-dump.
-
-Rule 49 closed finding 29 the same day (Home Assistant's own Supervisor does an
-internet-connectivity check over plain HTTP, `checkonline.home-assistant.io`, by design, to
-reliably detect captive portals), originally scoped to `src-address=192.168.20.60` directly.
-**Replaced 2026-09-15** with the `http-outbound` address-list-scoped form shown above —
-anticipating more `vlan-services` hosts needing the same exception (pihole named as a likely
-future candidate) without a firewall-rule edit each time; adding a host is now just an
-address-list `add`. `http-outbound` holds only Home Assistant's address for now. **IPv6 given
-the equivalent exception for the first time the same day** — `http-outbound-v6`, seeded with
-the same EUI-64 address already pinned in `ha-v6`; see the IPv6 section below and
-`changelog.md`.
-
-Rule 47 (TCP/53) added 2026-09-10 — found via `dump-logs.sh`: Pi-hole falls back to DNS-over-TCP
-for large/DNSSEC-heavy responses, which only the UDP accept had covered until then. Pi-hole's
-own NTP is **not** in this chain — as of 2026-09-10 it's pinned directly at mikrotik1
-(`192.168.20.1`) via `timesyncd.conf`, reaching it through `chain=input` rule 13 above, not
-through the internet at all (finding 23 — reopened 2026-09-14, see `config-review.md`, the
-fix didn't actually hold).
-
-**`iot2internet`** (# 51-55)
+| 42 | accept | `protocol=icmp icmp-options=8:0 limit=10,50:packet` | Echo request - Avoiding Ping Flood |
+| 43 | accept | `protocol=icmp icmp-options=0:0` | Echo reply |
+| 44 | accept | `protocol=icmp icmp-options=11:0` | Time Exceeded |
+| 45 | accept | `protocol=icmp icmp-options=3:0-1` | Destination unreachable |
+| 46 | accept | `protocol=icmp icmp-options=3:4` | PMTUD |
+| 47 | drop | `protocol=icmp` | Drop to the other ICMPs |
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 51 | drop | `src-address=192.168.30.63` | iot2internet: ceiling fan phone-home (silenced, expected) |
-| 52 | accept | `protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
-| 53 | accept | `protocol=tcp src-address-list=iotawatt dst-port=80,443` | iot2internet: iotawatt firmware updates exception |
-| 54 | accept | `protocol=udp src-address-list=iotawatt dst-port=123` | iot2internet: iotawatt NTP exception |
-| 55 | drop, logged | *(catch-all)* | iot2internet: deny everything else |
+| 48 | jump -> `ICMP` | `protocol=icmp` | Jump for icmp output |
 
-**IotaWatt also gets an outbound NTP exception** (added 2026-09-11, same day as the HTTPS
-one) — unlike Pi-hole and OctoPrint, its firmware exposes no way to point it at mikrotik1's
-own NTP server (`192.168.30.1`, the normal fix for IoT devices per `README.md`'s hard-won
-lessons), so it needs the internet for time the same way it needs the internet for firmware.
-Verified: IotaWatt's own clock reads correctly after applying.
+## router — jump chains
 
-**Widened to `dst-port=80,443` 2026-09-15** (Guillaume, applied directly) — IotaWatt makes a
-separate, unencrypted hourly check-in to a fixed IP (`208.113.149.63:80`, purpose unidentified,
-distinct from the HTTPS firmware-update path), previously hitting the catch-all every cycle.
-Verified over ~12 hours: zero further catch-all hits for `192.168.30.50`, and the rule's own
-counter incremented roughly once per hour (12 packets over ~12 hours) matching the check-in
-cadence exactly.
+Dispatched from `chain=forward` rules 27-40. Every accept declares `connection-state=new`.
+Every chain except `users2internet` and `internet2services` ends in a logged deny-all whose
+`log-prefix` is the chain name, for `dump-logs.sh` review.
 
-**A TLS SNI domain-allowlist attempt (2026-09-11) was tried and abandoned.** `tls-host=` in
-RouterOS firewall rules reads the plaintext SNI field from a TLS `ClientHello`, in principle
-letting `iot2internet` allow specific domains instead of any HTTPS destination — no proxy, no
-client-side config, transparent to any device regardless of firmware. In practice
-`tls-host=*` as a "match everything" wildcard matched nothing at all: applying it to
-OctoPrint's existing accept rule broke its internet access outright (confirmed live — a
-`curl` to `github.com` fell through to the catch-all instead of the modified rule) rather than
-just failing to add visibility. Reverted. Suspected root cause, not confirmed: TLS 1.3 with
-Encrypted Client Hello (increasingly common on major CDN-backed services, GitHub included)
-hides the SNI from a passive matcher entirely, which would make domain-based filtering
-unreliable for exactly the services these devices need most, independent of the wildcard
-syntax question. Deprioritized — a proxy remains a possible future option if domain-level
-control becomes worth the complexity again, but isn't currently planned.
-
-`octoprint`'s exception was narrowed from `dst-port=80,443` to `443` (HTTPS-only) 2026-09-11,
-kept even after reverting the SNI attempt on the assumption nothing here still needed plain
-HTTP. **Reopened and widened back to `80,443` 2026-09-15** (Guillaume, applied directly) —
-OctoPrint was repeatedly retrying a plain-HTTP connection to `185.15.58.224:80` (service
-unidentified), continuously dropped by the catch-all until the rule was widened. Also closes
-the asymmetry noted below: `octoprint-v6`'s IPv6 equivalent already allowed both ports, so IPv4
-and IPv6 now match again.
-
-`iotawatt` is a new named exception, added 2026-09-11 — `192.168.30.50` (IPv4 only; no IPv6
-equivalent yet). IotaWatt previously had no internet access at all; this grants it the same
-"full HTTPS to anywhere" exception OctoPrint already had, for firmware updates. Two named
-exceptions now exist in this chain — see `vlan.md`'s Decisions ("keep the list short and
-review it... if it grows, give those devices their own VLAN with internet instead").
-
-The ceiling fan drop is unlogged, added 2026-09-11: it was 97% of the firewall log's volume
-(953 of 981 lines in one collection) — the fan retrying its cloud phone-home every ~2s against
-the default deny, correctly blocked but dominating the log buffer (`README.md` already flags
-this as a risk on RouterOS's small, rotating log). Still dropped, just not logged; anything
-else hitting the catch-all still is.
-
-**`users2services`** (# 56-59, plus one unnumbered — see the renumbering note above)
+**`users2internet`**
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 56 | accept | `src-address-list=mgmt` | users2services: mgmt hosts full |
-| 57 | accept | `protocol=udp dst-address=192.168.20.40 port=53` | users2services: DNS |
-| 58 | accept | `protocol=tcp dst-address=192.168.20.60 dst-port=443` | users2services: HA web |
-| — | accept | `protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new` | users2services: DNS (TCP) — added 2026-09-22, finding 32, landed last (script places new rules directly before each chain's catch-all) |
-| 59 | drop, logged | *(catch-all)* | users2services: deny everything else |
+| 49 | accept | `connection-state=new` | users2internet: internet |
 
-**`users2iot`** (# 60-62)
+**`users2services`**
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 60 | accept | `src-address-list=mgmt` | users2iot: mgmt hosts full |
-| 61 | accept | `protocol=tcp dst-address-list=octoprint dst-port=80` | users2iot: everyone -> octoprint web UI |
-| 62 | drop, logged | *(catch-all)* | users2iot: deny everything else |
+| 61 | accept | `connection-state=new src-address-list=mgmt` | users2services: mgmt hosts full |
+| 62 | accept | `connection-state=new protocol=udp dst-address=192.168.20.40 port=53` | users2services: DNS (UDP) |
+| 63 | accept | `connection-state=new protocol=tcp dst-address=192.168.20.40 dst-port=53` | users2services: DNS (TCP) |
+| 64 | accept | `connection-state=new protocol=tcp dst-address=192.168.20.60 dst-port=443` | users2services: HA web |
+| 65 | reject (tcp-reset) | `protocol=tcp dst-address=192.168.20.40 dst-port=853` | users2services: reject DoT probe (853), quiet |
+| 66 | drop, logged | *(none, catch-all)* | users2services: deny everything else |
 
-**`services2users`** (# 63-67)
-
-| # | Action | Match | Comment |
-|---|---|---|---|
-| 63 | accept | `protocol=tcp src-address=192.168.20.60 dst-address-list=ha-mikrotik-targets dst-port=8728` | services2users: HA MikroTik integration API |
-| 64 | accept | `protocol=tcp src-address=192.168.20.60 dst-address=192.168.10.110 dst-port=631` | services2users: HA -> printer (CUPS) |
-| 65 | accept | `protocol=tcp src-address=192.168.20.60 dst-address=192.168.10.195 dst-port=8002` | services2users: HA -> Samsung TV |
-| 66 | accept | `protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2users: HA SSH (ssh-hosts list) |
-| 67 | drop, logged | *(catch-all)* | services2users: deny everything else |
-
-The first three accepts here are scoped to `src-address=192.168.20.60` (Home Assistant) —
-verified deliberately, since these are meant to be HA-specific, not general to any services
-host. Rule 66 added 2026-09-16 for the `linux-monitor` HACS integration (Settings & Devices ->
-Home Assistant's own package/kernel-update tracking over SSH) — scoped per-destination via the
-new `ssh-hosts` address list rather than port-only like `services2iot`'s exceptions below, since
-SSH is full shell access, not a single-purpose device protocol. See `changelog.md`.
-
-**`services2iot`** (# 68-72)
+**`users2iot`**
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 68 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=6668` | services2iot: HA -> Tuya local (fan) |
-| 69 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=80` | services2iot: HA -> Tasmota/IotaWatt |
-| 70 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=6053` | services2iot: HA -> ESPHome (IotaWatt) |
-| 71 | accept | `protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2iot: HA SSH (ssh-hosts list) |
-| 72 | drop, logged | *(catch-all)* | services2iot: deny everything else |
+| 67 | accept | `connection-state=new src-address-list=mgmt` | users2iot: mgmt hosts full |
+| 68 | accept | `connection-state=new protocol=tcp dst-address-list=octoprint dst-port=80` | users2iot: everyone -> octoprint web UI |
+| 69 | drop, logged | *(none, catch-all)* | users2iot: deny everything else |
 
-Rules 68-70 are scoped to `src-address=192.168.20.60` but **not** to a specific destination —
-deliberate (Guillaume's call): any future IoT device on these ports is reachable from HA without
-a firewall change. Rule 71 (added alongside services2users' 66, same day, same purpose)
-deliberately breaks from that pattern — destination-scoped via `ssh-hosts` instead, for the same
-full-shell-access reason noted above.
-
-**`iot2users`** (# 73)
+**`services2internet`**
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 73 | drop, logged | *(catch-all)* | iot2users: deny everything else |
+| 50 | accept | `connection-state=new protocol=tcp dst-port=443` | services2internet: HTTPS from any services host |
+| 51 | accept | `connection-state=new protocol=udp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS |
+| 52 | accept | `connection-state=new protocol=tcp src-address=192.168.20.40 dst-port=53` | services2internet: Pi-hole's own upstream DNS (TCP) |
+| 53 | accept | `connection-state=new protocol=tcp src-address=192.168.20.40 dst-port=853` | services2internet: Pi-hole's own upstream DNS-over-TLS |
+| 54 | accept | `connection-state=new protocol=tcp src-address-list=http-outbound dst-port=80` | services2internet: HTTP exception (http-outbound list) |
+| 55 | drop, logged | *(none, catch-all)* | services2internet: deny everything else |
 
-No exceptions — `iot` has no legitimate reason to initiate anything toward `users`.
-
-**`iot2services`** (# 74-77, plus one unnumbered — see the renumbering note above)
-
-| # | Action | Match | Comment |
-|---|---|---|---|
-| 74 | drop | `protocol=udp src-address=192.168.30.63 dst-address=192.168.20.40 port=53` | iot2services: ceiling fan drop DNS (udp) |
-| 75 | accept | `protocol=udp dst-address=192.168.20.40 port=53` | iot2services: DNS to pi-hole (udp) |
-| 76 | accept | `protocol=tcp dst-address=192.168.20.60 dst-port=1883` | iot2services: MQTT to HA |
-| — | accept | `protocol=tcp dst-address=192.168.20.40 dst-port=53 connection-state=new` | iot2services: DNS to pi-hole (tcp) — added 2026-09-22, finding 32; confirmed at this exact position via `/ip/firewall/filter/print where chain=iot2services` |
-| 77 | drop, logged | *(catch-all)* | iot2services: deny everything else |
-
-TCP DNS-to-Pi-hole was removed in the Phase 5 reorg (never needed) — UDP only now, and the
-ceiling fan's TCP DNS-drop override went with it as redundant.
-
-**`wireguard2users`** (added 2026-09-28, see `changelog.md`)
+**`services2users`**
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| — | accept | `connection-state=new src-address-list=mgmt` | wireguard2users: mgmt hosts full |
-| — | drop, logged | *(catch-all)* | wireguard2users: deny everything else |
+| 70 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=ha-mikrotik-targets dst-port=8728` | services2users: HA MikroTik integration API |
+| 71 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address=192.168.10.110 dst-port=631` | services2users: HA -> printer (CUPS) |
+| 72 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=samsung-tv dst-port=8002` | services2users: HA -> Samsung TV |
+| 73 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2users: HA SSH (ssh-hosts list) |
+| 74 | drop, logged | *(none, catch-all)* | services2users: deny everything else |
 
-Dispatched into from `chain=forward` via `in-interface=wireguard1 out-interface=vlan-users`
-(placed before the final catch-all, alongside the VPN's other three `wireguard1` dispatches —
-see `vpn.md`). Added so `mgmt`-listed VPN clients (the phone) can reach mikrotik2/mikrotik3's
-own management, not just mikrotik1's own (already covered by `chain=input` rule 9,
-interface-blind). Printed `I - INVALID` immediately after creation, cleared on a later print —
-the established transient pattern (see `README.md`'s hard-won lessons) — and confirmed
-functionally enforced by real logins from the phone to both mikrotik2 and mikrotik3.
-
-**`internet2services`** (# 78)
+**`services2iot`**
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 78 | accept | `connection-state=new connection-nat-state=dstnat protocol=tcp dst-address=192.168.20.60 dst-port=443` | internet2services: Home Assistant HTTPS |
+| 75 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-port=6668` | services2iot: HA -> Tuya local (fan) |
+| 76 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-port=80` | services2iot: HA -> Tasmota/IotaWatt |
+| 77 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-port=6053` | services2iot: HA -> ESPHome (IotaWatt) |
+| 78 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2iot: HA SSH (ssh-hosts list) |
+| 79 | drop, logged | *(none, catch-all)* | services2iot: deny everything else |
 
-No deny-all — the dispatch jump itself (# 35) is already scoped to `connection-nat-state=dstnat`
-plus `WAN`/`vlan-services`, so nothing else can reach this chain.
+**`iot2internet`**
 
-## mikrotik1 — NAT
+| # | Action | Match | Comment |
+|---|---|---|---|
+| 56 | drop | `src-address=192.168.30.63` | iot2internet: ceiling fan phone-home (silenced, expected) |
+| 57 | accept | `connection-state=new protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
+| 58 | accept | `connection-state=new protocol=tcp src-address-list=iotawatt dst-port=80,443` | iot2internet: iotawatt firmware updates exception |
+| 59 | accept | `connection-state=new protocol=udp src-address-list=iotawatt dst-port=123` | iot2internet: iotawatt NTP exception |
+| 60 | drop, logged | *(none, catch-all)* | iot2internet: deny everything else |
+
+**`iot2users`**
+
+| # | Action | Match | Comment |
+|---|---|---|---|
+| 80 | drop, logged | *(none, catch-all)* | iot2users: deny everything else |
+
+**`iot2services`**
+
+| # | Action | Match | Comment |
+|---|---|---|---|
+| 81 | drop | `protocol=udp src-address=192.168.30.63 dst-address=192.168.20.40 port=53` | iot2services: ceiling fan drop DNS (udp) |
+| 82 | accept | `connection-state=new protocol=udp dst-address=192.168.20.40 port=53` | iot2services: DNS to pi-hole (udp) |
+| 83 | accept | `connection-state=new protocol=tcp dst-address=192.168.20.40 dst-port=53` | iot2services: DNS to pi-hole (tcp) |
+| 84 | accept | `connection-state=new protocol=tcp dst-address=192.168.20.60 dst-port=1883` | iot2services: MQTT to HA |
+| 85 | reject (tcp-reset) | `protocol=tcp dst-address=192.168.20.40 dst-port=853` | iot2services: reject DoT probe (853), quiet |
+| 86 | drop, logged | *(none, catch-all)* | iot2services: deny everything else |
+
+**`internet2services`**
+
+| # | Action | Match | Comment |
+|---|---|---|---|
+| 87 | accept | `connection-state=new connection-nat-state=dstnat protocol=tcp dst-address=192.168.20.60 dst-port=443` | internet2services: Home Assistant HTTPS |
+
+**`wireguard2users`**
+
+| # | Action | Match | Comment |
+|---|---|---|---|
+| 88 | accept | `connection-state=new src-address-list=mgmt` | wireguard2users: mgmt hosts full |
+| 89 | drop, logged | *(none, catch-all)* | wireguard2users: deny everything else |
+
+`internet2services` has no deny-all: its dispatch jump (36) is already scoped to
+`connection-nat-state=dstnat` plus `WAN`/`vlan-services`.
+
+## router — NAT
 
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
-| 0 | srcnat | masquerade | `out-interface-list=WAN` | (unnamed) |
-| 1 | dstnat | dst-nat -> `192.168.20.60:443` | `protocol=tcp dst-port=443 in-interface-list=WAN` | Home Assistant - HTTPS |
+| 0 | `srcnat` | masquerade | `out-interface-list=WAN` |  |
+| 1 | `dstnat` | dst-nat -> `192.168.20.60:443` | `protocol=tcp in-interface-list=WAN dst-port=443` | Home Assistant - HTTPS |
 
-Rule 1 pairs with `chain=forward`'s `internet2services` jump (# 35) and its sub-chain rule
-(# 78) above — all three consistent. **No `dst-address=` on rule 1** — deliberately, since
-2026-09-11: previously hardcoded to mikrotik1's then-current WAN DHCP lease, which broke
-outright when a Swisscom box swap changed the whole WAN-side subnet (see `changelog.md`).
-Matching on `in-interface-list=WAN` alone survives any future WAN IP change.
 
-## mikrotik1 — address lists in use
+Rule 1 pairs with the `internet2services` dispatch (36) and its accept (87). **It has no
+`dst-address=`** on purpose (since 2026-09-11): matching `in-interface-list=WAN` survives any
+WAN address change, which is what let the cutover move the DMZ host to `192.168.1.103` with no
+rule change. IPv6 has one more NAT rule, the NAT66 masquerade (below).
+
+## router — address lists in use
 
 | List | Members | Purpose |
 |---|---|---|
-| `mgmt` | mikrotik1/2/3/4, desktop, gimli (work laptop), phone (via `wireguard1`) (7 hosts) | full router-management access, all three reachable devices — see the `admin` user's own `address=` restriction below, a separate gate from this list |
-| `ha-mikrotik-targets` | mikrotik2, mikrotik3 | scopes HA's MikroTik integration to switch management IPs only |
-| `octoprint` | OctoPrint (wifi + wired) | named exception for both `iot`'s default internet deny and `users -> iot`'s default deny — consolidated from the former separate `iot-internet` list during the Phase 5 reorg |
-| `iotawatt` | IotaWatt (`192.168.30.50`) | named exception for `iot`'s default internet deny only (firmware updates), added 2026-09-11 |
-| `http-outbound` | Home Assistant (`192.168.20.60`) | named exception for `services2internet`'s HTTPS-only policy (plain HTTP), added 2026-09-15 — see `http-outbound-v6` below for the IPv6 twin |
-| `ssh-hosts` | OctoPrint (wired + wifi), desktop | named exception for HA's `linux-monitor` SSH access, spans `vlan-iot` and `vlan-users` — referenced from both `services2iot` and `services2users`; each chain's own dispatch already restricts it to that VLAN's traffic. Added 2026-09-16, expected to grow |
-| `bogons` | RFC 1918/3330 ranges, defconf | unchanged since round 1/2, not VLAN-related |
-| `Syn_Flooder`, `Port_Scanner`, `spammers` | dynamic, populated at runtime | anti-abuse, unchanged since finding 7 |
+| `mgmt` | router (`.10.1`), switch-main, switch-office, ap-main, switch-livingroom, `.10.6` (router staging address, until the rollback week ends), desktop, gimli (work laptop), phone (via `wireguard1`) | full management access. Separate gate: each device's `admin` user has its own `address=` restriction |
+| `ha-mikrotik-targets` | switch-main, switch-office, ap-main, switch-livingroom | HA's MikroTik integration (8728) through `services2users`. ap-main and switch-livingroom were added 2026-10-20. The router itself is reached through `chain=input` |
+| `octoprint` | OctoPrint wired (`.30.80`) and wifi (`.30.81`) | exception to `iot2internet` and `users2iot` |
+| `iotawatt` | IotaWatt (`.30.50`) | exception to `iot2internet` (firmware updates, NTP) |
+| `http-outbound` | Home Assistant (`.20.60`) | exception to `services2internet`'s HTTPS-only policy |
+| `ssh-hosts` | desktop, OctoPrint wired and wifi | HA's SSH monitoring, used by `services2users` and `services2iot` |
+| `samsung-tv` | TV wired (`.10.50`) and wifi (`.10.51`) | finding 36's fix: HA -> TV (8002) |
+| `bogons` | RFC 1918/3330 ranges; `10.0.0.0/8`, `192.168.0.0/16` and `224.0.0.0/4` disabled | `forward` rule 23 |
+| `Syn_Flooder`, `Port_Scanner`, `spammers` | dynamic, filled at runtime | anti-abuse |
 
-`WAN` is an interface list (`/interface/list`), not an address list — holds `ether1`, created
-in the Phase 5 reorg so a future edge-router swap only needs updating in one place.
+`WAN` is an interface list holding `ether1`, so the firewall never names the WAN port directly.
+Separately, `/ip/dns/static` holds one `<hostname>.home.ledcom.fr` entry per bound DHCP lease
+(`dhcp-to-dns` comment, set by the `lease-script`); not reproduced here.
 
-Separately (not a firewall mechanism, but adjacent): `/ip/dns/static` now also holds one entry
-per currently-bound DHCP lease with a reported hostname (`<hostname>.home.ledcom.fr`), added by
-a `lease-script` on all three DHCP servers — see `changelog.md`'s DHCP-to-DNS entry. TTL
-matches the lease time (5m), so the list churns constantly; not reproduced here.
-
-## mikrotik1 — IPv6 firewall
-
-**Finding 21, closed 2026-09-11.** `vlan-users` (phase 1), `vlan-services` (phase 2), and
-`vlan-iot` (phase 3) all restructured to the same per-VLAN-pair dispatch shape the IPv4
-firewall uses, and all three confirmed working end-to-end from real clients — see
-`changelog.md`. None of the three VLANs exposes router management (ssh/Winbox/API/www) over
-IPv6 — SLAAC gives no stable per-host address to scope an IPv4-style `mgmt` list against, so
-"not exposed" is the deliberate equivalent rather than a leaky approximation. Full design and
-reasoning in [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21).
-
-**The `ha-v6`/`pihole-v6`/`octoprint-v6` EUI-64 pinning only works if IPv6 privacy extensions
-are explicitly disabled on the host** — discovered 2026-09-11 when Pi-hole and OctoPrint's real
-traffic used temporary addresses that didn't match their computed EUI-64 entries at all,
-silently defeating the address-list scoping despite the rules looking correct on `print`. Fixed
-per-host on those two (`net.ipv6.conf.*.use_tempaddr=0` and `addr_gen_mode=0`, plus the
-NetworkManager equivalent since it can override the sysctl on reconnect); see `changelog.md`.
-**Home Assistant was never actually checked or fixed at the time** (no traffic had surfaced the
-gap yet) and, per finding 31 in `config-review.md`, confirmed 2026-09-15 to have the identical
-problem — `ha-v6`/`http-outbound-v6` currently do not match its real traffic. If any of these
-address-lists stops matching real traffic again, this is the first thing to check — not the
-prefix.
+## router — IPv6 firewall
 
 | # | Chain | Action | Match | Comment |
 |---|---|---|---|---|
-| 0 | input | accept | `connection-state=established,related,untracked` | defconf |
-| 1 | input | drop | `connection-state=invalid` | defconf |
-| 2 | input | accept | `protocol=icmpv6` | defconf |
-| 3 | input | accept | `protocol=udp src-address=fe80::/10 dst-port=546` | defconf: DHCPv6-Client PD |
-| 4 | forward | accept | `connection-state=established,related,untracked` | defconf |
-| 5 | forward | drop | `connection-state=invalid` | defconf |
-| 6 | forward | drop | `src-address-list=bad_ipv6` | defconf |
-| 7 | forward | drop | `dst-address-list=bad_ipv6` | defconf |
-| 8 | forward | drop | `protocol=icmpv6 hop-limit=equal:1` | defconf: rfc4890 |
-| 9 | forward | accept | `protocol=icmpv6` | defconf |
-| — | input | drop | *(none — catch-all)* | drop everything else to router |
-| — | forward | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
-| — | forward | jump -> `services2internet` | `in-interface=vlan-services out-interface-list=WAN` | dispatch: services -> internet |
-| — | forward | jump -> `services2users` | `in-interface=vlan-services out-interface=vlan-users` | dispatch: services -> users |
-| — | forward | jump -> `iot2internet` | `in-interface=vlan-iot out-interface-list=WAN` | dispatch: iot -> internet |
-| — | forward | drop | *(none — catch-all)* | drop inbound from WAN |
-| — | `users2internet` | accept | `connection-state=new` | users2internet: internet |
-| — | `services2internet` | accept | `protocol=tcp dst-port=443 connection-state=new` | services2internet: HTTPS |
-| — | `services2internet` | accept | `protocol=udp dst-port=53 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS |
-| — | `services2internet` | accept | `protocol=tcp dst-port=53 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS (TCP) |
-| — | `services2internet` | accept | `protocol=tcp dst-port=853 src-address-list=pihole-v6 connection-state=new` | services2internet: Pi-hole's own upstream DNS-over-TLS |
-| — | `services2internet` | accept | `protocol=tcp dst-port=80 src-address-list=http-outbound-v6 connection-state=new` | services2internet: HTTP exception (http-outbound-v6 list) |
-| — | `services2internet` | drop, logged | *(catch-all)* | services2internet: deny everything else |
-| — | `services2users` | accept | `protocol=tcp dst-port=631 src-address-list=ha-v6 connection-state=new` | services2users: HA -> printer (CUPS) |
-| — | `services2users` | accept | `protocol=tcp dst-port=8002 src-address-list=ha-v6 connection-state=new` | services2users: HA -> Samsung TV |
-| — | `services2users` | drop, logged | *(catch-all)* | services2users: deny everything else |
-| — | `iot2internet` | accept | `protocol=tcp dst-port=80,443 src-address-list=octoprint-v6 connection-state=new` | iot2internet: octoprint updates |
-| — | `iot2internet` | drop, logged | *(catch-all)* | iot2internet: deny everything else |
+| 0 | `input` | accept | `connection-state=established,related,untracked` | defconf: accept established, related, untracked |
+| 1 | `input` | drop | `connection-state=invalid` | defconf: drop invalid |
+| 2 | `input` | accept | `protocol=icmpv6` | defconf: accept ICMPv6 |
+| 3 | `input` | accept | `protocol=udp src-address=fe80::/10 dst-port=546` | defconf: accept DHCPv6-Client prefix delegation |
+| 4 | `forward` | accept | `connection-state=established,related,untracked` | defconf: accept established, related, untracked |
+| 5 | `forward` | drop | `connection-state=invalid` | defconf: drop invalid |
+| 6 | `forward` | drop | `src-address-list=bad_ipv6` | defconf: drop packets with bad src ipv6 |
+| 7 | `forward` | drop | `dst-address-list=bad_ipv6` | defconf: drop packets with bad dst ipv6 |
+| 8 | `forward` | drop | `protocol=icmpv6 hop-limit=equal:1` | defconf: rfc4890 drop hop-limit=1 |
+| 9 | `forward` | accept | `protocol=icmpv6` | defconf: accept ICMPv6 |
+| 10 | `input` | drop | *(none, catch-all)* | drop everything else to router |
+| 11 | `forward` | jump -> `users2internet` | `in-interface=vlan-users out-interface-list=WAN` | dispatch: users -> internet |
+| 12 | `forward` | jump -> `services2internet` | `in-interface=vlan-services out-interface-list=WAN` | dispatch: services -> internet |
+| 13 | `forward` | jump -> `services2users` | `in-interface=vlan-services out-interface=vlan-users` | dispatch: services -> users |
+| 14 | `forward` | jump -> `iot2internet` | `in-interface=vlan-iot out-interface-list=WAN` | dispatch: iot -> internet |
+| 15 | `forward` | drop | *(none, catch-all)* | drop inbound from WAN |
+| 16 | `users2internet` | accept | `connection-state=new` | users2internet: internet |
+| 17 | `services2internet` | accept | `connection-state=new protocol=tcp dst-port=443` | services2internet: HTTPS |
+| 18 | `services2internet` | accept | `connection-state=new protocol=udp src-address-list=pihole-v6 dst-port=53` | services2internet: Pi-hole's own upstream DNS |
+| 19 | `services2internet` | accept | `connection-state=new protocol=tcp src-address-list=pihole-v6 dst-port=53` | services2internet: Pi-hole's own upstream DNS (TCP) |
+| 20 | `services2internet` | accept | `connection-state=new protocol=tcp src-address-list=pihole-v6 dst-port=853` | services2internet: Pi-hole's own upstream DNS-over-TLS |
+| 21 | `services2internet` | accept | `connection-state=new protocol=tcp src-address-list=http-outbound-v6 dst-port=80` | services2internet: HTTP exception (http-outbound-v6 list) |
+| 22 | `services2internet` | drop, logged | *(none, catch-all)* | services2internet: deny everything else |
+| 23 | `services2users` | accept | `connection-state=new protocol=tcp src-address-list=ha-v6 dst-port=631` | services2users: HA -> printer (CUPS) |
+| 24 | `services2users` | accept | `connection-state=new protocol=tcp src-address-list=ha-v6 dst-port=8002` | services2users: HA -> Samsung TV |
+| 25 | `services2users` | drop, logged | *(none, catch-all)* | services2users: deny everything else |
+| 26 | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=octoprint-v6 dst-port=80,443` | iot2internet: octoprint updates |
+| 27 | `iot2internet` | drop, logged | *(none, catch-all)* | iot2internet: deny everything else |
 
-Rule numbers aren't shown — RouterOS's `print` index is positional, not a stable ID (this table
-follows the project's own convention of finding by comment, not number).
 
-`services2users` is deliberately narrower than IPv4's version of the same policy: IPv4 also
-scopes by the *destination's* own address (the printer, the TV specifically); this only scopes
-by port, since pinning two more devices' IPv6 addresses for a path that already works over IPv4
-wasn't judged worth it. `ha-v6` and `pihole-v6` are `/ipv6/firewall/address-list`s holding one
-entry each — Home Assistant's and Pi-hole's IPv6 addresses, computed via EUI-64 from their
-known MACs combined with `vlan-services`'s actual delegated prefix (**not** a DHCP-style
-reservation; see [ipv6.md](ipv6.md#extending-to-every-vlan-finding-21) and
-`changelog.md`'s Internet-Box replacement entry for the caveats this carries: it depends on
-IPv6 privacy extensions staying off on each host, and broke once already when the delegated
-prefix changed — recomputed both times, same method, current prefix). `pihole-v6`'s DNS/DoT
-exceptions were added 2026-09-11 after the firewall log showed Pi-hole repeatedly (and
-silently) failing to reach public IPv6 resolvers for its own upstream queries — mirrors its
-existing IPv4 exception. `http-outbound-v6` was added 2026-09-15, seeded with the same EUI-64
-address already in `ha-v6` — same host, separate list, since the two lists serve different
-purposes (this one may grow to cover other hosts, like `pihole-v6`, without needing them added
-to `ha-v6` for something unrelated to HA) — see `changelog.md` and IPv4's `http-outbound` above.
-`services2iot` doesn't exist — `vlan-iot`'s policy is deny-by-default (below), so there's
-nothing for services to reach there yet.
+IPv6 NAT: one rule, `chain=srcnat action=masquerade out-interface=ether1`, comment
+`workaround: Internet-Box will not route delegated prefix` (see [ipv6.md](ipv6.md#why-nat66)).
 
-`iot2internet` is deny-by-default with one named exception, mirroring IPv4's `octoprint`
-address-list — `octoprint-v6` holds both of OctoPrint's known addresses (wifi + wired),
-computed via EUI-64 the same way as `ha-v6`. No `iot2services`/`iot2users` chains exist —
-nothing on `vlan-iot` needs IPv6 access to either today, so both fall through to the general
-forward catch-all, same outcome as an explicit deny.
+IPv6 address lists (EUI-64 addresses in `2a02:1210:7621:9ac0::/58`, recomputed before the
+cutover): `pihole-v6` (Pi-hole on `9ac1`), `ha-v6` and `http-outbound-v6` (HA on `9ac1`),
+`octoprint-v6` (OctoPrint wired and wifi on `9ac2`), plus defconf's `bad_ipv6`.
 
-**`vlan-iot`'s rules confirmed working end-to-end 2026-09-11** — `ping -6`/`curl -6` from
-OctoPrint itself, once its own IPv6 address was fixed to match `octoprint-v6` (see the privacy
-extensions note above). See `changelog.md`.
+Notes:
+- **No router management over IPv6.** SLAAC gives no stable per-host address to scope a `mgmt`
+  list against, so input drops everything except established, ICMPv6 and DHCPv6-PD.
+- **The EUI-64 lists only match if IPv6 privacy extensions are off on the host** (fixed on
+  Pi-hole and OctoPrint 2026-09-11, on HA 2026-09-15, finding 31). If a list stops matching real
+  traffic, check that first. If the delegated prefix changes, recompute the lists.
+- `services2users` is narrower than its IPv4 twin: it scopes by port only, not by the
+  printer's or TV's own address.
+- No `services2iot`, `iot2services` or `iot2users` chains: that traffic falls to the forward
+  catch-all, the same outcome as an explicit deny. No wireguard dispatch either: the tunnel
+  carries IPv4 only.
 
-New rules again briefly showed `I - INVALID` on `print` immediately after creation in every
-phase — unlike their identically-shaped IPv4 counterparts — and cleared on their own with no
-action taken; every phase was also confirmed functionally enforced from real clients (see
-`changelog.md`). See `README.md`'s hard-won lessons for the caveat this adds to the existing
-`I - INVALID` catalog.
+## Switches and ap-main — `chain=input`
 
-## mikrotik2 (CRS125) and mikrotik3 (RB750Gr3) — `chain=input`
-
-Identical shape on both switches (management-plane only — neither runs NAT, and both have
-`disable-ipv6=yes`, so IPv6 doesn't apply):
+The same input chain on switch-main, switch-office, ap-main and switch-livingroom (2026-10-20
+dumps). They are pure L2 devices with `disable-ipv6=yes`, so there is no NAT and no IPv6 filter:
 
 | # | Action | Match | Comment |
 |---|---|---|---|
-| 0 | accept | `connection-state=established` | default configuration |
-| 1 | accept | `connection-state=related` | default configuration |
-| 2 | drop | `connection-state=invalid` | default configuration |
-| 3 | accept | `connection-state=established,related` | established |
-| 4 | drop | `connection-state=invalid` | drop invalid |
-| 5 | accept | `protocol=icmp` | ICMP |
-| 6 | accept | `src-address-list=mgmt` | mgmt hosts to device |
-| 7 | accept | `protocol=tcp src-address=192.168.20.60 dst-port=8728` | HA API access (post-renumber) |
-| 8 | drop | *(none — catch-all)* | drop everything else |
+| — | accept | `connection-state=established,related` | established |
+| — | drop | `connection-state=invalid` | drop invalid |
+| — | accept | `protocol=icmp` | ICMP |
+| — | accept | `src-address-list=mgmt` | mgmt hosts to device |
+| — | accept | `protocol=tcp src-address=192.168.20.60 dst-port=8728` | HA API access |
+| — | drop | *(none, catch-all)* | drop everything else |
 
-Rules 0-2 are `chain=forward`, rules 3-8 are `chain=input`. The forward-chain rules are
-defconf boilerplate and don't actually gate anything: both switches have
-`use-ip-firewall=no` on their bridge (confirmed in both dumps), so bridged/VLAN-tagged traffic
-bypasses the IP firewall's forward chain entirely — all real inter-VLAN policy lives on
-mikrotik1. No `connection-state=new` inconsistency worth noting here either way.
+switch-main and switch-office also have three defconf `chain=forward` rules (established,
+related, invalid) in front. They never match: the bridges have `use-ip-firewall=no`, so bridged
+traffic skips the IP firewall. switch-livingroom's six router-style forward rules and its IPv6
+filter were removed on 2026-10-20 (S19). Each device's `mgmt` list holds the same 9 addresses as
+the router's.

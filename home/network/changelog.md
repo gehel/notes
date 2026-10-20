@@ -3600,3 +3600,47 @@ an empty `WAN` list. S20: leftovers and old names on mikrotik2/3/4. That was the
 **S19 is closed** (with the earlier part of this entry: one address, no static DNS,
 `allow-remote-requests: no`, both sharing settings `no`, no `WAN` list). **S20 is closed**:
 mikrotik2 and mikrotik3 were verified above, and mikrotik4's `mgmt` comments too.
+
+## Post-rename dump and log review; `firewall.md` regenerated (2026-10-20, 15:25)
+
+`dump-configs.sh` and `dump-logs.sh` ran with the new hostnames (first run; SSH asked to confirm
+each new host key once). They wrote `dumps/<name>.txt` and `logs/<name>.txt`.
+
+**Config: the exports match the morning's exactly, except the intended changes.** A per-device
+`diff` of the `/export hide-sensitive` sections (11:46 vs 15:25) shows only:
+- router: `ch6` gone, the bridge, `WAN`, bridge port, address-list, lease and filter comments,
+  VLAN 30 without `ether3`, the three reservations gone, the `router` static DNS gone, the new
+  lease script, `log-prefix` removed, and identity `router`. The rest are `dhcp-to-dns` entries
+  churning as leases renew.
+- switch-main: port names and comments, with every reference (bridge ports, VLAN table,
+  `discover` list) updated by RouterOS. Also the script, DHCP client and static DNS gone, and the
+  comments and identity.
+- switch-office, ap-main, switch-livingroom: exactly the commands logged above. (ap-main's
+  export had no `/system identity` line before: it still had the default identity.)
+
+No other drift on any device.
+
+**Logs:**
+- **The router's log covers only 14:39:33-15:26:03**, and 932 of its 1005 lines are finding 36's
+  HA → `.10.195:8002` drop, 20 a minute. Opened **finding 40** (the buffer holds under an hour)
+  and updated 36. Until it is fixed, check 11's "next-day" log review cannot happen.
+- No `services2internet-v6` drops from the old `9a41` addresses in that window. The pre-cutover
+  SLAAC addresses have expired, as expected about 5 h after the cutover.
+- No `dhcp-lease` script error in the window, but no overlapping lease events either. This does
+  not close finding 37 yet.
+- switch-office `ether3`: link down/up at 12:33, 14:18, 14:50 and 14:54. It comes up first at
+  10M, then at 1G, the typical pattern of a PC NIC in its low-power (wake-on-LAN) state. At
+  14:54:31 it came up at 1G, and the desktop's DHCP lease was re-assigned at 14:54:35, which
+  strongly supports `ether3` = desktop (drawn dashed in `network.dot`).
+- ap-main: the TV's wifi MAC (`F4:DD:06:2A:FB:AF`) connects and disconnects every few minutes,
+  at -58 to -95 dBm. `legolas` (`00:28:F8:B5:3C:7C`, `.10.192`) roams between `wifi1` and
+  `wifi2` every few minutes, and the router re-assigns its lease each time. Informational, for
+  the DHCP/wifi review.
+- switch-main and switch-livingroom: nothing since noon beyond the logged commands.
+
+**`firewall.md` regenerated** from `dumps/router.txt`. The rule tables come from the numbered
+prints by a throwaway parser (scratchpad only, not kept: the format is plain and the doc says
+to regenerate). Counts: 89 IPv4 filter rules, 2 NAT, 28 IPv6 filter rules, matching the Phase 2
+port. Added the wireguard dispatch rules and an `internet`/`wireguard` row to the quick
+reference, and a switches and ap-main section. Corrected the README: HA's IPv6 privacy
+extensions were already fixed under finding 31 (2026-09-15), not "never checked".

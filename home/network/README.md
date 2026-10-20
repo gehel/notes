@@ -109,8 +109,6 @@ RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>
   (decided 2026-10-20, when `.10.91` was removed unnamed).
 - Review Pi-hole's query log as a general health check (`dump-pihole-logs.sh`). One known item:
   HA's hourly reverse-DNS sweep of its own subnet, see `home/home-assistant`'s finding 17.
-- Whether Home Assistant has the same IPv6 privacy-extensions problem Pi-hole and OctoPrint had
-  (finding 21's `ha-v6` address-list) — never checked.
 
 **Wireless** — [wifi.md](wifi.md).
 - ap-main serves only `LEDCOM`: VLAN-tagged multi-SSID is unsupported on its hardware/driver.
