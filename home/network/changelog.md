@@ -3943,3 +3943,10 @@ at that moment.** The console probably dropped its LAN link when it went to slee
 
 **Diagrams:** amp and console drawn as wired on switch-livingroom (`ether4`, `ether3`) in
 `network.dot` and `network-addressing.nwdiag`, re-rendered.
+
+**Checks, 21:43:**
+- Router `/ip/arp/print where mac-address~"00:09:B0:E0:F3:F6|BC:CE:25:64:E2:C5"` → amp wired
+  still at **`.10.104`** (`DC`, reachable): it has not renewed onto `.10.52` yet. Console wired
+  at `.10.101`, **`failed`**: it is off the LAN (asleep, `ether3` without link in the last print).
+  Both move at their next DHCP request.
+- Desktop `dig -t A tv.home.ledcom.fr` → `192.168.10.50`. **Guillaume's Pi-hole record works.**
