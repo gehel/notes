@@ -9,7 +9,7 @@ Written so that work can resume from these documents alone, with no session hist
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
 mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
 **Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
-(36-40 as of 2026-10-20).
+(37-40 as of 2026-10-20).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -33,7 +33,7 @@ The `router1`-`router6` Pi-hole records stay as aliases until 2026-10-27.
 | switch-main | `192.168.10.2` | L2 switch, 24×GE + SFP, VLAN trunks to router (`ether1`), switch-office (`ether16`) and switch-livingroom (`ether12`); Pi-hole, HA, OctoPrint wired; CAPsMAN CAP (2.4 GHz, `LEDCOM` + `LEDCOM-IoT`) |
 | switch-office | `192.168.10.3` | L2 switch, office, 5×GE: desktop, printer |
 | ap-main | `192.168.10.4` | standalone `wifi-qcom-ac` AP, 2.4 + 5 GHz, `LEDCOM` only; router `ether3`, 1 Gbps + PoE |
-| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. **Uplink unreliable (2026-10-20): down overnight and again since 15:26, and at 100M when up**, see `changelog.md` |
+| switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. **On the TV's switched power strip: only up while the TV is on, so "unreachable" is its normal state.** Uplink at 100M on a bad patch cable, to be replaced |
 
 All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with
 `scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
@@ -53,6 +53,8 @@ from all three VLANs, and every device should use its own VLAN's gateway for tim
 Raw device output lives in [dumps/](dumps/), collected with
 [dump-configs.sh](scripts/dump-configs.sh) (one `<name>.txt` per device). Regenerate it
 before any review — the files are a snapshot, not a source of truth.
+switch-livingroom is powered with the TV, so `UNREACHABLE on port 22` in its file is normal:
+dump while the TV is on to include it.
 
 Logs live in `logs/` (gitignored), collected with [dump-logs.sh](scripts/dump-logs.sh): the
 full log of every device, one file each. Firewall entries (the `log=yes` deny-all rules at
@@ -92,10 +94,8 @@ review, the throughput and bufferbloat re-baseline, the end of the rollback week
 RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>` aliases).
 
 **Findings** — [config-review.md](config-review.md):
-- 36: HA → Samsung TV. The router rule is fixed; HA's `samsungtv` integration still points at
-  `.10.195`. Change it to `.10.51` (the TV is on wifi) in HA.
-- 40: the router's log buffer holds under an hour (36's retries flood it). Fix 36 and raise
-  `memory-lines`; until then a "next-day" log review sees nothing.
+- 40: the router's log buffer held under an hour. Fixed 2026-10-20 (36 closed, `memory-lines`
+  raised); verify with the next `dump-logs.sh`.
 - 37: the lease-script race. Fixed 2026-10-20; closes when a log dump shows no `dhcp-lease`
   script error.
 - 38: DHCP renewals on `services`/`iot` may be dropped by `chain=input`. Check one lease after
@@ -124,10 +124,8 @@ RB2011, then remove `cutover`/`rollback`, the `.10.6` address and the `router<N>
   purpose: check client signal before deciding whether to pin `tx-power`.
 
 **Hardware.**
-- **switch-livingroom's uplink.** On 2026-10-20 it came up at 100M (the old bad-cable symptom)
-  and dropped twice (2026-10-19 23:20, 2026-10-20 15:26). Check the cable at the living-room
-  end and the switch's power (is it on a switched power strip with the TV?). Then buy a
-  permanent patch cable.
+- Replace the living-room patch cables: switch-livingroom's uplink runs at 100M (the
+  2026-10-08 bad-cable symptom).
 - The workshop still needs a switch, VLAN-aware if it carries more than `iot`. The RB2011 is a
   candidate once wiped.
 

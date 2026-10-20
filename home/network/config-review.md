@@ -150,45 +150,6 @@ checking Home Assistant's own Samsung TV integration log for errors/retries arou
 2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
 
 
-### 36. `services2users: HA -> Samsung TV` still points at the TV's old address (medium, fix prepared 2026-10-19)
-
-Found 2026-10-19 reading the 12:55 export of mikrotik1 for the RB5009 port. The IPv4 rule is
-`chain=services2users src-address=192.168.20.60 dst-address=192.168.10.195 dst-port=8002`.
-Since 2026-10-08 the TV has static reservations at **`.10.50`** (wired, `4C:57:39:2C:20:2C`,
-mikrotik5 `ether2`) and **`.10.51`** (wifi, `F4:DD:06:2A:FB:AF`). Nothing holds `.10.195` any
-more, so HA → TV over IPv4 falls through to `services2users: deny everything else`. The IPv6
-mirror matches by port only, so it is not affected.
-
-Home Assistant's side may be stale too: in the last HA config sync (2026-09-29, before the
-move), the `samsungtv` config entry (`65" The Frame`) has `host: 192.168.10.195`,
-`mac: f4:dd:06:2a:fb:af`. Run `home/home-assistant/scripts/sync.sh` and check whether HA picked
-up the new address.
-
-**Fix (on mikrotik1, does not touch the management path):** match both TV addresses with an
-address-list, so that the rule works whichever interface the TV uses.
-```
-/ip/firewall/address-list/add list=samsung-tv address=192.168.10.50 comment="TV (Samsung), wired"
-/ip/firewall/address-list/add list=samsung-tv address=192.168.10.51 comment="TV (Samsung), wifi"
-/ip/firewall/filter/set [find comment="services2users: HA -> Samsung TV"] !dst-address dst-address-list=samsung-tv
-/ip/firewall/filter/print where comment="services2users: HA -> Samsung TV"
-```
-Then check that the print shows `dst-address-list=samsung-tv` and **no** `dst-address`
-(README: property clears are unreliable). Verify it with HA's Samsung TV integration working, or
-with the rule's counters increasing. If HA still has `.10.195`, update the integration's host.
-The mikrotik6 port (`scripts/mikrotik6-p2-firewall.rsc`) already has the fixed form.
-
-**2026-10-20, after the cutover:** the router side is in place (`samsung-tv` list, rule 72 in
-`firewall.md`), but HA still connects to `.10.195`. That gives 932 `services2users` drops in 47
-minutes, which floods the log buffer (finding 40). The TV's wired lease (`.10.50`) has not been
-bound since the cutover, and the TV is on wifi (`.10.51`, via ap-main at -58 to -95 dBm, with
-frequent disconnects in ap-main's log), although switch-livingroom `ether2` has link. So
-`.10.51` is the address HA can reach today. **Next: in HA, change the `samsungtv` host to
-`192.168.10.51`** (or `.10.50` once the TV uses its cable), then watch rule 72's counters.
-
-**Status 2026-10-19:** the fix is applied on mikrotik1 and ported to mikrotik6 (Phase 2 export
-diff: identical rule). The functional check (HA → TV working, counters, HA's host) is
-**deferred until the RB5009 migration is complete**, by Guillaume's decision.
-
 ### 37. The DHCP `lease-script` can abort before it adds the DNS entry (low, fix prepared 2026-10-20)
 
 Found 2026-10-20 in mikrotik6's log, the morning after the cutover:
@@ -260,7 +221,7 @@ Also removed with the rename:
   randomization) has a reservation and no comment. Decision 2026-10-20: remove the
   reservation now, and review all DHCP leases later.
 
-### 40. The router's log buffer holds under an hour, so a next-day log review is impossible (medium, fix prepared 2026-10-20)
+### 40. The router's log buffer holds under an hour, so a next-day log review is impossible (medium, fix applied 2026-10-20, to verify)
 
 Found 2026-10-20 in the 15:26 `dump-logs.sh`. `logs/router.txt` has 1005 lines covering only
 14:39:33-15:26:03, and 932 of them are a single repeated drop: finding 36's HA → `192.168.10.195:8002`,
@@ -282,8 +243,10 @@ neither can the routine firewall log review in the README.
    The memory log is still lost on reboot, which is acceptable for review. Writing to flash
    (`disk` action) would survive reboots, but at the cost of flash wear. Not proposed.
 
-**Verify:** `/system/logging/action/print` shows `memory-lines=20000`, and the next
-`dump-logs.sh` covers several hours (or the whole time since the last reboot).
+**Applied 2026-10-20:** HA's `samsungtv` host changed to `.10.51` (finding 36, closed), and
+`memory-lines=20000` (verified with `/system/logging/action/print`). **To verify:** the next
+`dump-logs.sh` covers several hours (or the whole time since the last reboot) with no
+`.10.195` drops.
 
 ### Device rename (decided 2026-10-20)
 
@@ -301,7 +264,7 @@ names, and the README maps old to new.
 | mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
 | mikrotik1 (RB2011) | named when redeployed | — |
 
-Apart from 36-40 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
+Apart from 37-40 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and

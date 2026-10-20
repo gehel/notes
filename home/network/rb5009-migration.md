@@ -32,11 +32,10 @@ entries; `config-review.md` round 4). State to rely on:
 - Speed test: 865 Mbps down / 858 Mbps up (was 181 / 842 through the RB2011).
 
 Next, in order:
-1. **First, finding 40**: the router's log buffer holds under an hour. Fix HA's `samsungtv`
-   host (finding 36) and raise `memory-lines` (commands in `config-review.md`), or this check
-   sees nothing.
+1. Finding 40 was fixed 2026-10-20 (HA's TV host corrected, `memory-lines=20000`), so the
+   next-day log can now cover the night.
 2. **2026-10-21: check 11's second half.** Run `dump-logs.sh` (now writes `logs/router.txt`)
-   and review it. Expected noise: HA → `192.168.10.195:8002` (finding 36). There should be no
+   and review it. There should be no `.10.195` drops (finding 36, closed), no
    old-prefix `9a41` IPv6 drops and no `dhcp-lease` script error (closes finding 37). Also check
    HA's lease for finding 38.
 3. The remaining Phase 4 items below: the throughput/bufferbloat re-baseline, then the end of

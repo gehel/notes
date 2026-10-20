@@ -3666,3 +3666,26 @@ both dumps were re-run at 16:16-16:17.
   is the original bad-cable symptom** (`vlan.md`, 2026-10-08): the spare that gave Gigabit is
   either not in place or has failed the same way.
 - switch-office: no new link events since 14:54. ap-main, switch-main: nothing new.
+
+## Finding 36 closed; finding 40 applied; switch-livingroom is powered with the TV (2026-10-20)
+
+**Finding 36 (HA → Samsung TV pointed at the TV's old address) is closed.** The router rule
+was fixed on 2026-10-19 (`samsung-tv` list, ported to the RB5009). HA's `samsungtv` host went
+from `.10.195` to `.10.51` around 16:15 today. Verified on the router:
+- `/ip/firewall/filter/print stats where comment~"Samsung TV"`, five times in a row → `79`, `80`,
+  `80`, `80`, `84` packets (`4 740` → `5 040` bytes) on `services2users: HA -> Samsung TV`. The
+  accept rule now matches real HA → TV traffic.
+- The `.10.195` drops in `logs/router.txt` stop at 16:15:36.
+
+**Finding 40, applied:**
+```
+/system/logging/action/set [find name=memory] memory-lines=20000
+```
+`/system/logging/action/print` → `name="memory" target=memory memory-lines=20000
+memory-stop-on-full=no`. Stays open until a later `dump-logs.sh` shows several hours of
+coverage.
+
+**Correction to the earlier entries today: switch-livingroom being down is normal.** Guillaume:
+it is on the same switched power strip as the TV and is only on while the TV is. Its "outages"
+(2026-10-19 23:20, 2026-10-20 15:26) are the TV being switched off, not failures. The 100M
+uplink is the known bad living-room patch cable, which he still has to replace.

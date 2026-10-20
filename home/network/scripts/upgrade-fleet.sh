@@ -6,7 +6,7 @@
 # connectivity before moving on to the next one.
 #
 # A device that is unreachable *before* anything is done to it
-# (switch-livingroom is sometimes powered off) is skipped with a warning, and the run continues.
+# (switch-livingroom is off unless the TV is on) is skipped with a warning, and the run continues.
 # Skipped devices are listed at the end; re-run once they are up.
 #
 # Once an upgrade has started on a device, any failure stops the run
