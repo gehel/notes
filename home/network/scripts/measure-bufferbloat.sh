@@ -20,7 +20,9 @@ set -uo pipefail
 
 DUR="${DUR:-20}"          # seconds per phase
 STREAMS="${STREAMS:-4}"   # parallel transfers used to fill the link
-DOWN_URL="https://fsn1-speed.hetzner.com/1GB.bin"
+# Override with DOWN_URL=... when this server cannot fill the link. On
+# 2026-10-20, 16 streams from it reached only 190 Mbps of an ~865 Mbps line.
+DOWN_URL="${DOWN_URL:-https://fsn1-speed.hetzner.com/1GB.bin}"
 UP_URL="https://speed.cloudflare.com/__up"
 
 TARGETS=("192.168.10.1:edge-router" "192.168.1.1:internet-box" "1.1.1.1:internet")

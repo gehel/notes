@@ -3730,3 +3730,25 @@ run's "link full" claim held only because the RB2011 capped everything at ~170 M
 shows no bufferbloat up to ~150 Mbps down / ~480 Mbps up, not at line rate. To be re-run with more
 streams (`STREAMS=16`). The router's own ICMP no longer degrades under load (max 1.5 ms during
 upload, vs 9.8 ms with 2% loss on the RB2011), consistent with its 7-10% CPU.
+
+**`STREAMS=16 ./measure-bufferbloat.sh`:**
+
+| Target | idle avg | download avg | upload avg (max) | loss (upload) |
+|---|---|---|---|---|
+| edge-router | 0.391 ms | 0.456 ms (+0.1) | 1.150 ms (+0.8, max 3.3) | 2% |
+| internet-box | 0.671 ms | 0.794 ms (+0.1) | 1.723 ms (+1.1, max 10.0) | 2% |
+| internet | 5.708 ms | 5.366 ms (-0.3) | 6.114 ms (+0.4, max 9.8) | 2% |
+
+Throughput: **190.0 Mbps down, 829.3 Mbps up.** Router `/tool/profile duration=15s`: 2.8% total
+during the download phase, **8.2% during the upload phase** (ethernet 2.7%, networking 2%,
+kernel 2.1%, firewall 0%).
+
+Reading:
+- **Upload at line rate (829 of ~858 Mbps): no bufferbloat.** At most +1.1 ms average, worst
+  sample 10 ms. The 2% loss is the same on all three targets, including the router one hop
+  away. So it happens before the router, most likely in the desktop's own saturated transmit
+  queue, not in the network.
+- **Download is still not saturated.** 16 streams from `fsn1-speed.hetzner.com` gave 190 Mbps
+  (4 streams gave 150), so the server or its per-client rate is the limit. `DOWN_URL` is now an
+  environment override in `measure-bufferbloat.sh` so a faster server can be used.
+- Router CPU at 829 Mbps upload: 8.2%.
