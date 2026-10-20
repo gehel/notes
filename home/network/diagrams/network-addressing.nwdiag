@@ -3,8 +3,8 @@
 //
 //   ./render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg
 //
-// mikrotik1 is the gateway on all three VLANs (it holds an address on each);
-// mikrotik2/mikrotik3 are pure L2 bridges and appear once, on vlan-users only.
+// router is the gateway on every network (it holds an address on each);
+// the switches and ap-main are pure L2 and appear once, on vlan-users only.
 //
 // ASCII only: the bundled font drops typographic dashes and middle dots.
 
@@ -21,10 +21,11 @@ nwdiag {
       label = "MikroTik: static, in mgmt";
       color = "#dbeafe";
 
-      mikrotik1 [address = ".1", label = "mikrotik1\nRB2011\nedge + CAPsMAN mgr"];
-      mikrotik2 [address = ".2", label = "mikrotik2\nCRS125\nL2 + CAPsMAN CAP ch11"];
-      mikrotik3 [address = ".3", label = "mikrotik3\nRB750Gr3\nL2 office"];
-      mikrotik4 [address = ".4", label = "mikrotik4\nSXTsq Lite2\nPLANNED ch6, offline"];
+      router            [address = ".1", label = "router\nRB5009\nedge + CAPsMAN mgr"];
+      switch-main       [address = ".2", label = "switch-main\nCRS125\nL2 + CAPsMAN CAP ch11"];
+      switch-office     [address = ".3", label = "switch-office\nRB750Gr3\nL2 office"];
+      ap-main           [address = ".4", label = "ap-main\ncAP XL ac\nstandalone, LEDCOM"];
+      switch-livingroom [address = ".5", label = "switch-livingroom\nRB750Gr3\nL2 living room"];
     }
 
     group clients {
@@ -32,18 +33,18 @@ nwdiag {
       color = "#dcfce7";
 
       desktop [address = ".90", label = "desktop \"during\"\nwired, in mgmt"];
-      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless"];
+      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless, in mgmt"];
+      tv      [address = ".50 .51", label = "Samsung TV\nwired + wifi"];
       printer [address = ".110", label = "Printer\nwired, reverted\nfrom services"];
-      unknown [address = "pool", label = "second laptop\nSTILL UNIDENTIFIED"];
-      other   [address = "pool", label = "phone, TV, Switch,\nOnkyo amp\nwireless"];
+      other   [address = "pool", label = "phones, Switch,\nOnkyo amp, others\nwireless"];
     }
   }
 
   network vlan-services {
     address = "192.168.20.0/24";
-    label = "vlan 20 - vlan-services\ngw .1\nHTTP/HTTPS + Pi-hole's own DNS/DoT only";
+    label = "vlan 20 - vlan-services\ngw .1\nHTTPS + named exceptions";
 
-    mikrotik1 [address = ".1"];
+    router [address = ".1"];
 
     group services {
       label = "Services";
@@ -56,18 +57,27 @@ nwdiag {
 
   network vlan-iot {
     address = "192.168.30.0/24";
-    label = "vlan 30 - vlan-iot\ngw .1\nNO internet by default -\nnamed exception: octoprint only";
+    label = "vlan 30 - vlan-iot\ngw .1\nNO internet by default -\nnamed exceptions only";
 
-    mikrotik1 [address = ".1"];
+    router [address = ".1"];
 
     group iotdev {
       label = "IoT devices";
       color = "#fed7aa";
 
-      iotawatt  [address = ".50", label = "IotaWatt\nESPHome\nunreachable - investigating"];
+      iotawatt  [address = ".50", label = "IotaWatt\nfirmware + NTP\nexception"];
       kidslight [address = ".61", label = "Kids light\nTasmota"];
       fan       [address = ".63", label = "Ceiling fan\nHombli\nDNS dropped by design"];
-      octoprint [address = ".80 .81", label = "OctoPrint\nwired (down) + wifi\ninternet exception"];
+      octoprint [address = ".80 .81", label = "OctoPrint\nwired + wifi\nupdates exception"];
     }
+  }
+
+  network wireguard {
+    address = "192.168.50.0/24";
+    label = "wireguard1\nroad-warrior VPN\nusers policy, mgmt-only to users";
+
+    router [address = ".1"];
+
+    phone [address = ".2", label = "phone\nMrG Galaxy S24\nin mgmt"];
   }
 }

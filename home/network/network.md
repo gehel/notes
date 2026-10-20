@@ -48,7 +48,7 @@ takes the same arguments as `nwdiag3`. Nothing is patched on the system, so a pa
 cannot silently undo it — and if upstream ever fixes this, the shim becomes a harmless no-op.
 
 Re-checked 2026-09-10 against plain `nwdiag3` on the current `network-addressing.nwdiag`
-(mikrotik1 sits on all three VLAN networks, which is exactly the two-networks-per-node case that
+(the edge router sits on every VLAN network, which is exactly the two-networks-per-node case that
 triggers this): still raises the same `TypeError`. The shim is still required.
 
 Note the shebang is `/usr/bin/python3`: `nwdiag` is installed in the system
@@ -70,16 +70,16 @@ Node fill: blue = MikroTik infrastructure, green = `vlan-users` clients and radi
 `vlan-services` hosts, orange = `vlan-iot` devices, yellow = a known constraint, red = the
 current bottleneck, grey dashed = planned.
 
-**What is verified.** `mikrotik1 -> mikrotik2` and `mikrotik2 -> mikrotik3` come from the
-neighbour tables on both ends and from the VLAN migration's own reachability checks. Pi-hole
-(`mikrotik2 ether23`), Home Assistant (`ether21`) and the printer (`mikrotik3 ether2`) are
-verified the same way — each port's VLAN membership was explicitly set and then confirmed
-working (DHCP lease bound at the expected address, service reachable) during the migration.
-`mikrotik3 -> desktop` on `ether3` is still inferred, not verified the same way: `ether3` is
-one of only two ports with link on that device, the other faces upstream, and the desktop is
-in the office. Every IoT and `vlan-users`-wireless-client edge is drawn dashed for the same
-reason as before — wireless attachment is "on this SSID/VLAN," not "on this port," so there is
-no port to verify in the first place.
+**What is verified.** `router -> switch-main`, `switch-main -> switch-office` and
+`switch-main -> switch-livingroom` come from the neighbour tables on both ends and from the
+ports' running flags (2026-10-20 dumps). `router -> ap-main` is verified by
+`/interface/ethernet/monitor ether3` (1 Gbps) and the PoE monitor on the router. Pi-hole
+(`switch-main ether23`), Home Assistant (`ether21`), OctoPrint wired (`ether24`), the printer
+(`switch-office ether2`) and the TV (`switch-livingroom ether2`) are verified by link flags and
+by a DHCP lease bound at the expected address. `switch-office -> desktop` on `ether3` is still
+inferred: the desktop is in the office and `ether3` has link, but no neighbour entry proves it.
+Every wireless edge is dashed, because wireless attachment is "on this SSID/VLAN", not "on this
+port", so there is no port to verify.
 
 ## Why these two tools
 
@@ -113,21 +113,23 @@ inventory and trunk/port plan.
 
 ## What the diagrams record
 
-**Regenerated 2026-09-10** against the current, post-VLAN-migration state (renumbered
-`192.168.10/20/30.0/24`, `bridge-fon`/Fonera fully removed in Phase 0). Facts worth calling out:
+**Regenerated 2026-10-20**, after the RB5009 cutover and the device rename (`router`,
+`switch-main`, `switch-office`, `ap-main`, `switch-livingroom`; the README maps the old
+`mikrotik<N>` names). Facts worth calling out:
 
-- The **Internet-Box still has gigabit ports**, capping a 10 Gbps subscription at ~940 Mbps, and
-  separately delivers only ~170 Mbps down against ~565 Mbps up (see
-  [performance.md](performance.md)). Replacement ordered 2026-09-04, not yet arrived.
-- **mikrotik3 has no PoE-out**, so both planned access points need injectors until the office
-  switch is replaced.
-- **cap6 and cap7 are 2.4 GHz only.** The cAP XL ac is the only planned 5 GHz radio, and the
-  driver question (legacy `/caps-man` vs. `wifi-qcom-ac`) is still open — see
-  [wifi.md](wifi.md).
-- **OctoPrint's wired port is tagged and ready but idle** — its cable is down, so it currently
-  reaches the network over `LEDCOM-IoT` wireless instead.
-- The printer is drawn on `vlan-users`, not `vlan-services` — it was migrated and then
+- **The Internet-Box has no bridge mode.** The router sits behind it as its DMZ host, so IPv4 is
+  double-NATed and IPv6 needs NAT66 (see [ipv6.md](ipv6.md)). Measured 865 Mbps down and
+  858 Mbps up through the router on 2026-10-20 (see [performance.md](performance.md)).
+- **The RB2011 (old mikrotik1) is drawn dotted**: still on the box's WAN but off the LAN, the
+  rollback path until about 2026-10-27, then wiped and redeployed.
+- **ap-main is standalone**, not CAPsMAN-managed, and serves only `LEDCOM`: VLAN-tagged
+  multi-SSID is not supported on its driver (see [wifi.md](wifi.md)). `LEDCOM-IoT` is only on
+  switch-main's 2.4 GHz radio.
+- **switch-office has no PoE-out**, so the planned garden SXTsq needs an injector.
+- The printer is drawn on `vlan-users`, not `vlan-services`. It was migrated and then
   deliberately reverted (mDNS repeater defect, see [vlan.md](vlan.md)'s Decisions).
+- The address diagram shows `wireguard1` (`192.168.50.0/24`) as a fourth network. The phone
+  gets the `users` policy outbound, and only `mgmt` hosts may reach `users` through it.
 
 Keep them current: regenerate after any change to the trunk/port plan, the device inventory, or
 the wireless build-out, and commit the sources alongside the rendered output.

@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
-<svg viewBox="0 0 1980 684" xmlns="http://www.w3.org/2000/svg" xmlns:inkspace="http://www.inkscape.org/namespaces/inkscape" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg viewBox="0 0 2178 860" xmlns="http://www.w3.org/2000/svg" xmlns:inkspace="http://www.inkscape.org/namespaces/inkscape" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs id="defs_block">
     <filter height="1.504" id="filter_blur" inkspace:collect="always" width="1.1575" x="-0.07875" y="-0.252">
       <feGaussianBlur id="feGaussianBlur3780" inkspace:collect="always" stdDeviation="4.2" />
@@ -12,8 +12,8 @@
 //
 //   ./render-nwdiag.py -T svg network-addressing.nwdiag -o network-addressing.svg
 //
-// mikrotik1 is the gateway on all three VLANs (it holds an address on each);
-// mikrotik2/mikrotik3 are pure L2 bridges and appear once, on vlan-users only.
+// router is the gateway on every network (it holds an address on each);
+// the switches and ap-main are pure L2 and appear once, on vlan-users only.
 //
 // ASCII only: the bundled font drops typographic dashes and middle dots.
 
@@ -30,10 +30,11 @@ nwdiag {
       label = "MikroTik: static, in mgmt";
       color = "#dbeafe";
 
-      mikrotik1 [address = ".1", label = "mikrotik1\nRB2011\nedge + CAPsMAN mgr"];
-      mikrotik2 [address = ".2", label = "mikrotik2\nCRS125\nL2 + CAPsMAN CAP ch11"];
-      mikrotik3 [address = ".3", label = "mikrotik3\nRB750Gr3\nL2 office"];
-      mikrotik4 [address = ".4", label = "mikrotik4\nSXTsq Lite2\nPLANNED ch6, offline"];
+      router            [address = ".1", label = "router\nRB5009\nedge + CAPsMAN mgr"];
+      switch-main       [address = ".2", label = "switch-main\nCRS125\nL2 + CAPsMAN CAP ch11"];
+      switch-office     [address = ".3", label = "switch-office\nRB750Gr3\nL2 office"];
+      ap-main           [address = ".4", label = "ap-main\ncAP XL ac\nstandalone, LEDCOM"];
+      switch-livingroom [address = ".5", label = "switch-livingroom\nRB750Gr3\nL2 living room"];
     }
 
     group clients {
@@ -41,18 +42,18 @@ nwdiag {
       color = "#dcfce7";
 
       desktop [address = ".90", label = "desktop \"during\"\nwired, in mgmt"];
-      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless"];
+      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless, in mgmt"];
+      tv      [address = ".50 .51", label = "Samsung TV\nwired + wifi"];
       printer [address = ".110", label = "Printer\nwired, reverted\nfrom services"];
-      unknown [address = "pool", label = "second laptop\nSTILL UNIDENTIFIED"];
-      other   [address = "pool", label = "phone, TV, Switch,\nOnkyo amp\nwireless"];
+      other   [address = "pool", label = "phones, Switch,\nOnkyo amp, others\nwireless"];
     }
   }
 
   network vlan-services {
     address = "192.168.20.0/24";
-    label = "vlan 20 - vlan-services\ngw .1\nHTTP/HTTPS + Pi-hole's own DNS/DoT only";
+    label = "vlan 20 - vlan-services\ngw .1\nHTTPS + named exceptions";
 
-    mikrotik1 [address = ".1"];
+    router [address = ".1"];
 
     group services {
       label = "Services";
@@ -65,24 +66,33 @@ nwdiag {
 
   network vlan-iot {
     address = "192.168.30.0/24";
-    label = "vlan 30 - vlan-iot\ngw .1\nNO internet by default -\nnamed exception: octoprint only";
+    label = "vlan 30 - vlan-iot\ngw .1\nNO internet by default -\nnamed exceptions only";
 
-    mikrotik1 [address = ".1"];
+    router [address = ".1"];
 
     group iotdev {
       label = "IoT devices";
       color = "#fed7aa";
 
-      iotawatt  [address = ".50", label = "IotaWatt\nESPHome\nunreachable - investigating"];
+      iotawatt  [address = ".50", label = "IotaWatt\nfirmware + NTP\nexception"];
       kidslight [address = ".61", label = "Kids light\nTasmota"];
       fan       [address = ".63", label = "Ceiling fan\nHombli\nDNS dropped by design"];
-      octoprint [address = ".80 .81", label = "OctoPrint\nwired (down) + wifi\ninternet exception"];
+      octoprint [address = ".80 .81", label = "OctoPrint\nwired + wifi\nupdates exception"];
     }
+  }
+
+  network wireguard {
+    address = "192.168.50.0/24";
+    label = "wireguard1\nroad-warrior VPN\nusers policy, mgmt-only to users";
+
+    router [address = ".1"];
+
+    phone [address = ".2", label = "phone\nMrG Galaxy S24\nin mgmt"];
   }
 }
 </desc>
-  <rect fill="rgb(219,234,254)" height="124" style="filter:url(#filter_blur)" width="756" x="192" y="130" />
-  <rect fill="rgb(220,252,231)" height="124" style="filter:url(#filter_blur)" width="954" x="984" y="130" />
+  <rect fill="rgb(219,234,254)" height="124" style="filter:url(#filter_blur)" width="954" x="192" y="130" />
+  <rect fill="rgb(220,252,231)" height="124" style="filter:url(#filter_blur)" width="954" x="1182" y="130" />
   <rect fill="rgb(237,233,254)" height="124" style="filter:url(#filter_blur)" width="360" x="390" y="306" />
   <rect fill="rgb(254,215,170)" height="124" style="filter:url(#filter_blur)" width="756" x="390" y="482" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="201" y="162" />
@@ -94,25 +104,31 @@ nwdiag {
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="1389" y="162" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="1587" y="162" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="1785" y="162" />
+  <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="1983" y="162" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="399" y="338" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="597" y="338" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="399" y="514" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="597" y="514" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="795" y="514" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="993" y="514" />
-  <path d="M 177 103 L 1959 103 A2,4 0 0 1 1959 111 L 177 111 A2,4 0 0 1 177 103" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
+  <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="399" y="690" />
+  <path d="M 177 103 L 2157 103 A2,4 0 0 1 2157 111 L 177 111 A2,4 0 0 1 177 103" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
   <path d="M 177 279 L 771 279 A2,4 0 0 1 771 287 L 177 287 A2,4 0 0 1 177 279" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
   <path d="M 177 455 L 1167 455 A2,4 0 0 1 1167 463 L 177 463 A2,4 0 0 1 177 455" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
-  <path d="M 174 100 L 1956 100 A2,4 0 0 1 1956 108 L 174 108 A2,4 0 0 1 174 100" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
-  <path d="M 1956 108 A2,4 0 0 1 1956 100" fill="none" stroke="rgb(0,0,0)" />
-  <path d="M 174 100 L 1956 100" fill="none" stroke="none" />
-  <path d="M 1065 35 L 1065 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 177 631 L 573 631 A2,4 0 0 1 573 639 L 177 639 A2,4 0 0 1 177 631" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
+  <path d="M 174 100 L 2154 100 A2,4 0 0 1 2154 108 L 174 108 A2,4 0 0 1 174 100" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
+  <path d="M 2154 108 A2,4 0 0 1 2154 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 174 100 L 2154 100" fill="none" stroke="none" />
+  <path d="M 1164 35 L 1164 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 174 276 L 768 276 A2,4 0 0 1 768 284 L 174 284 A2,4 0 0 1 174 276" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
   <path d="M 768 284 A2,4 0 0 1 768 276" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 174 276 L 768 276" fill="none" stroke="none" />
   <path d="M 174 452 L 1164 452 A2,4 0 0 1 1164 460 L 174 460 A2,4 0 0 1 174 452" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
   <path d="M 1164 460 A2,4 0 0 1 1164 452" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 174 452 L 1164 452" fill="none" stroke="none" />
+  <path d="M 174 628 L 570 628 A2,4 0 0 1 570 636 L 174 636 A2,4 0 0 1 174 628" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
+  <path d="M 570 636 A2,4 0 0 1 570 628" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 174 628 L 570 628" fill="none" stroke="none" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="80" x="126.0" y="87">vlan 10 - vlan-users</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="65" x="133.5" y="97">home.ledcom.fr</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="97" x="117.5" y="109">gw .1  DNS .40 (Pi-hole)</text>
@@ -120,70 +136,86 @@ nwdiag {
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="68" x="132.0" y="128">192.168.10.0/24</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="91" x="120.5" y="268">vlan 20 - vlan-services</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="21" x="155.5" y="279">gw .1</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="180" x="76.0" y="290">HTTP/HTTPS + Pi-hole's own DNS/DoT only</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="116" x="108.0" y="290">HTTPS + named exceptions</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="68" x="132.0" y="300">192.168.20.0/24</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="68" x="132.0" y="438">vlan 30 - vlan-iot</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="21" x="155.5" y="449">gw .1</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="99" x="116.5" y="461">NO internet by default -</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="135" x="98.5" y="472">named exception: octoprint only</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="98" x="117.0" y="472">named exceptions only</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="68" x="132.0" y="482">192.168.30.0/24</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="50" x="141.0" y="622">wireguard1</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="70" x="131.0" y="631">road-warrior VPN</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="131" x="100.5" y="642">users policy, mgmt-only to users</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="68" x="132.0" y="652">192.168.50.0/24</text>
   <path d="M 273 108 L 273 156" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="288.5" y="134">.1</text>
-  <path d="M 281 228 L 281 276" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="296.5" y="254">.1</text>
-  <path d="M 265 228 L 265 272" fill="none" stroke="rgb(0,0,0)" />
-  <path d="M 265.0 272.0 A8.0,8.0 0 0 1 265.0 288.0" fill="none" stroke="rgb(0,0,0)" />
-  <path d="M 265 288 L 265 452" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="280.5" y="430">.1</text>
+  <path d="M 289 228 L 289 276" fill="none" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="304.5" y="254">.1</text>
+  <path d="M 273 228 L 273 272" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 273.0 272.0 A8.0,8.0 0 0 1 273.0 288.0" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 273 288 L 273 452" fill="none" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="288.5" y="430">.1</text>
+  <path d="M 257 228 L 257 272" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 257.0 272.0 A8.0,8.0 0 0 1 257.0 288.0" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 257 288 L 257 448" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 257.0 448.0 A8.0,8.0 0 0 1 257.0 464.0" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 257 464 L 257 628" fill="none" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="272.5" y="606">.1</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="198" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="40" x="273.0" y="186">mikrotik1</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="32" x="273.0" y="195">RB2011</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="26" x="273.0" y="186">router</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="32" x="273.0" y="195">RB5009</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="92" x="273.0" y="206">edge + CAPsMAN mgr</text>
   <path d="M 471 108 L 471 156" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="486.5" y="134">.2</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="396" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="40" x="471.0" y="187">mikrotik2</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="52" x="471.0" y="187">switch-main</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="33" x="471.5" y="196">CRS125</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="105" x="471.5" y="205">L2 + CAPsMAN CAP ch11</text>
   <path d="M 669 108 L 669 156" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="684.5" y="134">.3</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="594" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="40" x="669.0" y="186">mikrotik3</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="42" x="669.0" y="195">RB750Gr3</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="35" x="669.5" y="205">L2 office</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="53" x="669.5" y="187">switch-office</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="42" x="669.0" y="196">RB750Gr3</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="35" x="669.5" y="206">L2 office</text>
   <path d="M 867 108 L 867 156" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="882.5" y="134">.4</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="792" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="40" x="867.0" y="185">mikrotik4</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="49" x="867.5" y="196">SXTsq Lite2</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="91" x="867.5" y="207">PLANNED ch6, offline</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="34" x="867.0" y="187">ap-main</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="39" x="867.5" y="196">cAP XL ac</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="89" x="867.5" y="206">standalone, LEDCOM</text>
   <path d="M 1065 108 L 1065 156" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="1083.0" y="134">.90</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="1080.5" y="134">.5</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="990" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="70" x="1065.0" y="191">desktop "during"</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="63" x="1065.5" y="202">wired, in mgmt</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="76" x="1065.0" y="187">switch-livingroom</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="42" x="1065.0" y="196">RB750Gr3</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="60" x="1065.0" y="207">L2 living room</text>
   <path d="M 1263 108 L 1263 156" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="1281.0" y="134">.92</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="1281.0" y="134">.90</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="1188" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="54" x="1263.0" y="192">laptop "gimli"</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="34" x="1263.0" y="201">wireless</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="70" x="1263.0" y="191">desktop "during"</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="63" x="1263.5" y="202">wired, in mgmt</text>
   <path d="M 1461 108 L 1461 156" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="18" x="1482.0" y="134">.110</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="1479.0" y="134">.92</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="1386" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="30" x="1461.0" y="186">Printer</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="64" x="1461.0" y="196">wired, reverted</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="54" x="1461.0" y="206">from services</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="54" x="1461.0" y="191">laptop "gimli"</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="73" x="1461.5" y="202">wireless, in mgmt</text>
   <path d="M 1659 108 L 1659 156" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="17" x="1679.5" y="135">pool</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="27" x="1684.5" y="134">.50 .51</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="1584" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="58" x="1659.0" y="192">second laptop</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="90" x="1659.0" y="201">STILL UNIDENTIFIED</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="53" x="1659.5" y="192">Samsung TV</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="50" x="1659.0" y="202">wired + wifi</text>
   <path d="M 1857 108 L 1857 156" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="17" x="1877.5" y="135">pool</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="18" x="1878.0" y="134">.110</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="1782" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="77" x="1857.5" y="187">phone, TV, Switch,</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="47" x="1857.5" y="198">Onkyo amp</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="34" x="1857.0" y="207">wireless</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="30" x="1857.0" y="186">Printer</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="64" x="1857.0" y="196">wired, reverted</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="54" x="1857.0" y="206">from services</text>
+  <path d="M 2055 108 L 2055 156" fill="none" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="17" x="2075.5" y="135">pool</text>
+  <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="1980" y="156" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="66" x="2055.0" y="187">phones, Switch,</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="77" x="2055.5" y="198">Onkyo amp, others</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="34" x="2055.0" y="207">wireless</text>
   <path d="M 471 284 L 471 332" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="489.0" y="310">.40</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="396" y="332" />
@@ -197,9 +229,9 @@ nwdiag {
   <path d="M 471 460 L 471 508" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="489.0" y="486">.50</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="396" y="508" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="33" x="471.5" y="538">IotaWatt</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="41" x="471.5" y="547">ESPHome</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="117" x="471.5" y="558">unreachable - investigating</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="33" x="471.5" y="537">IotaWatt</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="66" x="471.0" y="547">firmware + NTP</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="41" x="471.5" y="558">exception</text>
   <path d="M 669 460 L 669 508" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="687.0" y="486">.61</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="594" y="508" />
@@ -215,10 +247,16 @@ nwdiag {
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="27" x="1090.5" y="486">.80 .81</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="990" y="508" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="39" x="1065.5" y="537">OctoPrint</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="81" x="1065.5" y="548">wired (down) + wifi</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="79" x="1065.5" y="559">internet exception</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="112" x="570.0" y="124">MikroTik: static, in mgmt</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="33" x="1461.5" y="122">Clients</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="50" x="1065.0" y="547">wired + wifi</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="77" x="1065.5" y="558">updates exception</text>
+  <path d="M 471 636 L 471 684" fill="none" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="486.5" y="662">.2</text>
+  <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="396" y="684" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="28" x="471.0" y="714">phone</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="65" x="471.5" y="725">MrG Galaxy S24</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="35" x="471.5" y="736">in mgmt</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="112" x="669.0" y="124">MikroTik: static, in mgmt</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="33" x="1659.5" y="122">Clients</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="39" x="570.5" y="298">Services</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="51" x="768.5" y="474">IoT devices</text>
 </svg>
