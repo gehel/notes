@@ -5,6 +5,11 @@ Guillaume's Android phone (`MrG Galaxy S24`). Full history and verifying evidenc
 [changelog.md](changelog.md); `scripts/wireguard-road-warrior.rsc` has been deleted per this
 repo's one-shot-script convention.
 
+**Moved to the RB5009 (`router`) on 2026-10-20** with the same private key, listen port, peer
+and firewall rules, so the phone needed no change. Verified after the cutover: from mobile data
+the tunnel connects and reaches `192.168.10.2` (`changelog.md`, Phase 3 check 9). The Internet-Box
+DMZ now points at `192.168.1.103`. The text below keeps the old name mikrotik1.
+
 ## Decisions
 
 Recorded so they are not re-litigated:
@@ -20,7 +25,7 @@ Recorded so they are not re-litigated:
 
 | Item | Value |
 |---|---|
-| Interface | `wireguard1` on mikrotik1 |
+| Interface | `wireguard1` on the router (mikrotik1 until 2026-10-20) |
 | Listen port | UDP 51820 (WireGuard default — left as-is; it doesn't respond to unauthenticated probes either way, so port obscurity buys little. Easy to bump later.) |
 | Tunnel subnet | `192.168.50.0/24` — not a VLAN, no bridge/tag; a standalone L3 interface like the router's other addresses. Free: `vlan.md` only uses the `.10`/`.20`/`.30` third octet. |
 | Router tunnel address | `192.168.50.1/24` |
@@ -73,5 +78,6 @@ verification in [changelog.md](changelog.md)'s 2026-09-28 entry.
   `performance.md` already shows this router working harder than ideal on plain firewalling.
   Full-tunnel means *all* the phone's internet traffic now also pays a software-crypto cost on
   this CPU. Not expected to be a problem at one phone's worth of traffic, but worth checking
-  `/system resource/print` CPU load with the tunnel active under real use, and revisiting if
-  the RB5009 edge migration (`config-review.md`) happens for other reasons anyway.
+  `/system resource/print` CPU load with the tunnel active under real use. **Since 2026-10-20 the
+  tunnel runs on the RB5009** (4 × Cortex-A72). The CPU check under real use is still a Phase 4
+  item in `rb5009-migration.md`.

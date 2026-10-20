@@ -1,6 +1,8 @@
 # IPv6 on the MikroTik home network
 
-Configured 2026-09-03. Front router is a MikroTik running RouterOS 7.23.3 (now 7.24.2).
+Configured 2026-09-03 on the RB2011 (old mikrotik1). **Since 2026-10-20 the front router is the
+RB5009 (`router`, RouterOS 7.24.5)**, with the same config and its own delegated prefix (see
+[Moved to the RB5009](#moved-to-the-rb5009-2026-10-20) below).
 
 **Moved from `bridge-main` to `vlan-users` on 2026-09-07** — see
 [Migrated onto `vlan-users`](#migrated-onto-vlan-users) below.
@@ -20,12 +22,12 @@ and what broke.
 | | |
 |---|---|
 | Upstream | Swisscom, native IPv6 via DHCPv6 (no PPPoE, no 6rd) |
-| Topology | Swisscom Internet-Box → MikroTik `ether1` → `bridge-main` → `vlan-users`/`vlan-services`/`vlan-iot` → mikrotik2 + mikrotik3 (pure L2 bridges) → clients |
+| Topology | Swisscom Internet-Box → router `ether1` → `bridge-main` → `vlan-users`/`vlan-services`/`vlan-iot` → switch-main, switch-office, switch-livingroom (pure L2) → clients |
 | Delegated prefix | `/58` from the Internet-Box via DHCPv6-PD as of 2026-09-11 (was `/62` on the old box), i.e. 64 × `/64` — one per VLAN, the rest spare |
-| LAN prefixes | `vlan-users` `2a02:1210:7621:9a40::/64`, `vlan-services` `2a02:1210:7621:9a41::/64`, `vlan-iot` `2a02:1210:7621:9a42::/64` (all **illustrative**, see below), router at `::1` on each |
+| LAN prefixes | `vlan-users` `2a02:1210:7621:9ac0::/64`, `vlan-services` `2a02:1210:7621:9ac1::/64`, `vlan-iot` `2a02:1210:7621:9ac2::/64` from `9ac0::/58` (2026-10-20; all **illustrative**, see below), router at `::1` on each |
 | Client addressing | SLAAC from RAs sent by the MikroTik on every VLAN |
 | `bridge-fon` | removed entirely, along with the FON network — see `changelog.md`'s VLAN segmentation entry |
-| DNS | clients use `192.168.10.40` (Pi-hole) over IPv4 — was leaking the ISP's own resolver via RDNSS until 2026-09-07, fixed; see `changelog.md` |
+| DNS | clients use Pi-hole (`192.168.20.40` since the renumber) over IPv4 — was leaking the ISP's own resolver via RDNSS until 2026-09-07, fixed; see `changelog.md` |
 
 Prefix values are **not stable**. Swisscom's delegation to the Internet-Box can change, and
 the box's delegation to us changes with it — confirmed the hard way on 2026-09-11, when a
@@ -376,3 +378,24 @@ The thing to plan around is Swisscom TV, which depends on the box and on ISP mul
 - [Swisscom community — IPv6 PD auf Fritzbox hinter InternetBox](https://community.swisscom.ch/t5/Archiv-Internet/IPv6-PD-auf-Fritzbox-hinter-InternetBox-Standard/td-p/490722)
 - [Swiss IPv6 Council — Residential IPv6 at Swisscom (PDF)](https://www.swissipv6council.ch/sites/default/files/images/ipv6-residential-swisscom.pdf)
 - [iway KB — IPv6 on VDSL and Swisscom fibre with DHCP](https://wiki.iway.ch/kb/wiki/Internet_Access/Internet_Access_Allgemein/IPv6/IPv6_auf_VDSL_und_Swisscom_Fiber_Anschl%C3%BCssen_mit_DHCP)
+
+## Moved to the RB5009 (2026-10-20)
+
+The RB5009 (`router`) took over the edge role on 2026-10-20 (`rb5009-migration.md`). IPv6
+details worth knowing:
+
+- **The Internet-Box delegates a separate `/58` per DHCPv6 client DUID.** While both routers
+  were on the box (Phase 2b), the RB2011 kept `2a02:1210:7621:9a40::/58` and the RB5009 got
+  `2a02:1210:7621:9ac0::/58`. No `release` was needed at cutover.
+- **The EUI-64 address lists were recomputed for `9ac0::/58`** before the cutover: `pihole-v6`
+  and `ha-v6`/`http-outbound-v6` on `9ac1`, and `octoprint-v6` ×2 on `9ac2`. If the prefix
+  changes, recompute them (the MAC-to-EUI-64 rule is under "Extending to every VLAN").
+- **The RouterOS DHCPv6 client only started after a reboot**, because RouterOS asks for one
+  after `accept-router-advertisements` changes.
+- **Clients kept their old `9a4x` SLAAC addresses for a few hours.** The NAT66 masquerade still
+  carried their traffic, but it did not match the new EUI-64 lists. So HA's and Pi-hole's IPv6
+  traffic was dropped by `services2internet-v6` and fell back to IPv4 until the old addresses
+  expired.
+- Verified 2026-10-20: `ping -6` and `curl -6` from the desktop work. The router's addresses
+  are `9ac0::1`, `9ac1::1` and `9ac2::1`, and NAT66 and the IPv6 forward chain count traffic.
+
