@@ -217,6 +217,41 @@ Also removed with the rename:
   randomization) has a reservation and no comment. Decision 2026-10-20: remove the
   reservation now, and review all DHCP leases later.
 
+### 41. The router's own resolver also uses the ISP's IPv6 DNS server (low, found 2026-10-20)
+
+Found 2026-10-20: on the router, `:put [:resolve tv.home.ledcom.fr]` → `failure: dns name does
+not exist`, while the desktop (through Pi-hole) gets `192.168.10.50`. `/ip/dns/print` (18:12
+dump) has `servers: 192.168.20.40` and **`dynamic-servers:
+2a02:1210:7621:9a00:3a06:e6ff:fed9:c720`**, the Internet-Box's resolver. It comes from the
+RDNSS option in the Internet-Box's RA on `ether1`, which `accept-router-advertisements` (needed
+for the WAN default route) also accepts. This is the same source as the 2026-09-07 RDNSS leak
+(`changelog.md`). That fix stopped the router re-advertising it to clients
+(`advertise-dns=no`), but the router's own resolver still uses it. The likely failure: the ISP
+server answers NXDOMAIN for the Pi-hole-only names.
+
+Impact is low. No client uses the router as its resolver (all three DHCP networks and the
+WireGuard config hand out `192.168.20.40`), so only the router's own lookups are affected: a
+local name in a script, netwatch or `ping` fails, and its public lookups can bypass Pi-hole.
+
+**Check first** (confirms the cause):
+```
+:put [:resolve tv.home.ledcom.fr server=192.168.20.40]
+/ip/dns/print
+```
+Expected: `192.168.10.50` when asked directly, and the IPv6 address still in `dynamic-servers`.
+
+**Fix:** forward the local domain to Pi-hole explicitly, whatever the dynamic servers are.
+```
+/ip/dns/static/add name=home.ledcom.fr type=FWD forward-to=192.168.20.40 match-subdomain=yes comment="local names live in Pi-hole"
+/ip/dns/cache/flush
+:put [:resolve tv.home.ledcom.fr]
+```
+The `dhcp-to-dns` A entries for `*.home.ledcom.fr` still answer first for their own names.
+
+Possible later clean-up, not decided: since no client uses the router's resolver, the
+`dhcp-to-dns` entries only serve the router itself, and Pi-hole holds the local names. The
+lease scripts, `allow-remote-requests=yes` and the two `Accept DNS` input rules could go.
+
 ### Device rename (decided 2026-10-20)
 
 Each device gets a role-location name, used for the RouterOS identity, the Pi-hole hostname

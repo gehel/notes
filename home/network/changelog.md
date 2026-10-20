@@ -3950,3 +3950,9 @@ at that moment.** The console probably dropped its LAN link when it went to slee
   at `.10.101`, **`failed`**: it is off the LAN (asleep, `ether3` without link in the last print).
   Both move at their next DHCP request.
 - Desktop `dig -t A tv.home.ledcom.fr` → `192.168.10.50`. **Guillaume's Pi-hole record works.**
+
+**Router can't resolve Pi-hole's local names: finding 41 opened.** Router
+`:put [:resolve tv.home.ledcom.fr]` → `failure: dns name does not exist`. The router's
+`/ip/dns` has Pi-hole as `servers`, but also the Internet-Box's IPv6 resolver in
+`dynamic-servers` (RDNSS from the WAN RA, see the 2026-09-07 entry). Check and fix (a `FWD`
+entry for `home.ledcom.fr` to Pi-hole) in `config-review.md` finding 41.
