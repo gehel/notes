@@ -3980,3 +3980,16 @@ go to the ISP resolver; acceptable, as only the router itself uses it.
 Idea for the DHCP lease review, not decided: the `dhcp-to-dns` entries only serve the router
 itself now. The lease scripts, `allow-remote-requests=yes` and the two `Accept DNS` input rules
 could go.
+
+## Decision: drop `dhcp-to-dns` (2026-10-21)
+
+Guillaume decided to remove the `dhcp-to-dns` lease-script and its static entries: Pi-hole's
+manual records are the only local names that matter, and the lease names are device-chosen
+(`Samsung`, `am335x-opt`, `NPI52346B`), overwrite each other across interfaces, and can be
+claimed by any client.
+
+Found while preparing it: README says **Pi-hole conditionally forwards `192.168.0.0/16` and
+`home.ledcom.fr` to the router**. Since finding 41's fix, the router forwards `home.ledcom.fr` back
+to Pi-hole, so a name neither knows (and a PTR the router has no entry for) can bounce between
+the two until it times out. Plan: switch off Pi-hole's conditional forwarding first, then remove
+the lease-scripts and entries on the router, then (optionally) close the router's DNS server.
