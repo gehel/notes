@@ -3956,3 +3956,27 @@ at that moment.** The console probably dropped its LAN link when it went to slee
 `/ip/dns` has Pi-hole as `servers`, but also the Internet-Box's IPv6 resolver in
 `dynamic-servers` (RDNSS from the WAN RA, see the 2026-09-07 entry). Check and fix (a `FWD`
 entry for `home.ledcom.fr` to Pi-hole) in `config-review.md` finding 41.
+
+## Finding 41 fixed and closed (2026-10-20, late evening)
+
+**Finding 41** (found and fixed the same evening): the router could not resolve Pi-hole's local
+names. `:put [:resolve tv.home.ledcom.fr]` → `failure: dns name does not exist`, while the
+desktop got `192.168.10.50` through Pi-hole. Cause: next to `servers: 192.168.20.40`, `/ip/dns`
+has the Internet-Box's resolver `2a02:1210:7621:9a00:3a06:e6ff:fed9:c720` in `dynamic-servers`.
+It comes from the RDNSS option in the WAN RA, which `accept-router-advertisements` (needed for the
+IPv6 default route) also accepts. Same source as the 2026-09-07 leak; that fix only stopped the
+re-advertising to clients. Impact was low: no client uses the router as its resolver (all DHCP
+networks and WireGuard hand out Pi-hole).
+
+Fix: forward the local domain to Pi-hole explicitly.
+```
+/ip/dns/static/add name=home.ledcom.fr type=FWD forward-to=192.168.20.40 match-subdomain=yes comment="local names live in Pi-hole"
+/ip/dns/cache/flush
+:put [:resolve tv.home.ledcom.fr]
+```
+**Verified:** `:resolve` now returns `192.168.10.50`. The router's other public lookups can still
+go to the ISP resolver; acceptable, as only the router itself uses it.
+
+Idea for the DHCP lease review, not decided: the `dhcp-to-dns` entries only serve the router
+itself now. The lease scripts, `allow-remote-requests=yes` and the two `Accept DNS` input rules
+could go.
