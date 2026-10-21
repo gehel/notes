@@ -3998,3 +3998,9 @@ the lease-scripts and entries on the router, then (optionally) close the router'
 `192.168.0.0/16` PTR lookups to the router, answered from the static A entries) is still useful.
 Nothing removed. Still to check: whether the Pi-hole ↔ router forwarding loop above happens in
 practice, for an unknown name and for a PTR with no entry.
+
+**Loop check, desktop through Pi-hole:**
+- `dig nosuchname.home.ledcom.fr` → `NXDOMAIN`, 24 ms. **No loop for unknown names.**
+- `dig -x 192.168.10.199` (pool address, no lease) → `SERVFAIL`, 14 ms. Too fast for a
+  forwarding loop (that would take seconds to time out): one of the hops refuses straight away.
+  Harmless (a client gets no name either way). Left as is; source not pinned down.
