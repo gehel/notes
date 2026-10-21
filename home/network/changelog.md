@@ -3993,3 +3993,8 @@ Found while preparing it: README says **Pi-hole conditionally forwards `192.168.
 to Pi-hole, so a name neither knows (and a PTR the router has no entry for) can bounce between
 the two until it times out. Plan: switch off Pi-hole's conditional forwarding first, then remove
 the lease-scripts and entries on the router, then (optionally) close the router's DNS server.
+
+**Decision reversed, same day: `dhcp-to-dns` stays.** Guillaume: reverse DNS (Pi-hole forwarding
+`192.168.0.0/16` PTR lookups to the router, answered from the static A entries) is still useful.
+Nothing removed. Still to check: whether the Pi-hole ↔ router forwarding loop above happens in
+practice, for an unknown name and for a PTR with no entry.
