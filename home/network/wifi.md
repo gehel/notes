@@ -19,6 +19,10 @@ this one are the history, and keep the old names.
   multi-SSID is not supported on its hardware/driver (see "Built 2026-10-06/07" below).
 - **ap-main's 100M trade-off is resolved.** On mikrotik1 `ether10` it was Fast-Ethernet only.
   On router `ether3` it gets 1 Gbps and PoE from one cable (`changelog.md`, Phase 3 check 7).
+- **ap-main refuses 5 GHz joins below -80 dBm** (2026-10-28, `config-review.md` S23): one
+  `/interface/wifi/access-list` rule, `interface=wifi2 signal-range=-120..-81 action=reject`.
+  Clients at the edge of 5 GHz coverage stay on 2.4 GHz instead of switching bands every
+  minute. A client already on 5 GHz is not disconnected.
 - **TX power:** switch-main's radio reports 16 dBm under the router's CAPsMAN. Under mikrotik1 it
   ran at 20 dBm after the channel fix (see "Side effect" below). Nothing was set on purpose.
 - **Target B3 is now possible**: the router runs `wireless` (legacy `/caps-man`) and could also

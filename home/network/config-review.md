@@ -3,8 +3,11 @@
 Covers every MikroTik on the network. Round 1 reviewed 2026-09-03, round 2 from 2026-09-04,
 round 3 on 2026-09-08 (after the VLAN firewall went live). **Round 4: 2026-10-20**, after the
 RB5009 cutover, against the 11:43-11:46 dumps: findings 37-39, S19 and S20, plus the device
-rename. Findings keep the device names and addresses they had when they were written. The
-README maps the old `mikrotik<N>` names to the new ones.
+rename. **2026-10-28:** log and config review of the 8 days since the cutover (`changelog.md`):
+28 and 33 closed as explained, S22 opened. Later the same day: 38 closed on live counters, and
+the review's minor items opened as 42, 43 and S23 (43 closed that evening). Findings keep the
+device names and addresses they had when they were written. The README maps the old
+`mikrotik<N>` names to the new ones.
 
 The live firewall ruleset itself (every chain, in order) is documented separately in
 [firewall.md](firewall.md).
@@ -81,103 +84,6 @@ job in the first place, a misconception this finding also corrects.
 - A mikrotik1 script calling Gandi's LiveDNS API directly via `/tool/fetch` on a schedule —
   keeps a plain A record, more moving parts, a Gandi API key to manage on the router.
 
-### 28. Home Assistant losing connection-tracking state on a long-lived outbound connection to a Vultr-hosted host (144.202.82.88) (informational, needs more data)
-
-Found 2026-09-13 reviewing `logs/mikrotik1-main.txt`. 11 packets from Home Assistant
-(`192.168.20.60`), all sourced from local port 443 (not an ephemeral client port) toward
-`144.202.82.88:61234`, hit `services2internet`'s catch-all and were dropped — in four episodes
-roughly 2-2.5h apart on 2026-09-13 (02:05, 04:39, 07:14, 09:16). None of them are `SYN`s (all
-`ACK`/`ACK,PSH`, i.e. carrying data), which means the underlying connection was already
-established, not being attempted fresh — this looks like RouterOS's connection tracking aging
-out an idle long-lived session and then dropping its genuine continuation traffic, rather than
-Home Assistant actually initiating anything new. `144.202.0.0/16` is a Vultr range; a plausible
-candidate given the source port and persistence is Nabu Casa's remote-access relay. Not enough
-information yet to act on: worth checking Home Assistant's own Nabu Casa/cloud-connectivity log
-for disconnects around those four timestamps, and, if this keeps recurring, mikrotik1's
-`/ip/firewall/connection/tracking` timeouts for the relevant protocol.
-
-**Recurred 2026-09-14** (10:42:11, 10:42:46, both `ACK`, same shape) — consistent with the
-original description, no new information.
-
-**Recurred repeatedly 2026-09-15/16** — same shape (`src-port=443`, `ACK`, `connection-state:new`,
-always 640 bytes), now against three destinations: `144.202.82.88:61234` six more times
-(03:53, 03:53, 03:54, 09:29, 09:29, 11:49, 11:50 — note some pairs only ~25-45s apart, tighter
-than the original 2-2.5h spacing), plus two new ones in a `216.180.246.x` range —
-`216.180.246.56:21707` (2026-09-15 18:18) and `216.180.246.54:21801` (2026-09-16 20:02, twice,
-43s apart). The new IPs support the working theory: a small pool of front-end addresses (Vultr
-range for one, a second /24-ish range for the others) is consistent with a relay service like
-Nabu Casa rotating endpoints, not a single fixed remote host. Still not enough to act on
-directly — the connection-tracking-timeout theory remains unconfirmed (RouterOS's default TCP
-established timeout is generous, on the order of a day, which sits oddly with drops recurring
-within tens of seconds to a few hours) — but the volume of evidence now makes it worth actually
-checking Home Assistant's own Nabu Casa/cloud connectivity log for disconnect/reconnect events
-at these exact timestamps, rather than continuing to only observe it from the firewall side.
-
-**Recurred again, 2026-09-18/19/20** (from `logs/mikrotik1-main.txt`, collected 2026-09-22 —
-same shape throughout, `src-port=443`, `ACK`/`ACK,PSH`, `connection-state:new`, 640 bytes):
-`144.202.82.88:61234` five more times (2026-09-18 01:00:48, 01:01:16, 01:02:09, 03:40:56,
-03:41:25) and three more times 2026-09-20 (19:24:24, 19:24:46, 19:25:29); three more
-`216.180.246.x` destinations — `216.180.246.31:21050` (2026-09-18 18:15:47, 18:16:07,
-18:16:48), `216.180.246.176:21764` (2026-09-19 19:37:52, 19:38:16), `216.180.246.179:21824`
-(2026-09-20 18:16:58, 18:17:08, 18:17:29, 18:18:10). Same rotating-front-end pattern within the
-`216.180.246.0/24` range, now five distinct addresses in it across three recurrences. This has
-now recurred in every single log collection since 2026-09-13 (five separate windows) with no
-exception — **this is no longer a "maybe" pattern, it's a standing one.** The one
-recommended-but-not-yet-done action from the original write-up is still outstanding: check Home
-Assistant's own Nabu Casa/cloud-connectivity log for disconnect/reconnect events at the
-timestamps above. This session has no access to Home Assistant to do that directly — needs
-doing from a session/device that does.
-
-### 33. Samsung TV → Home Assistant return traffic occasionally not recognized as established (informational, needs more data)
-
-Found 2026-09-22 reviewing `logs/mikrotik1-main.txt` (collected same day). Six packets from
-the Samsung TV (`192.168.10.195`, MAC `F4:DD:06:2A:FB:AF`) — all `192.168.10.195:8002 ->
-192.168.20.60:57906`, `ACK,PSH` (carrying real payload, 1500 bytes — near-MTU, not a bare ACK),
-`connection-state:new` — hit `users2services`'s catch-all and were dropped, all within 6
-seconds (2026-09-21 23:59:16 through 23:59:22).
-
-Same shape as finding 28: established-looking traffic (not a `SYN`) logged as `new` and
-dropped, on a path that should already be tracked. `services2users` rule 65 accepts exactly the
-forward direction of this (`HA -> Samsung TV, dst-port 8002`) — port 8002 as the *source* here,
-toward Home Assistant's own high ephemeral port, is consistent with this being the TV's side of
-that same integration's traffic, not a new connection attempt. If conntrack isn't recognizing
-this as part of the already-accepted flow, `users2services` (which only allows `mgmt`/DNS/HA-web)
-has no reason to let it through — correctly enforcing the policy as written, but possibly
-breaking the HA/Samsung TV integration if this repeats and Home Assistant needed that return
-traffic. One episode so far, not enough to diagnose the cause (conntrack timeout, NAT/asymmetric
-path, or something in how the TV re-uses port 8002 as both a server and client port). Worth
-checking Home Assistant's own Samsung TV integration log for errors/retries around 23:59:16 on
-2026-09-21, and watching whether this recurs in future log collections the way finding 28 did.
-
-
-### 38. `chain=input` accepts DHCP only on `vlan-users` (informational, fix applied 2026-10-20, to verify)
-
-Found 2026-10-20. The input rule `DHCP server (vlan-users)` is `dst-port=67
-in-interface=vlan-users`. Nothing accepts UDP/67 from `vlan-services` or `vlan-iot`, so it
-reaches `Drop anything else!`. A first DISCOVER is a broadcast, and leases on both VLANs do get
-handed out (IotaWatt, the Tasmota light, HA). So RouterOS's DHCP server sees broadcasts before
-the firewall. **What is not known is whether a unicast renewal (at T1, 12 h into the 1-day
-lease) to `.20.1`/`.30.1` is dropped.** If it is, the client retries until T2 and then
-rebinds by broadcast, so it still works, but late. The rule's name suggests the other two VLANs
-were simply never added.
-
-**Check:** after a services or iot client has passed T1 (for example HA, 12 h after its
-lease was bound), look at its lease in `/ip/dhcp-server/lease/print detail`. If
-`expires-after` is close to 1 day, the unicast renewal worked and this finding closes as
-not-a-problem. If it is below 12 h, add the same accept for `vlan-services` and `vlan-iot`.
-
-**Fix prepared 2026-10-20** (cheaper than waiting for T1, and harmless if renewals already
-work): add the two missing accepts next to the existing one.
-```
-/ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-services comment="DHCP server (vlan-services)" place-before=[find comment="services: NTP from gateway"]
-/ip/firewall/filter/add chain=input action=accept protocol=udp dst-port=67 in-interface=vlan-iot comment="DHCP server (vlan-iot)" place-before=[find comment="services: NTP from gateway"]
-/ip/firewall/filter/print where chain=input
-```
-**Applied 2026-10-20** (`changelog.md`): both rules sit right after `DHCP server (vlan-users)`.
-**To verify:** after the next T1 of a services/iot client, check
-`/ip/firewall/filter/print stats where comment~"DHCP server"`. Counters above zero on the two new
-rules mean renewals were being dropped before, and the finding closes.
-
 ### 39. Migration and naming leftovers on the router (low, partly fixed 2026-10-20)
 
 Found 2026-10-20 in the post-cutover review of mikrotik6. None of these break anything. They
@@ -217,6 +123,109 @@ Also removed with the rename:
   randomization) has a reservation and no comment. Decision 2026-10-20: remove the
   reservation now, and review all DHCP leases later.
 
+**2026-10-28:** the deferred part is due (the rollback week ended 2026-10-27). Not started:
+`cutover`, `rollback`, `.10.6` (comment `mikrotik6 management`) and its `mgmt` entries are still
+there. First step is physical: wipe the RB2011.
+
+### 42. The router retries WireGuard handshakes after the phone has gone (low, found 2026-10-28, fix applied 2026-10-28, to verify)
+
+Found in the 2026-10-28 log review. `peer1` (`MrG Galaxy S24`) has `persistent-keepalive=25s`
+on the router as well as on the phone (`vpn.md`). The router has no `endpoint-address` for the
+peer: it learns the phone's address from the phone's handshakes. After the phone goes (network
+change, VPN off), the router keeps sending to the last address: 10 rounds of `Handshake for
+peer did not complete after 20 attempts, giving up` from 2026-10-22 to 10-28, 143 log lines.
+Only the phone, behind carrier-grade NAT, needs the keepalive. The phone always starts the
+tunnel, so the router has no reason to start a handshake. Log noise only.
+
+**Fix prepared 2026-10-28:**
+```
+/interface/wireguard/peers/set [find name=peer1] persistent-keepalive=0 responder=yes
+/interface/wireguard/peers/print detail where name=peer1
+```
+`responder=yes` makes the router answer the phone's handshakes but never start one (MikroTik's
+WireGuard page: "Specifies if peer is intended to be connection initiator or only responder").
+`persistent-keepalive=0` is the default, off. The phone keeps its own 25 s keepalive. If the
+phone is on the tunnel during the change, the session may restart (MikroTik's docs do not say);
+the phone handshakes again by itself.
+
+**Check:** the print shows `responder=yes` and `persistent-keepalive` at 0 or absent. Then the
+tunnel still comes up from mobile data (HA through the tunnel, or `ping 192.168.50.1`), and the
+router log of the next days has no `giving up` round. Rollback: `set [find name=peer1]
+persistent-keepalive=25s responder=no`.
+
+**Applied 2026-10-28** (`changelog.md`): the print shows `responder=yes` and no
+`persistent-keepalive` (the default, off). It also shows `current-endpoint-address=""` with
+`last-handshake=52s`: the change probably cleared the address learned from the phone, which
+the phone's next handshake sets again. Guillaume confirmed the tunnel still works from the
+phone, the same evening. **To verify:** no `giving up` round in the router log over the next
+days. The router rebooted that evening (43), so its log starts then.
+
+### S22. ap-main's log reaches back less than a day (low, found 2026-10-28, fix applied 2026-10-28, to verify)
+
+ap-main's log uses the default 1000-line buffer. On 2026-10-28 at 17:40 it reached back only to
+2026-10-27 22:18, 19 hours. 866 of its 1004 lines are one client, `EA:84:28:98:BF:6A` (the phone
+`EA:84:28` in `vlan.md`), roaming between `wifi1` (2.4 GHz, about -66 dBm) and `wifi2` (5 GHz,
+about -88 dBm) every 1-2 minutes, mostly 22:00-08:00. At -88 dBm, 5 GHz is barely usable, so the
+phone falls back to 2.4 GHz, then tries 5 GHz again. A wifi problem reported the next day has no
+log left to look at: the same problem as finding 40 on the router.
+
+**Fix prepared** (log only, no wifi impact). ap-main has 29.5 MiB free of 128 MiB, so 10000
+lines (roughly 1-2 MiB) is safe. Same command as finding 40's:
+```
+/system/logging/action/set [find name=memory] memory-lines=10000
+/system/logging/action/print
+```
+Check: `name="memory" target=memory memory-lines=10000`. Closes when a later `dump-logs.sh`
+shows more than 1000 lines on ap-main.
+
+**Applied 2026-10-28** (`changelog.md`): the print shows `name="memory" target=memory
+memory-lines=10000 memory-stop-on-full=no`. To verify with a later `dump-logs.sh`.
+
+The ping-pong itself is S23.
+
+### S23. Clients ping-pong between 2.4 and 5 GHz at the edge of ap-main's 5 GHz coverage (low, found 2026-10-28, fix applied 2026-10-28, to verify)
+
+Found with S22. In ap-main's 19 h of log (2026-10-27 22:18 to 10-28 17:42), clients roamed
+from `wifi1` (2.4 GHz) to `wifi2` (5 GHz) 472 times, 453 of them at -81 dBm or weaker:
+- `EA:84:28:98:BF:6A` (the phone `EA:84:28` in `vlan.md`, lease `.10.103`, no hostname): 433
+  times, all at -87 to -90 dBm, between 22:18 and 08:00. It stays about 50 s on `wifi1` at
+  -65 to -67 dBm, roams to `wifi2` at -88, and is back on `wifi1` 10-20 s later. One cycle a
+  minute, all night.
+- `0C:32:3A:0F:4D:41` (Galaxy S24 Ultra): 37 times, 18 of them at -81 dBm or weaker (down to
+  -99).
+- `BE:94:BF:4C:4B:12` (a random MAC, not in the inventory): twice, both weaker than -80.
+
+The signal in the log is what ap-main receives from the client. At -88 dBm, 5 GHz barely works.
+A likely reason the phone keeps trying: it hears the AP better than the AP hears it (an AP
+transmits with more power than a phone), so its own roaming logic rates 5 GHz as usable. Each
+roam is a short interruption for the phone, and the cycle fills ap-main's log (S22). Decision
+2026-10-28 (Guillaume): "The phone switching network every 2 minutes needs to be fixed."
+
+**Fix prepared 2026-10-28,** on ap-main: refuse new 5 GHz connections below -80 dBm.
+```
+/interface/wifi/access-list/add interface=wifi2 signal-range=-120..-81 action=reject comment="5 GHz below -80 dBm: stay on 2.4 GHz"
+/interface/wifi/access-list/print detail
+```
+How it works, from MikroTik's `wifi` page (read 2026-10-28): rules are checked in order and the
+first match applies. There is no implicit reject, so a client that matches no rule is accepted.
+Only connections accepted *by a rule* are checked again later against `signal-range` and
+disconnected when out of range. So this rule only refuses a client that tries to join or roam to
+5 GHz below -80 dBm. A client already on 5 GHz that moves away is not disconnected: it roams to
+2.4 GHz by itself, as it does today, and cannot return to 5 GHz until it is above -80 dBm. 2.4
+GHz from the same AP always reaches further, so a refused client still has `wifi1`. Every 5 GHz
+connection in the log at -80 dBm or better is unaffected. Android normally avoids an access point
+that refused it for a few minutes, and longer after repeated refusals (not verified on these
+phones).
+
+**Check:** the morning after, with S22's buffer in place: `dump-logs.sh`, then count the night's
+`EA:84:28` lines on ap-main. Few or no `roamed to ...@wifi2` lines closes this finding. A refusal
+logged every minute instead means the phone ignores refusals, and this approach does not work
+for it. Rollback: `/interface/wifi/access-list/remove [find comment~"stay on 2.4 GHz"]`.
+
+**Applied 2026-10-28** (`changelog.md`): ap-main's access list has one rule, `0 ;;; 5 GHz below
+-80 dBm: stay on 2.4 GHz`, `interface=wifi2 signal-range=-120..-81 action=reject`. **To
+verify:** the night of 2026-10-28 to 10-29, with the check above.
+
 ### Device rename (decided 2026-10-20)
 
 Each device gets a role-location name, used for the RouterOS identity, the Pi-hole hostname
@@ -233,7 +242,7 @@ names, and the README maps old to new.
 | mikrotik5 (hEX) | `switch-livingroom` | `switch-livingroom.home.ledcom.fr` → `.10.5` |
 | mikrotik1 (RB2011) | named when redeployed | — |
 
-Apart from 38-39 above, nothing is open on any device as of the 2026-10-20 review. The text below is from 2026-10-08:
+Apart from 39, 42, S22 and S23 above, nothing is open on any device as of 2026-10-28. The text below is from 2026-10-08:
 mikrotik4's full baseline-hardening pass (firewall, `admin`/`mgmt` access control, services,
 `ha` account, SSH hardening, DNS, NTP, IPv6 disabled) closed 2026-10-07, see `changelog.md`'s
 2026-10-07 entries; mikrotik5's build included the same baseline hardening from the start and
@@ -430,11 +439,11 @@ garden AP (SXTsq Lite2, no device number assigned yet) are all in [wifi.md](wifi
 Ordered 2026-09-04, 10G-capable per spec. Of the three things flagged to check when it
 arrived:
 
-- **Port speeds it actually offers.** Not yet directly confirmed. Doesn't matter yet either
-  way: mikrotik1 (RB2011, GigE ports) still caps WAN throughput near 1 Gbps regardless of what
-  the box offers, until the RB5009 edge migration below actually happens. Re-baseline
-  throughput (`scripts/measure-bufferbloat.sh`, see `performance.md`) once that's done, not
-  before.
+- **Port speeds it actually offers. Confirmed 2026-10-21: 2.5G.** The router's log shows
+  `ether1 link up (speed 2.5G, full duplex)` after a 63 s WAN flap (`changelog.md`, 2026-10-28
+  review). Throughput was re-baselined after the cutover: 865/858 Mbps (`performance.md`).
+  The original note: mikrotik1 (RB2011, GigE ports) capped WAN throughput near 1 Gbps
+  regardless of what the box offers.
 - **Whether it supports bridge or modem mode — no.** Checked directly in the box's admin UI.
   mikrotik1 is configured as its DMZ host instead (full port-forwarding to one LAN device),
   which is why the edge migration below still needs its own WAN-facing DHCP client rather than

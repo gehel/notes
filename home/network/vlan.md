@@ -118,8 +118,8 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | desktop "during" | `.10.90` | switch-office `ether3` | |
 | laptop "gimli" | `.10.92` | wireless | |
 | second laptop | pool | wireless | **still not identified** |
-| Galaxy S24 Ultra | pool | wireless, randomised MAC | |
-| phone `EA:84:28` | pool | wireless, randomised MAC | |
+| Galaxy S24 Ultra `0C:32:3A:0F:4D:41` | pool | wireless, real MAC | hostname `Galaxy-S24-Ultra`, seen at `.10.200` then `.10.105`. Corrected 2026-10-28: it does not randomise (`0C:32:3A` is Samsung's, not locally administered) |
+| phone `EA:84:28` (`EA:84:28:98:BF:6A`) | pool | wireless, randomised MAC | `.10.103`, no hostname; not identified. The 2.4/5 GHz ping-pong of `config-review.md` S23 |
 | TV (Samsung), wired `4C:57:39:2C:20:2C` | `.10.50` | switch-livingroom `ether2`, added 2026-10-08 | |
 | TV (Samsung), wifi `F4:DD:06:2A:FB:AF` | `.10.51` | wireless | the MAC this file always called "the TV's" before 2026-10-08 — it's the wifi interface, not wired |
 | Nintendo Switch (likely) `BC:CE:25:5E:7F:8A` | pool | wireless | not 100% confirmed |
@@ -173,10 +173,10 @@ still exist next to these; they come from the devices' own hostnames.
 
 ### Static reservations: one caveat
 
-Several clients (Galaxy S24 Ultra, phone `EA:84:28`) use randomised MACs (locally-administered
-bit set) — a reservation against one works until the device re-randomises, then silently
-stops. Either set the WiFi network to "use device MAC," or accept the pool address; don't
-spend effort on reservations that will decay.
+Some clients (phone `EA:84:28`) use a randomised MAC (locally-administered bit set; the Galaxy
+S24 Ultra does not, corrected 2026-10-28) — a reservation against one works until the device
+re-randomises, then silently stops. Either set the WiFi network to "use device MAC," or accept
+the pool address; don't spend effort on reservations that will decay.
 
 ## Living room and workshop
 

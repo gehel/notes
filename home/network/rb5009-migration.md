@@ -34,11 +34,10 @@ entries; `config-review.md` round 4). State to rely on:
 Next, in order:
 1. Finding 40 was fixed 2026-10-20 (HA's TV host corrected, `memory-lines=20000`), so the
    next-day log can now cover the night.
-2. **2026-10-21: check 11's second half.** Run `dump-logs.sh` (now writes `logs/router.txt`)
-   and review it. There should be no `.10.195` drops (finding 36, closed), no
-   old-prefix `9a41` IPv6 drops and no `dhcp-lease` script error (closes finding 37). Also check
-   HA's lease for finding 38.
-3. The end of the rollback week (Phase 4's last item, not before 2026-10-27).
+2. ~~Check 11's second half.~~ Done 2026-10-28 over 8 days of router log (`changelog.md`,
+   2026-10-28 review): no `.10.195` drops, no IPv6 drops, no `dhcp-lease` script error.
+   Finding 38 closed on live counters the same day.
+3. **Next: the end of the rollback week** (Phase 4's last item, due since 2026-10-27).
 
 ## Strategy in one paragraph
 

@@ -4004,3 +4004,202 @@ practice, for an unknown name and for a PTR with no entry.
 - `dig -x 192.168.10.199` (pool address, no lease) → `SERVFAIL`, 14 ms. Too fast for a
   forwarding loop (that would take seconds to time out): one of the hops refuses straight away.
   Harmless (a client gets no name either way). Left as is; source not pinned down.
+
+## Log and config review, 2026-10-20 to 2026-10-28 (2026-10-28)
+
+Dumps and logs collected 2026-10-28 17:39-17:42. switch-livingroom was off with the TV
+(`UNREACHABLE`, normal). With `memory-lines=20000` (finding 40), the router's log reaches back
+to 2026-10-20 15:26 (1985 lines), so this pass covers the eight days since the cutover. It also
+covers `rb5009-migration.md`'s check 11: no `.10.195` drops after 2026-10-20 16:15, no IPv6
+drops at all, no `script,error`.
+
+**Config:** the router, switch-main, switch-office and ap-main exports match the documented
+state, all on 7.24.5. The router's log shows no change since 2026-10-21 09:54. **Correction:**
+finding 41's `FWD` entry was added **2026-10-21 09:54:11** (router log, `static dns entry added`),
+not on the evening of 2026-10-20 as "Finding 41 fixed and closed" says.
+
+**Router firewall log since 2026-10-20 16:16: 89 drops in 8 days.**
+- 63 `services2internet`: HA (`192.168.20.60`) from source port 443, `ACK`/`ACK,PSH`,
+  `connection-state:new`. Finding 28, closed below.
+- 9 `iot2users`, 2026-10-26 13:33-13:46: OctoPrint (`.30.80:80`) to the desktop
+  (`.10.90:38098`), same shape. Explained below.
+- 17 `users2services` at 2026-10-20 21:41:25, in one second: the TV's wired address (`.10.50`) to
+  Pi-hole on UDP port **0**, 63-77 bytes (DNS-sized). That is when the TV first came up on its
+  wired interface. Not seen again. Left as is.
+- None in `services2users` (finding 36 stays fixed) or any IPv6 chain.
+
+**Other router events:**
+- 2026-10-21 05:21:03-05:22:06: WAN `ether1` down for 63 s, then up **at 2.5G**. The DHCP
+  client got `192.168.1.103` back and the IPv6 prefix is unchanged (`9ac0::/58`). Most likely
+  the Internet-Box restarting (not confirmed). Recovered on its own. It also confirms the box's
+  port speed, open in `config-review.md` since 2026-09-11: 2.5G.
+- 2026-10-22 07:38:14 `dhcp,warning Detected conflict by ARP response for 192.168.10.200 from
+  0C:32:3A:0F:4D:41`: the Galaxy S24 Ultra itself. Its `.10.200` lease had ended (deassigned
+  2026-10-21 10:24:01). It asked for the address again while still answering ARP for it, and
+  the router gave it `.10.105` instead. Harmless. For the lease review: this phone uses its real
+  MAC (`0C:32:3A`, Samsung, not locally administered), not a random one as `vlan.md` says.
+- WireGuard: 10 rounds of `Handshake for peer did not complete after 20 attempts, giving up`
+  (143 lines, 2026-10-22 to 10-28). The router keeps trying the phone's last endpoint after the
+  phone has gone. `peer1` has `persistent-keepalive=25s` on the router as well as on the phone
+  (`vpn.md`); only the phone, behind CGNAT, needs it. Setting it to `0` on the router would
+  probably stop these rounds (not verified). Log noise only, left as is.
+- DHCP churn, all accounted for: the Nintendo Switch's wired interface (83 binds, it drops its
+  link when it sleeps in the dock), the ceiling fan (52, all at 04-07 h or 11-23 h, a
+  deassign and an assign in the same second each time; also 6 of the 7 CAPsMAN `reassociating`
+  lines; not associated at 17:40), the desktop (14). The lease-script ran 217 times, no error.
+- CAPsMAN: IotaWatt and the Kids light have stayed associated since 2026-10-20 (`1w1d7h`).
+- `Port_Scanner`: 6 dynamic entries. Input-chain scan detection works.
+
+**switch-main:** `ether12` (switch-livingroom) follows the TV, as expected. `ether24` (OctoPrint
+wired) was up only 2026-10-26 11:28-22:40: the printer is powered when used. **`ether16`
+(switch-office) was down 2026-10-22 20:44 to 10-25 09:54, 10-25 11:18 to 16:53, and 10-25 21:09 to
+10-26 09:25.** switch-office's uptime is 2d8h (booted 2026-10-26 09:25; the hEX has no RTC, so it
+logged the boot as "2026-10-25 16:54:26" until NTP corrected the clock at 09:25:31). So
+switch-office goes off with the office. The 2026-10-20 decision put it on its own power strip
+so it stays up: to confirm with Guillaume whether that strip is in place yet. `cpu-load: 100%` in
+the dump again: the `/export` that runs just before it on this slow CPU. Left as is.
+
+**switch-office:** `ether3` (desktop) goes from 1G to **10M** each time the desktop sleeps
+(Wake-on-LAN standby link) and back to 1G when it wakes. Normal.
+
+**ap-main:** the log (default 1000 lines) reaches back only to 2026-10-27 22:18, 19 hours. 866
+of 1004 lines are one client, `EA:84:28:98:BF:6A` (the phone `EA:84:28` in `vlan.md`), roaming
+between `wifi1` (2.4 GHz, about -66 dBm) and `wifi2` (5 GHz, about -88 dBm) every 1-2 minutes,
+mostly 22:00-08:00. Opened **S22**. Each dump also logs 5 `script,error` lines: the
+`/caps-man/*` and `/interface/wireless/*` commands of `dump-configs.sh`, menus ap-main
+(`wifi-qcom-ac`) does not have. Harmless.
+
+**Checked and left as they are:**
+- The `container` package on the router. No logged change installed it (already listed
+  2026-10-19, Phase 1). It does nothing unless `/system/device-mode` enables containers.
+- Phase 4's last step (end of the rollback week) and the deferred part of finding 39 are due
+  since 2026-10-27. Not started: `cutover`/`rollback` and `.10.6` are still on the router.
+
+**Finding 38 still open:** the dumps have no rule counters and the log does not show lease
+renewals. This session's sandbox cannot SSH to the devices, so the check needs Guillaume's
+terminal.
+
+## Findings 28 and 33 closed: late retransmissions after the connection ended (2026-10-28)
+
+Both findings had the same shape: a packet that belongs to an existing TCP connection
+(`ACK`/`ACK,PSH`, with payload) logged as `connection-state:new` and dropped by a deny-all rule.
+The 8-day router log explains it.
+
+**Finding 28 was never an outbound connection.** Every dropped packet comes from HA's source
+port **443**, and the router's only `dst-nat` is `Home Assistant - HTTPS` (WAN TCP/443 →
+`192.168.20.60:443`). So HA is the server, answering connections that came in from the
+internet. The peers are hosting ranges: `144.202.82.88` (Vultr), the `216.180.246.0/24`
+addresses, and since the cutover `34.140.3.155`, `138.122.21.19`, `165.154.134.163` and
+`103.158.121.21`. `144.202.82.88` has used source port 61234 every time since 2026-09-13: a
+scanner with its own TCP stack does that, a browser or an app does not. Not a Nabu Casa relay,
+as the finding guessed.
+
+**The mechanism.** After a FIN or RST, a connection's conntrack entry lives only 10 s
+(`tcp-fin-wait-`, `close-wait-`, `last-ack-`, `time-wait-` and `tcp-close-timeout` are all `10s`,
+the defaults, in `/ip/firewall/connection/tracking/print`). A server that still has
+unacknowledged data keeps retransmitting it, with exponential backoff. The first retransmission
+after the entry is gone makes a new entry: `loose-tcp-tracking=yes` (the default) classifies a
+mid-stream packet as `new`, not `invalid`. It then reaches the chain's deny-all and is logged.
+Finding 28's episodes fit: 2-3 packets with gaps of about 25 s, then 47 s (backoff doubling).
+
+**The same thing with a known cause, 2026-10-26:** the 9 `iot2users` drops, OctoPrint
+`.30.80:80` → desktop `.10.90:38098`, 13:33:10 to 13:46:42, with gaps of 27 s, 58 s, 113 s, then
+123 s each time (TCP's 120 s backoff cap). switch-office's log: the desktop's port `ether3` went
+to 10M at 13:32:44 (the desktop going to sleep), 26 s before the first drop, and back to 1G at
+13:41:28. The desktop had OctoPrint's web UI open and went to sleep in the middle of a reply.
+
+**Finding 33** (2026-09-21, TV `.10.195:8002` → HA) is the same shape: 8002 is the TV's server
+port for HA's integration, and the TV was still sending after HA's side had closed. One
+episode, never seen again.
+
+**Impact: none.** These packets belong to connections that have already ended, and the router
+drops them correctly. No change. This shape is now a README lesson so it isn't re-raised.
+
+## Finding 38 closed; the review's minor items opened as 42, 43 and S23 (2026-10-28)
+
+Guillaume ran, from his terminal:
+```
+/ip/firewall/filter/print stats where comment~"DHCP server"
+/ip/dhcp-server/lease/print detail where server=dhcp-services
+```
+- Counters, since the rules were added 2026-10-20 (the router has not rebooted since
+  2026-10-19): `DHCP server (vlan-users)` 977 packets, `(vlan-services)` **32**, `(vlan-iot)`
+  **152**.
+- HA (`.20.60`) and Pi-hole (`.20.40`): `status=bound`, `expires-after=14h22m7s`/`6s`,
+  `last-seen=9h37m53s`/`54s`. With the 1-day lease, the last renewal, 9 h 38 min earlier,
+  reset the lease to a full day.
+
+**Finding 38 is closed.** The two accepts added 2026-10-20 carry DHCP traffic from
+`vlan-services` and `vlan-iot`; without them, these packets reach `Drop anything else!`. 32
+packets on `vlan-services` in 8 days is 2 clients × 2 renewals a day (T1 is 12 h) × 8 days, so
+each renewal arrives at T1 and is accepted. The counters also count broadcasts, but HA and
+Pi-hole kept their leases all along, so there are few or none.
+
+**switch-office power** (the review's open question). Guillaume: "switch-office is still on the
+same power as everything else and gets turned of when I'm not working. That's expected so far."
+The separate power strip decided 2026-10-20 is not in place. README updated: switch-office being
+down is expected until then.
+
+**The review's minor items.** Guillaume: "The phone switching network every 2 minutes needs to
+be fixed. Let's address the minor findings." No device changed yet; fixes are prepared in
+`config-review.md` for Guillaume to run.
+- **S23 opened:** the 2.4/5 GHz ping-pong, split from S22 (S22 keeps the log buffer). Fix: an
+  access-list reject on ap-main's `wifi2` below -80 dBm. MikroTik's `wifi` page, read for this:
+  first match applies, no implicit reject, and only connections accepted by a rule are checked
+  again against `signal-range`. So the rule refuses weak joins and roams, and disconnects no
+  one.
+- **42 opened:** the router-side WireGuard keepalive. Fix: `responder=yes` (MikroTik's WireGuard
+  page: the peer only answers handshakes) and `persistent-keepalive=0` on `peer1`. `vpn.md`
+  points to it.
+- **43 opened:** the unused `container` package. Removal prepared, after a `device-mode` check;
+  it needs a router reboot.
+- **`vlan.md` corrected:** the Galaxy S24 Ultra uses its real MAC, `0C:32:3A:0F:4D:41`. The phone
+  `EA:84:28` row now has its full MAC and lease (`.10.103`).
+- Finding 41's date was already corrected in the review entry above. Nothing else to do.
+
+## S22, S23 and 42 applied; `device-mode` checked for 43 (2026-10-28)
+
+Guillaume ran, from his terminal:
+```
+ssh admin@ap-main.home.ledcom.fr '/system/logging/action/set [find name=memory] memory-lines=10000; /system/logging/action/print'
+ssh admin@ap-main.home.ledcom.fr '/interface/wifi/access-list/add interface=wifi2 signal-range=-120..-81 action=reject comment="5 GHz below -80 dBm: stay on 2.4 GHz"; /interface/wifi/access-list/print detail'
+ssh admin@router.home.ledcom.fr '/interface/wireguard/peers/set [find name=peer1] persistent-keepalive=0 responder=yes; /interface/wireguard/peers/print detail where name=peer1'
+ssh admin@router.home.ledcom.fr '/system/device-mode/print; /system/package/print'
+```
+- **ap-main logging (S22):** `0 * name="memory" target=memory memory-lines=10000
+  memory-stop-on-full=no`. The `disk`, `echo` and `remote` actions are the defaults. To verify:
+  a later `dump-logs.sh` with more than 1000 lines on ap-main.
+- **ap-main access list (S23):** one rule, `0 ;;; 5 GHz below -80 dBm: stay on 2.4 GHz`,
+  `interface=wifi2 signal-range=-120..-81 action=reject`. `wifi.md` updated. To verify: the
+  night of 2026-10-28 to 10-29, in the next `dump-logs.sh`.
+- **router `peer1` (42):** `responder=yes`, no `persistent-keepalive` in the print (the
+  default, off), `allowed-address=192.168.50.2/32` unchanged. `current-endpoint-address=""`
+  with `last-handshake=52s`: the change probably cleared the address learned from the phone.
+  The phone's next handshake sets it again. `vpn.md` updated. To verify: the tunnel from mobile
+  data, and no `giving up` round in the router log over the next days.
+- **router `device-mode` (43):** `mode: home`, `container: no`. Nothing was meant to use the
+  package. Packages: `routeros`, `wireless`, `container`, all 7.24.5. Next: `uninstall
+  container` and a reboot at a quiet time.
+
+## WireGuard confirmed from the phone; finding 43 closed: `container` removed, router rebooted (2026-10-28)
+
+**Finding 42:** Guillaume confirmed the tunnel still works from the phone after the change.
+Still open until the router log of the next days shows no `giving up` round.
+
+On the router (Guillaume's terminal):
+```
+ssh admin@router.home.ledcom.fr '/system/package/uninstall container; /system/package/print'
+```
+→ `2 container 7.24.5 scheduled for uninstall`. Guillaume then rebooted the router from an
+interactive session. After the reboot, `/system/package/print`:
+```
+0 routeros  7.24.5   2026-09-29 14:21:27  13.3MiB
+1 wireless  7.24.5   2026-09-29 14:21:27  844.1KiB
+```
+**Finding 43 is closed.** `container` is gone, and `upgrade-fleet.sh` only upgrades installed
+packages, so it does not come back. `device-mode` was `container: no` before the removal.
+
+The reboot also restarted CAPsMAN and cleared the router's memory log, so the router log
+starts again at this reboot. The 17:40 dump is the CAPsMAN baseline: `LEDCOM-IoT` had
+`D8:BC:38:99:44:68` and `A8:48:FA:F2:40:4D` associated (`1w1d7h`), `LEDCOM` the Nintendo
+Switch. README lesson: compare the registration table after a CAPsMAN restart. Not done yet.

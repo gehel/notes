@@ -7,9 +7,9 @@ Written so that work can resume from these documents alone, with no session hist
 
 **Active work: Phase 4 (clean-up) of [rb5009-migration.md](rb5009-migration.md).** The RB5009
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
-mikrotik1) is off the LAN and stays the rollback path until about 2026-10-27. Read that file's
-**Status** and **Resume here** first. Open findings are in [config-review.md](config-review.md)
-(38-39 as of 2026-10-20).
+mikrotik1) is off the LAN; its rollback week ended 2026-10-27, so wiping it is the next step.
+Read that file's **Status** and **Resume here** first. Open findings are in
+[config-review.md](config-review.md) (39, 42, S22 and S23 as of 2026-10-28).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -89,20 +89,31 @@ plan (nwdiag). Sources are `network.dot` and `network-addressing.nwdiag`; see
 
 ## Everything currently open
 
-**RB5009 migration, Phase 4** — [rb5009-migration.md](rb5009-migration.md): the next-day log
-review, then the end of the rollback week (wipe the RB2011, then remove `cutover`/`rollback`,
-the `.10.6` address and the `router<N>` aliases). The throughput re-baseline is done.
+**RB5009 migration, Phase 4** — [rb5009-migration.md](rb5009-migration.md): **the end of the
+rollback week is due** (since 2026-10-27): wipe the RB2011, then remove `cutover`/`rollback`,
+the `.10.6` address and the `router<N>` aliases. The log review and the throughput
+re-baseline are done.
 
 **Findings** — [config-review.md](config-review.md):
-- 38: DHCP renewals on `services`/`iot` may have been dropped by `chain=input`. Two accepts
-  added 2026-10-20; check their counters after a renewal.
-- 39: the router's leftovers. The deferred part runs at the end of the rollback week.
+- 39: the router's leftovers. The deferred part is the end of the rollback week, above.
+- 42: the router retries WireGuard handshakes after the phone has gone. Fix applied 2026-10-28
+  (`responder=yes`, no router-side keepalive), tunnel confirmed from the phone; to verify in
+  the router log over the next days.
+- S22: ap-main's log reached back only 19 h. `memory-lines=10000` applied 2026-10-28; to verify
+  with a later `dump-logs.sh`.
+- S23: phones ping-pong between 2.4 and 5 GHz at the edge of 5 GHz coverage, one of them every
+  minute all night. Access-list rule on `wifi2` applied 2026-10-28; check the log of the night
+  to 10-29.
 - Older, informational: 22 (`connection-state=new` on `chain=input`), 25 (`home.ledcom.fr`
-  DDNS, reported fixed, not reconciled), 28 and 33 (conntrack drops, need more data).
+  DDNS, reported fixed, not reconciled).
+
+**switch-office is on the office's power for now** (Guillaume, 2026-10-28): it goes off when
+the office does, which is expected. The separate power strip decided 2026-10-20 is not in
+place yet. Like switch-livingroom, switch-office being down is not a failure until then.
 
 **Routine reviews, no urgency — good places to start a fresh session:**
 - Re-run `dump-logs.sh` and read the router's firewall log for anything worth tuning. Last full
-  pass before the cutover: 2026-09-22.
+  pass: 2026-10-28 (covers 2026-10-20 to 10-28).
 - Review all DHCP leases and reservations: name every known device, drop stale reservations
   (decided 2026-10-20, when `.10.91` was removed unnamed).
 - Review Pi-hole's query log as a general health check (`dump-pihole-logs.sh`). One known item:
@@ -472,3 +483,11 @@ one accept each in `users2services`/`iot2services`. IPv6 has no such chains yet.
   it (bridge ports, the bridge VLAN table, interface lists). switch-main's 25 ports were renamed
   in one loop on 2026-10-20 with no disruption. A CAP's identity change does not make it re-join
   either: the router's dynamic `ap-*` interfaces keep their old names until the next re-join.
+- **A deny-all log line with `ACK`/`ACK,PSH`, `connection-state:new` and a server port as the
+  source is a late retransmission, not a policy gap.** After a FIN or RST, conntrack keeps a
+  TCP entry for only 10 s (the `tcp-*-timeout` defaults). A server still retransmitting after
+  that gets a new entry (`loose-tcp-tracking=yes` calls a mid-stream packet `new`), so the
+  chain's deny-all logs it. It comes in short bursts with doubling gaps (25 s, 47 s...) and
+  harms nothing: the connection had already ended. Findings 28 and 33 stayed open for weeks
+  on this shape. Closed 2026-10-28, with a clear example: OctoPrint's replies to the desktop
+  that had just gone to sleep (`changelog.md`).

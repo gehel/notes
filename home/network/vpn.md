@@ -30,7 +30,7 @@ Recorded so they are not re-litigated:
 | Tunnel subnet | `192.168.50.0/24` — not a VLAN, no bridge/tag; a standalone L3 interface like the router's other addresses. Free: `vlan.md` only uses the `.10`/`.20`/`.30` third octet. |
 | Router tunnel address | `192.168.50.1/24` |
 | Phone tunnel address | `192.168.50.2/32` |
-| Persistent keepalive | 25s (phone is usually behind carrier-grade NAT) |
+| Persistent keepalive | 25s on the phone (it is usually behind carrier-grade NAT). Phone side only since 2026-10-28: the router's `peer1` has no keepalive and `responder=yes`, so it never starts a handshake (`config-review.md` finding 42) |
 | NAT | **None needed.** The existing `chain=srcnat action=masquerade out-interface-list=WAN` rule (`firewall.md`'s NAT table, rule 0) has no source restriction, so `wireguard1`-sourced traffic already gets masqueraded on its way out. |
 | `chain=input` | One new accept, `protocol=udp dst-port=51820 in-interface-list=WAN connection-state=new`, placed **before** rule 6 (`defconf: drop all from WAN`) — anything after that rule never sees WAN-sourced packets at all. |
 | `chain=forward` dispatch | Three new jump rules, `in-interface=wireguard1` -> the existing `users2internet`/`users2services`/`users2iot` targets, placed before rule 36 (`Drop all other forward traffic`) |
