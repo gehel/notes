@@ -4202,4 +4202,15 @@ packages, so it does not come back. `device-mode` was `container: no` before the
 The reboot also restarted CAPsMAN and cleared the router's memory log, so the router log
 starts again at this reboot. The 17:40 dump is the CAPsMAN baseline: `LEDCOM-IoT` had
 `D8:BC:38:99:44:68` and `A8:48:FA:F2:40:4D` associated (`1w1d7h`), `LEDCOM` the Nintendo
-Switch. README lesson: compare the registration table after a CAPsMAN restart. Not done yet.
+Switch. README lesson: compare the registration table after a CAPsMAN restart.
+
+After the reboot, `/caps-man/registration-table/print` (Guillaume's terminal): both IoT devices
+are back on `LEDCOM-IoT` on their own, no power cycle needed. `D8:BC:38:99:44:68` (-81 dBm) and
+`A8:48:FA:F2:40:4D` (-61 dBm), uptime 3m32s. The Nintendo Switch was not associated, which is
+normal for it (it sleeps in the dock). **The CAPsMAN interfaces now have the new name:**
+`ap-switch-main-1` and `ap-switch-main-1-1`, not `ap-MikroTik-Switch-1`/`-1-1`. CAPsMAN named them
+from switch-main's identity when the CAP joined, and they kept the old one from the 2026-10-20
+rename until this restart. Only dynamic entries use these names (bridge ports, bridge VLANs,
+queues), nothing in the export. HA's MikroTik integration has `Connectivity` entities keyed on
+the old names (`binary_sensor.ap_mikrotik_switch_1*`, in the 2026-09-29 HA config copy); no
+automation uses them. They will probably show as unavailable, with new ones next to them.
