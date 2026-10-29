@@ -38,6 +38,10 @@ document in the area:
 - `home/network/` — a MikroTik-based home network (VLANs, firewall, wifi, IPv6, QoS).
 - `home/home-assistant/` — review and maintenance of a Home Assistant instance.
 
+`home/cooking/` is a third area, but not infrastructure: family recipes and meal planning. Its
+README holds the household constraints (notably Guillaume's no-carbs-in-the-evening diet) and
+its own conventions; the findings/changelog/dump conventions below don't apply to it.
+
 These documents exist so work can resume from the files alone, with no memory of prior
 sessions, which drives their conventions:
 
