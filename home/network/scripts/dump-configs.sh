@@ -36,6 +36,7 @@ COMMANDS=(
   "/export hide-sensitive"
   "/system/resource/print"
   "/system/routerboard/print"
+  "/system/device-mode/print"
   "/system/package/print"
   "/system/logging/print"
   "/system/clock/print"

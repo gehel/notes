@@ -116,7 +116,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 | Device | Address | Attachment | Notes |
 |---|---|---|---|
 | desktop "during" | `.10.90` | switch-office `ether3` | |
-| laptop "gimli" | `.10.92` | wireless | |
+| laptop "x1" (was "gimli", reimaged 2026-10-29) `E8:BF:E1:B1:78:C6` | `.10.92` | wireless | work laptop. `wg-home` road-warrior profile, `.50.3`, see `vpn.md` |
 | second laptop | pool | wireless | **still not identified** |
 | Galaxy S24 Ultra `0C:32:3A:0F:4D:41` | pool | wireless, real MAC | hostname `Galaxy-S24-Ultra`, seen at `.10.200` then `.10.105`. Corrected 2026-10-28: it does not randomise (`0C:32:3A` is Samsung's, not locally administered) |
 | phone `EA:84:28` (`EA:84:28:98:BF:6A`) | pool | wireless, randomised MAC | `.10.103`, no hostname; not identified. The 2.4/5 GHz ping-pong of `config-review.md` S23 |

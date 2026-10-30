@@ -42,7 +42,7 @@ nwdiag {
       color = "#dcfce7";
 
       desktop [address = ".90", label = "desktop \"during\"\nwired, in mgmt"];
-      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless, in mgmt"];
+      x1      [address = ".92", label = "laptop \"x1\"\nwireless, in mgmt"];
       tv      [address = ".50 .51", label = "Samsung TV\nwired + wifi"];
       amp     [address = ".52 .53", label = "Onkyo amp\nwired + wifi"];
       nintendo [address = ".54 .55", label = "Nintendo Switch\nwired + wifi"];
@@ -90,6 +90,7 @@ nwdiag {
     router [address = ".1"];
 
     phone [address = ".2", label = "phone\nMrG Galaxy S24\nin mgmt"];
+    x1-vpn [address = ".3", label = "laptop \"x1\"\nvia vpn.ledcom.fr\nin mgmt"];
   }
 }
 </desc>
@@ -116,10 +117,11 @@ nwdiag {
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="795" y="514" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="993" y="514" />
   <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="399" y="690" />
+  <rect fill="rgb(0,0,0)" height="72" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" width="150" x="597" y="690" />
   <path d="M 177 103 L 2553 103 A2,4 0 0 1 2553 111 L 177 111 A2,4 0 0 1 177 103" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
   <path d="M 177 279 L 771 279 A2,4 0 0 1 771 287 L 177 287 A2,4 0 0 1 177 279" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
   <path d="M 177 455 L 1167 455 A2,4 0 0 1 1167 463 L 177 463 A2,4 0 0 1 177 455" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
-  <path d="M 177 631 L 573 631 A2,4 0 0 1 573 639 L 177 639 A2,4 0 0 1 177 631" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
+  <path d="M 177 631 L 771 631 A2,4 0 0 1 771 639 L 177 639 A2,4 0 0 1 177 631" fill="rgb(0,0,0)" style="filter:url(#filter_blur)" />
   <path d="M 174 100 L 2550 100 A2,4 0 0 1 2550 108 L 174 108 A2,4 0 0 1 174 100" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
   <path d="M 2550 108 A2,4 0 0 1 2550 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 174 100 L 2550 100" fill="none" stroke="none" />
@@ -130,9 +132,9 @@ nwdiag {
   <path d="M 174 452 L 1164 452 A2,4 0 0 1 1164 460 L 174 460 A2,4 0 0 1 174 452" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
   <path d="M 1164 460 A2,4 0 0 1 1164 452" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 174 452 L 1164 452" fill="none" stroke="none" />
-  <path d="M 174 628 L 570 628 A2,4 0 0 1 570 636 L 174 636 A2,4 0 0 1 174 628" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
-  <path d="M 570 636 A2,4 0 0 1 570 628" fill="none" stroke="rgb(0,0,0)" />
-  <path d="M 174 628 L 570 628" fill="none" stroke="none" />
+  <path d="M 174 628 L 768 628 A2,4 0 0 1 768 636 L 174 636 A2,4 0 0 1 174 628" fill="rgb(185,203,228)" stroke="rgb(0,0,0)" />
+  <path d="M 768 636 A2,4 0 0 1 768 628" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 174 628 L 768 628" fill="none" stroke="none" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="80" x="126.0" y="87">vlan 10 - vlan-users</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="65" x="133.5" y="97">home.ledcom.fr</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="97" x="117.5" y="109">gw .1  DNS .40 (Pi-hole)</text>
@@ -201,7 +203,7 @@ nwdiag {
   <path d="M 1461 108 L 1461 156" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="1479.0" y="134">.92</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="1386" y="156" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="54" x="1461.0" y="191">laptop "gimli"</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="42" x="1461.0" y="191">laptop "x1"</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="73" x="1461.5" y="202">wireless, in mgmt</text>
   <path d="M 1659 108 L 1659 156" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="27" x="1684.5" y="134">.50 .51</text>
@@ -268,6 +270,12 @@ nwdiag {
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="28" x="471.0" y="714">phone</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="65" x="471.5" y="725">MrG Galaxy S24</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="35" x="471.5" y="736">in mgmt</text>
+  <path d="M 669 636 L 669 684" fill="none" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="684.5" y="662">.3</text>
+  <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="594" y="684" />
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="42" x="669.0" y="713">laptop "x1"</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="70" x="669.0" y="725">via vpn.ledcom.fr</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="35" x="669.5" y="736">in mgmt</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="112" x="669.0" y="124">MikroTik: static, in mgmt</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="33" x="1857.5" y="122">Clients</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="39" x="570.5" y="298">Services</text>

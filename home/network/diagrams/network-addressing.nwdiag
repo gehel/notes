@@ -33,7 +33,7 @@ nwdiag {
       color = "#dcfce7";
 
       desktop [address = ".90", label = "desktop \"during\"\nwired, in mgmt"];
-      gimli   [address = ".92", label = "laptop \"gimli\"\nwireless, in mgmt"];
+      x1      [address = ".92", label = "laptop \"x1\"\nwireless, in mgmt"];
       tv      [address = ".50 .51", label = "Samsung TV\nwired + wifi"];
       amp     [address = ".52 .53", label = "Onkyo amp\nwired + wifi"];
       nintendo [address = ".54 .55", label = "Nintendo Switch\nwired + wifi"];
@@ -81,5 +81,6 @@ nwdiag {
     router [address = ".1"];
 
     phone [address = ".2", label = "phone\nMrG Galaxy S24\nin mgmt"];
+    x1-vpn [address = ".3", label = "laptop \"x1\"\nvia vpn.ledcom.fr\nin mgmt"];
   }
 }

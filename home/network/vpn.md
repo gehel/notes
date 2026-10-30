@@ -1,7 +1,8 @@
 # WireGuard road-warrior VPN
 
 **Status: applied and verified end-to-end, 2026-09-22.** Working road-warrior tunnel for
-Guillaume's Android phone (`MrG Galaxy S24`). Full history and verifying evidence in
+Guillaume's Android phone (`MrG Galaxy S24`). **x1 (work laptop) added and verified
+2026-10-30**, see "x1" below. Full history and verifying evidence in
 [changelog.md](changelog.md); `scripts/wireguard-road-warrior.rsc` has been deleted per this
 repo's one-shot-script convention.
 
@@ -18,7 +19,7 @@ Recorded so they are not re-litigated:
 |---|---|
 | Tunnel scope | **Full tunnel** — all phone traffic, including general internet browsing, routes through home. Deliberate: benefits from Pi-hole ad-blocking and makes the phone appear to originate from the home IP on untrusted networks. |
 | LAN-side access | **Same as `vlan-users`** — the phone gets exactly the access a `vlan-users` host has, nothing more, nothing less. Reuses the existing `users2internet`/`users2services`/`users2iot` jump chains from [firewall.md](firewall.md) via new `in-interface=wireguard1` dispatch rules in `chain=forward` — no separate policy to write or maintain. **Extended 2026-09-28** with a fourth dispatch, `wireguard2users` (see [firewall.md](firewall.md#mikrotik1--jump-chains-phase-5-reorg)), needed once the phone was added to the `mgmt` address-list — reaching mikrotik2/mikrotik3's own management requires an actual forwarded path to `vlan-users`, which the original three dispatches never provided (mikrotik1's own management already worked over the tunnel via `chain=input`, interface-blind). |
-| Endpoint | **`home.ledcom.fr`** (Guillaume's call, 2026-09-22). Originally designed against mikrotik1's MikroTik Cloud DDNS hostname instead, specifically to route around `config-review.md` finding 25 (nothing kept `home.ledcom.fr` current, so it had gone silently stale twice) — but `/ip/cloud`'s `dns-name` came back **empty** when the script ran, so that hostname isn't actually usable as-is anyway. Finding 25 is now understood to be fixed by the Home Assistant Let's Encrypt add-on's Gandi DDNS update (a previously-expired API key, renewed 2026-09-22) — see `config-review.md` finding 25 and `changelog.md`'s 2026-09-11 entry, which will need a correction once that mechanism is fully confirmed and documented. |
+| Endpoint | **`home.ledcom.fr`** (Guillaume's call, 2026-09-22). Originally designed against mikrotik1's MikroTik Cloud DDNS hostname instead, specifically to route around `config-review.md` finding 25 (nothing kept `home.ledcom.fr` current, so it had gone silently stale twice) — but `/ip/cloud`'s `dns-name` came back **empty** when the script ran, so that hostname isn't actually usable as-is anyway. Finding 25 is now understood to be fixed by the Home Assistant Let's Encrypt add-on's Gandi DDNS update (a previously-expired API key, renewed 2026-09-22) — see `config-review.md` finding 25 and `changelog.md`'s 2026-09-11 entry, which will need a correction once that mechanism is fully confirmed and documented. **x1 uses `vpn.ledcom.fr` instead** (Guillaume's call, 2026-10-30): a **plain A record at Gandi, `178.192.223.49`, kept by hand** (no updater yet, see `config-review.md` finding 25). Pi-hole has a local record `home.ledcom.fr` → `192.168.20.60` (HA, split horizon), and NetworkManager looks the endpoint up again after activation, from inside the tunnel, so with `home.ledcom.fr` x1 ends up sending to HA's LAN address over the internet. A CNAME to `home.ledcom.fr` was tried first and fails the same way, now and then: when its TTL has expired, Pi-hole serves the stale answer and fills in the CNAME's target from its local record. The phone's app resolves once, at tunnel start, so the phone stays on `home.ledcom.fr`. **If the home address changes, update `vpn` at Gandi by hand.** |
 | IPv6 | **Not tunneled yet** — see Known gap below. |
 
 ## Design
@@ -30,6 +31,7 @@ Recorded so they are not re-litigated:
 | Tunnel subnet | `192.168.50.0/24` — not a VLAN, no bridge/tag; a standalone L3 interface like the router's other addresses. Free: `vlan.md` only uses the `.10`/`.20`/`.30` third octet. |
 | Router tunnel address | `192.168.50.1/24` |
 | Phone tunnel address | `192.168.50.2/32` |
+| x1 (laptop) tunnel address | `192.168.50.3/32`, router peer `peer2`, endpoint `vpn.ledcom.fr` (see "x1" below) |
 | Persistent keepalive | 25s on the phone (it is usually behind carrier-grade NAT). Phone side only since 2026-10-28: the router's `peer1` has no keepalive and `responder=yes`, so it never starts a handshake (`config-review.md` finding 42) |
 | NAT | **None needed.** The existing `chain=srcnat action=masquerade out-interface-list=WAN` rule (`firewall.md`'s NAT table, rule 0) has no source restriction, so `wireguard1`-sourced traffic already gets masqueraded on its way out. |
 | `chain=input` | One new accept, `protocol=udp dst-port=51820 in-interface-list=WAN connection-state=new`, placed **before** rule 6 (`defconf: drop all from WAN`) — anything after that rule never sees WAN-sourced packets at all. |
@@ -61,11 +63,73 @@ Two ways to close this later, not scoped yet:
 Full procedure and verification evidence: [changelog.md](changelog.md)'s 2026-09-22 entry.
 
 **Added to `mgmt` 2026-09-28** (`192.168.50.2`, this same tunnel address) — the phone now has
-full router-management access on all three reachable devices, same as the desktop and gimli.
+full router-management access on all three reachable devices, same as the desktop and x1 (then gimli).
 Needed a new `wireguard2users` forward-chain dispatch (see [firewall.md](firewall.md)) and
 widening the `admin` user account's own `address=` restriction (a separate gate from the
 firewall — see `README.md`'s hard-won lessons) to include `192.168.50.0/24`. Full account and
 verification in [changelog.md](changelog.md)'s 2026-09-28 entry.
+
+## x1 (work laptop, Ubuntu)
+
+**Status, 2026-10-30: `vpn.ledcom.fr` being changed from a CNAME to a plain A record.** With
+the CNAME, x1 worked from the phone's hotspot (ping to the router, the home address seen from
+outside, SSH to switch-main), then failed again about 15 minutes later. Next: the A record at
+Gandi, a Pi-hole check including a stale answer, then x1 tested over a longer period. Also left:
+`192.168.50.3` in switch-livingroom's `mgmt` (TV off so far).
+
+The first try used `home.ledcom.fr` as the endpoint, like the phone. The tunnel came up, then
+stopped a minute later: NetworkManager looks the endpoint up again, by then through the tunnel,
+and Pi-hole's local record sends it to `192.168.20.60`. The same goes for any name under
+`home.ledcom.fr` (Pi-hole forwards them to the router, never to Gandi) and for a CNAME to it (the
+stale answer, above). Full trail in `changelog.md`.
+
+Same decisions as the phone: **full tunnel** (IPv4 and all DNS through home), `vlan-users`
+access through the same `wireguard1` dispatch rules, and `192.168.50.3` in `mgmt` on every
+device (switch-livingroom still to do, it was off). The same IPv6 gap applies: x1's IPv6 goes
+out directly on a network that has it.
+
+Router side, one peer, `responder=yes` and no keepalive, like `peer1` since finding 42:
+```
+/interface/wireguard/peers/add interface=wireguard1 name=peer2 comment="x1, work laptop" allowed-address=192.168.50.3/32 responder=yes public-key="<x1's public key>"
+```
+
+Laptop side, a NetworkManager keyfile, written directly rather than with `nmcli connection
+import`: an imported WireGuard profile has `autoconnect=yes`, so it comes up at once, at home
+too. `autoconnect=false` means it is brought up by hand when away
+(`nmcli connection up wg-home`). At home it stays off: reaching the home public address from the
+LAN would need hairpin NAT on the Internet-Box. The private key was generated on x1 and never left
+it; x1's public key is `sudo nmcli -s -g wireguard.private-key connection show wg-home | wg
+pubkey`. To rebuild after a reimage, generate a new key (`wg genkey`), write this file, and
+replace `peer2`'s `public-key`.
+
+`/etc/NetworkManager/system-connections/wg-home.nmconnection`, mode 600:
+```
+[connection]
+id=wg-home
+type=wireguard
+interface-name=wg-home
+autoconnect=false
+
+[wireguard]
+private-key=<x1's private key>
+
+[wireguard-peer.QReTsWFSjYwkQ7Tm5l6KekxmA6sfvl+P1V0J67+NTXI=]
+endpoint=vpn.ledcom.fr:51820
+allowed-ips=0.0.0.0/0;
+persistent-keepalive=25
+
+[ipv4]
+method=manual
+address1=192.168.50.3/32
+dns=192.168.20.40;
+dns-search=~.;
+dns-priority=-50
+
+[ipv6]
+method=disabled
+```
+`dns-search=~.` with a negative `dns-priority` makes systemd-resolved send every query to
+Pi-hole while the tunnel is up, and none to the local network's resolver.
 
 ## Open / not yet decided
 

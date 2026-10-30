@@ -9,7 +9,7 @@ Written so that work can resume from these documents alone, with no session hist
 became the edge router on 2026-10-20 (`router`, `.10.1`, 865/858 Mbps). The RB2011 (old
 mikrotik1) is off the LAN; its rollback week ended 2026-10-27, so wiping it is the next step.
 Read that file's **Status** and **Resume here** first. Open findings are in
-[config-review.md](config-review.md) (39, 42, S22 and S23 as of 2026-10-28).
+[config-review.md](config-review.md) (39, 42, 44, S22 and S23 as of 2026-10-30).
 
 The devices were renamed on 2026-10-20. Older documents and all of `changelog.md` use the old
 names:
@@ -77,7 +77,7 @@ rsync+sudo) land in `logs/pihole/`, collected with
 | [firewall.md](firewall.md) | Every live firewall rule on the router, in evaluation order |
 | [wifi.md](wifi.md) | Wireless: channels, ap-main's build, the 5 GHz and CAPsMAN plans |
 | [ipv6.md](ipv6.md) | IPv6 via DHCPv6-PD and the NAT66 workaround |
-| [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone |
+| [vpn.md](vpn.md) | WireGuard road-warrior VPN for the Android phone and x1 (work laptop) |
 | [network.md](network.md) | The two diagrams and how to regenerate them |
 | [performance.md](performance.md) | Throughput investigation — resolved 2026-10-20: the RB2011 was the limit |
 | [qos.md](qos.md) | Bufferbloat: none, re-measured on the router 2026-10-20. No QoS needed |
@@ -104,8 +104,17 @@ re-baseline are done.
 - S23: phones ping-pong between 2.4 and 5 GHz at the edge of 5 GHz coverage, one of them every
   minute all night. Access-list rule on `wifi2` applied 2026-10-28; check the log of the night
   to 10-29.
+- 44: the router's `device-mode` `home` turns off the scheduler, fetch, the sniffer and RoMON.
+  Proposal: `basic`, which needs a physical button press and a reboot. First, the next
+  `dump-configs.sh` shows every device's mode.
 - Older, informational: 22 (`connection-state=new` on `chain=input`), 25 (`home.ledcom.fr`
-  DDNS, reported fixed, not reconciled).
+  DDNS, reported fixed, not reconciled; `vpn.ledcom.fr` is now a hand-kept A record).
+
+**x1 road-warrior VPN** — [vpn.md](vpn.md)'s "x1" section. Worked from outside the LAN
+2026-10-30, then failed again: the endpoint `vpn.ledcom.fr` is being changed from a CNAME to a
+plain A record (see the lesson on `home.ledcom.fr` endpoints). x1 is gimli reimaged, same
+`.10.92` reservation. Also left: add `192.168.50.3` to switch-livingroom's `mgmt` when the TV is
+on (the two lines are in `changelog.md`'s 2026-10-29 entry).
 
 **switch-office is on the office's power for now** (Guillaume, 2026-10-28): it goes off when
 the office does, which is expected. The separate power strip decided 2026-10-20 is not in
@@ -491,3 +500,22 @@ one accept each in `users2services`/`iot2services`. IPv6 has no such chains yet.
   harms nothing: the connection had already ended. Findings 28 and 33 stayed open for weeks
   on this shape. Closed 2026-10-28, with a clear example: OctoPrint's replies to the desktop
   that had just gone to sleep (`changelog.md`).
+- **The router cannot run `/tool/sniffer`: its `device-mode` is `home`.** It answers `failure:
+  not allowed by device-mode` (2026-10-30). Changing device-mode needs a physical confirmation
+  at the router. Per MikroTik's docs, `home` also turns off the **scheduler** and fetch, so
+  the scheduled auto-rollback in the first lesson is not available on the router (finding 44). To see whether traffic crosses a WireGuard tunnel, read the peer's `rx`/`tx`
+  in `/interface/wireguard/peers/print detail` before and after a known burst (`ping -c10`)
+  instead. The sniffer advice in the lesson above applies to the switches and APs.
+- **A full-tunnel WireGuard client must not use `home.ledcom.fr`, or any name under it, as its
+  endpoint if it can look the name up again.** Pi-hole answers `home.ledcom.fr` with HA's LAN
+  address (`192.168.20.60`, a local record) and forwards everything under it to the router, never
+  to Gandi. NetworkManager looks the endpoint up again after activation, by then through the
+  tunnel: x1's tunnel came up, then sent every packet to `192.168.20.60` over the internet. The
+  signs: a handshake on the router, then `rx` frozen while the client's "sent" grows, made of
+  148-byte handshake retries (`tcpdump -ni any udp port 51820` shows the destination). **A CNAME
+  to `home.ledcom.fr` is not enough either:** Pi-hole serves stale answers (`EDE: 3 (Stale
+  Answer)`, TTL 0) once a TTL has expired, and builds them by following the cached CNAME to its
+  own local record, so now and then it answers `192.168.20.60`. A first check right after a
+  cache flush cannot catch this. Wait past the TTL and query again. Clients use `vpn.ledcom.fr`,
+  a plain A record at Gandi. The phone's app resolves once, at tunnel start, so the phone works
+  with either name (2026-10-30).

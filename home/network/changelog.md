@@ -4214,3 +4214,225 @@ rename until this restart. Only dynamic entries use these names (bridge ports, b
 queues), nothing in the export. HA's MikroTik integration has `Connectivity` entities keyed on
 the old names (`binary_sensor.ap_mikrotik_switch_1*`, in the 2026-09-29 HA config copy); no
 automation uses them. They will probably show as unavailable, with new ones next to them.
+
+## gimli is now x1; WireGuard for x1 started (2026-10-29)
+
+Guillaume reimaged the work laptop and renamed it **x1** (Ubuntu). It is gimli's hardware: the
+router log shows `dhcp-home assigned 192.168.10.92 for E8:BF:E1:B1:78:C6 ubuntu` at 16:07 (the
+installer's hostname), then `... for E8:BF:E1:B1:78:C6 x1` at 16:43. `.10.92` is outside
+`pool-users` (`.100`-`.200`), so only gimli's reservation can give it. The reservation needed
+no change, only names. Request: keep the static address, and give x1 the road-warrior VPN.
+Decided: **full tunnel** like the phone, and x1's tunnel address **`192.168.50.3` in `mgmt`**,
+like the phone's `.50.2`.
+
+**On x1** (Guillaume): `wireguard-tools` installed, a key pair generated on x1 (the private key
+stays there), and a NetworkManager profile `wg-home` written as a keyfile with
+`autoconnect=false` (`vpn.md` has its full content). `nmcli connection show` lists `wg-home`,
+type `wireguard`, not active. The `LEDCOM` profile now has
+`802-11-wireless.cloned-mac-address permanent`, so a later NetworkManager default cannot
+randomise the MAC and break the reservation.
+
+**On the router** (Guillaume's terminal):
+```
+/ip/dhcp-server/lease/set [find address=192.168.10.92] comment="x1, work laptop"
+/ip/firewall/address-list/set [find address=192.168.10.92] comment="x1, work laptop"
+/ip/firewall/address-list/add list=mgmt address=192.168.50.3 comment="x1, via wireguard1"
+/ip/dns/static/remove [find name=ubuntu.home.ledcom.fr]
+```
+- Lease `.10.92`: `;;; x1, work laptop`, `status=bound`, `active-mac-address=E8:BF:E1:B1:78:C6`,
+  `active-client-id="1:e8:bf:e1:b1:78:c6"`, `host-name="x1"`.
+- `mgmt`: `6 192.168.10.92 ;;; x1, work laptop` and `9 192.168.50.3 ;;; x1, via wireguard1`
+  (created 2026-10-29 18:18:39). 10 entries in all, `.10.6` still there (Phase 4).
+- Static DNS: `x1.home.ledcom.fr` → `.10.92`, no `ubuntu.home.ledcom.fr` any more. The
+  `ubuntu` entry was left by the lease-script: x1 changed hostname inside one lease, and the
+  deassign removed the entry for the new name (`x1`) only. A rename during a lease leaves its
+  old entry behind, which is harmless.
+- **The `peer2` add failed:** `failure: invalid public key`. The prepared command still had
+  the `X1_PUBLIC_KEY` placeholder. `/interface/wireguard/peers/print detail` shows only
+  `peer1`. Still to do.
+
+**On switch-main, switch-office and ap-main** (Guillaume's terminal, one loop):
+```
+/ip/firewall/address-list/set [find address=192.168.10.92] comment="x1, work laptop"
+/ip/firewall/address-list/add list=mgmt address=192.168.50.3 comment="x1, via wireguard1"
+```
+`/ip/firewall/address-list/print where list=mgmt` on each: `5 192.168.10.92 ;;; x1, work
+laptop` and `9 192.168.50.3 ;;; x1, via wireguard1` (18:19:19-21), 10 entries.
+**switch-livingroom: not done**, `No route to host` (TV off). Run the same two lines there
+next time the TV is on.
+
+**Pi-hole:** Guillaume updated the local DNS record for x1.
+
+Seen in passing: the router's static DNS has `legolas.home.ledcom.fr` → `192.168.10.192`, a
+pool address. The name is in gimli's naming scheme, so it may be `vlan.md`'s unidentified
+"second laptop". Not checked.
+
+## WireGuard for x1: `peer2` added, handshake works, no traffic yet (2026-10-30)
+
+**On the router** (Guillaume's terminal): `peer2` added with x1's public key (the command
+from `vpn.md`, the key taken from x1 with `wg pubkey`):
+```
+/interface/wireguard/peers/add interface=wireguard1 name=peer2 comment="x1, work laptop" allowed-address=192.168.50.3/32 responder=yes public-key="SqE5y5eiTHW94MLBnZ9+ICb5io8S821ulZlfB92GpWU="
+```
+`/interface/wireguard/peers/print detail`:
+```
+1  ;;; x1, work laptop
+   interface=wireguard1 name="peer2" public-key="SqE5y5eiTHW94MLBnZ9+ICb5io8S821ulZlfB92GpWU=" endpoint-address="" endpoint-port=0
+   current-endpoint-address=178.197.196.88 current-endpoint-port=36991 allowed-address=192.168.50.3/32 client-endpoint="" client-allowed-address=""
+   responder=yes rx=1092 tx=1196 last-handshake=6m30s
+```
+`peer1` (the phone) was at `current-endpoint-address=178.197.196.88` too: x1 was on the
+phone's hotspot, outside the LAN, as the test needs.
+
+**First test from x1** (Guillaume, summarised by hand from the laptop):
+- `dig +short home.ledcom.fr` → `178.192.223.49`, the home address (the router's `/ip/cloud`
+  `public-address` in the 2026-10-30 dump). Finding 25 is not involved.
+- `nmcli connection up wg-home` → activated. `ip -br -4 addr`: `wg-home UNKNOWN 192.168.50.3/32`.
+- `wg show`: a handshake (not copied in detail).
+- **`ping -c3 192.168.10.1`: 100% loss.**
+
+So the key exchange works, but the data path does not, yet. Router side, nothing should block
+it: `chain=input` jumps ICMP to `ICMP`, whose first rule accepts echo requests from any source
+(rate-limited), and `192.168.50.3` is in `mgmt` anyway. `rx=1092` is a handshake plus a few
+keepalives at most: hardly anything from x1 went through the tunnel. Under investigation.
+
+`/tool/sniffer/quick interface=wireguard1 ip-protocol=icmp` on the router: `failure: not
+allowed by device-mode` (`mode: home`, see the 2026-10-28 entry). README lesson added. The
+`peer2` `rx`/`tx` counters around a known ping burst replace it.
+
+**Counter test** (`peer2`, `wg-home` brought up again, `ping -c10 192.168.10.1` on x1 between
+two prints 38 s apart): `rx=2360 tx=2488 last-handshake=20s`, then `rx=2360 tx=2488
+last-handshake=58s`. Not one byte from x1 in 38 s, not even a 25 s keepalive. On x1, `ip route
+get 192.168.10.1` names `wg-home`, so the pings do go into the tunnel. The endpoint port is new
+(`37264`, was `36991`): each activation opens a new socket. `tx` is a little above `rx` over
+both activations. The responder can only send data after the initiator's first data packet, so
+some traffic did flow both ways just after activation, and then x1's packets stopped arriving.
+
+**x1's side** (`sudo wg show wg-home`, after another `ping -c10`): `latest handshake: 4 minutes`,
+`transfer: 1.26 KiB received, 18.68 KiB sent`. 1.26 KiB is exactly the router's `tx` for this
+activation (2488 − 1196 = 1292 B): router → x1 is complete. x1 sent ~15× more than the router
+received (`rx` +1268 B): after the first burst, nothing from x1 arrives, not even keepalives or
+rekey handshakes (due every 2 min). So the loss is between x1's WireGuard socket and the
+router, in the x1 → router direction only. Not MTU: 32-byte keepalives are lost too.
+
+**Cause found** (`sudo tcpdump -ni any udp port 51820` on x1, `wg-home` up): every packet is
+`wlp0s20f3 Out IP 10.31.150.119.37264 > 192.168.20.60.51820: UDP, length 148`, before and
+during a ping. The pings themselves never show. x1 is sending handshake initiations (148 bytes,
+retried every few seconds, about 125 of them in the 18.68 KiB "sent") to **`192.168.20.60`**,
+Home Assistant's LAN address, out of the hotspot. The other checks were clean: `ip route get
+178.192.223.49 mark <wg-home fwmark>` → `via 10.31.150.31 dev wlp0s20f3` (no routing loop), and
+the active connections are `Galaxy S24 MrG` (wlp0s20f3) and `wg-home`, not `LEDCOM`.
+
+`192.168.20.60` is Pi-hole's hand-made local record for `home.ledcom.fr` (split horizon, so the
+LAN reaches HA directly, see the 2026-09-10 correction above). NetworkManager resolved the
+endpoint once at activation, over the hotspot (`178.192.223.49`, handshake and first burst
+fine), then resolved it again. By then `dns-search=~.` sends all of x1's DNS through the
+tunnel to Pi-hole, which answers `192.168.20.60`. The phone is not affected: its WireGuard app
+resolves the endpoint once when the tunnel starts, and the phone has worked through Pi-hole's
+DNS since 2026-09-22. What triggers NetworkManager's second lookup is not confirmed; the
+destination address in the capture is.
+
+**Decided** (Guillaume): x1's endpoint becomes **`vpn.ledcom.fr`**, a CNAME to `home.ledcom.fr`
+at Gandi, so it follows whatever keeps `home.ledcom.fr` current (finding 25) with no second
+updater. Not an A record of its own, not the public IP literal (it changed twice in one day
+during the 2026-09-11 box swap), not MikroTik Cloud DDNS. Open risk: Pi-hole could answer the
+CNAME's target from its local record. `vpn.md` updated (Endpoint decision, x1 keyfile).
+
+**`vpn.ledcom.fr` check, first try** (desktop, `dig vpn.ledcom.fr @192.168.20.40` twice,
+15:36:48 and 15:37:51): `NXDOMAIN` both times, SOA serial `1793370977` (= 14:36:17 UTC, 31 s
+before the first query: Gandi's serial is the time of the last zone change). The second answer
+came from Pi-hole's cache (SOA TTL 10737 = 10800 − 63 s). The zone's negative TTL is 10800 s, so
+Pi-hole and its upstream keep that NXDOMAIN until about 18:37. Until then, a test through the
+tunnel would see NXDOMAIN and could pass for the wrong reason (NetworkManager would keep the
+first address), so the x1 test waits for a real answer through Pi-hole.
+Asked Gandi directly (`dig +norecurse vpn.ledcom.fr @ns-142-a.gandi.net`, 15:39:39):
+`NXDOMAIN`, flag `aa`, `ANSWER: 0`, same serial. So the zone save at 15:36:17 CET did not create
+`vpn.ledcom.fr` at all (a CNAME with a bad target would still show the CNAME line). Suspected:
+the name typed as `vpn.ledcom.fr`, which Gandi stores as `vpn.ledcom.fr.ledcom.fr`. To check.
+
+**Gandi zone** (Guillaume's export): the record is `vpn.home 300 IN CNAME home.ledcom.fr.`, so
+`vpn.home.ledcom.fr`, not `vpn.ledcom.fr`. That name cannot work from inside the tunnel: Pi-hole
+conditionally forwards all of `home.ledcom.fr` to the router, and the router forwards it back
+to Pi-hole (2026-10-28 loop check: an unknown name there gets `NXDOMAIN`). Neither ever asks
+Gandi, so x1 would get NXDOMAIN on the second lookup, and a DHCP client named `vpn` would get
+it through the lease-script. To rename to `vpn` (= `vpn.ledcom.fr`, outside the local domain).
+
+Seen in passing in the same export: `home 300 IN A 178.192.223.49` (current, TTL 300, as a DDNS
+updater would leave it) but the apex `@ 10800 IN A 188.61.18.91`, the address from before the
+2026-09-11 box swap. Whatever keeps `home` current (finding 25) does not touch the apex. Not
+checked whether anything uses `ledcom.fr` itself.
+
+**Renamed at Gandi** (Guillaume: `vpn.home` → `vpn`). `dig +norecurse vpn.ledcom.fr
+@ns-142-a.gandi.net` (15:42:47): `NOERROR`, `aa`, `vpn.ledcom.fr. 300 IN CNAME home.ledcom.fr.`
+and `home.ledcom.fr. 300 IN A 178.192.223.49` in the same answer. Published. (At 15:41:55 the
+serial was still the 15:36:17 one: not yet saved/published then.) Pi-hole check pending: its
+cache and its upstream's may still hold the 15:36 NXDOMAIN until about 18:37.
+Pi-hole: `sudo pihole reloaddns` (`[✓] Flushing DNS cache`), then `dig vpn.ledcom.fr
+@192.168.20.40` twice (15:43:48, 15:43:51): `NOERROR`, `vpn.ledcom.fr CNAME home.ledcom.fr` and
+`home.ledcom.fr A 178.192.223.49` both times, **not `192.168.20.60`**. The upstream no longer held
+the NXDOMAIN. Both answers had TTL 300 three seconds apart (133 ms, then 42 ms), so the second
+was probably forwarded again rather than served from Pi-hole's cache: the cached case is not
+proven by this. The x1 test covers it (lookups through the tunnel over several minutes).
+
+**On x1** (Guillaume): endpoint changed in the keyfile to `vpn.ledcom.fr:51820` (`sed` on
+`/etc/NetworkManager/system-connections/wg-home.nmconnection`, `nmcli connection reload`).
+
+**Verified from outside the LAN** (x1 on the phone's hotspot, Guillaume's summary):
+- `nmcli connection up wg-home`, then `ping -c3 192.168.10.1`: works.
+- `curl -4 -s ifconfig.me` → `178.192.223.49`: full tunnel, x1 leaves from the home address.
+- `ssh admin@192.168.10.2 /system/identity/print`: works, so `mgmt` over the tunnel
+  (`wireguard2users`) and the `admin` user's `address=` (`192.168.50.0/24` already in it).
+- After waiting past the point where it broke before: `resolvectl query vpn.ledcom.fr` gives
+  the public address through Pi-hole; `sudo wg show wg-home`: `endpoint: 178.192.223.49:51820`,
+  `latest handshake: 39 seconds`, `transfer: 10.5 KiB received, 11.05 KiB sent` (balanced, unlike
+  the 1.26 / 18.68 KiB before); a second `ping -c3 192.168.10.1` works.
+
+**x1's road-warrior VPN works.** Docs: `vpn.md` (status, Endpoint decision), README lesson
+(NetworkManager looks the endpoint up again, from inside the tunnel), and x1 at `.3` in the
+`wireguard` network of `network-addressing.nwdiag` (re-rendered, svg + png). Still to do:
+`192.168.50.3` in switch-livingroom's `mgmt` when the TV is on.
+
+## x1's VPN fails again: Pi-hole serves the CNAME stale, with HA's address (2026-10-30)
+
+About 15 minutes after the verification above, the tunnel failed again. Guillaume's `dig
+vpn.ledcom.fr @192.168.20.40` from the desktop, four times:
+- 15:43:51: `CNAME home.ledcom.fr`, `A 178.192.223.49`, TTL 300 (the earlier check).
+- **15:59:44: flags `qr aa rd ra`, `EDE: 3 (Stale Answer)`, TTL 0, `vpn.ledcom.fr CNAME
+  home.ledcom.fr` and `home.ledcom.fr A 192.168.20.60`.**
+- 15:59:58 and 16:00:02: `CNAME home.ledcom.fr`, `A 178.192.223.49`, TTL 300 again.
+
+Pi-hole serves stale answers: once the 300 s TTL has run out, the next query gets the expired
+cache entry at once (`EDE: 3`) while Pi-hole refreshes it upstream. To build that answer it
+follows the cached CNAME to `home.ledcom.fr` and fills in its own local record (`aa`: local
+data). So the first query after each expiry gets `192.168.20.60`. This is the case the 15:43
+check could not prove. NetworkManager's later lookup of x1's endpoint can land on it, and then
+x1 sends to HA's LAN address again.
+
+**Decided** (Guillaume): `vpn.ledcom.fr` becomes a **plain A record**, `178.192.223.49`, kept by
+hand. Pi-hole has no local entry for that name, so even a stale answer is the public address.
+The home address is stable enough (the only changes on record are the two from the 2026-09-11
+box swap). An updater
+(router or Home Assistant) is possible later; see finding 25.
+
+**A record live** (Guillaume): CNAME `vpn` deleted, `vpn 300 IN A 178.192.223.49` added at Gandi.
+`dig +norecurse vpn.ledcom.fr @ns-142-a.gandi.net` (16:09:52): `NOERROR`, `aa`, one answer,
+`vpn.ledcom.fr. 300 IN A 178.192.223.49`. `sudo pihole reloaddns` (`[✓] Flushing DNS cache`),
+then `dig vpn.ledcom.fr @192.168.20.40` (16:10:39): `A 178.192.223.49`, no CNAME. x1 "seems to
+work for now" (Guillaume). **Still to verify:** a query through Pi-hole more than 5 min after
+the last one (the stale-answer case), and x1 used for 15-20 min with `wg show` still giving
+`endpoint: 178.192.223.49:51820` afterwards.
+
+## Finding 44 opened: the router's `device-mode` (2026-10-30)
+
+From the sniffer refusal above. MikroTik's Device-mode page (help.mikrotik.com, read
+2026-10-30): `home` turns off the scheduler, fetch, the sniffer, RoMON, email, bandwidth test,
+hotspot, proxy, SOCKS and ZeroTier. `basic` turns the first five back on and keeps the rest off.
+The scheduler matters most: the README's auto-rollback pattern cannot run on the router. Proposal
+in `config-review.md` finding 44: `basic`, needing a physical button press and a reboot. Nothing
+changed on any device. `scripts/dump-configs.sh` now also runs `/system/device-mode/print`
+(read-only), so the next dump shows every device's mode.
+
+**Stale-answer check passed** (desktop, `dig vpn.ledcom.fr @192.168.20.40`, 16:19:52, more than
+5 min after the last query): `EDE: 3 (Stale Answer)`, TTL 0, `vpn.ledcom.fr A 178.192.223.49`, no
+`aa` flag. The case that broke the CNAME now gives the public address. Still to verify: x1 used
+for 15-20 min, `wg show` endpoint still `178.192.223.49:51820`.

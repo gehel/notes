@@ -237,7 +237,7 @@ rule change. IPv6 has one more NAT rule, the NAT66 masquerade (below).
 
 | List | Members | Purpose |
 |---|---|---|
-| `mgmt` | router (`.10.1`), switch-main, switch-office, ap-main, switch-livingroom, `.10.6` (router staging address, until the rollback week ends), desktop, gimli (work laptop), phone (via `wireguard1`) | full management access. Separate gate: each device's `admin` user has its own `address=` restriction |
+| `mgmt` | router (`.10.1`), switch-main, switch-office, ap-main, switch-livingroom, `.10.6` (router staging address, until the rollback week ends), desktop, x1 (work laptop, was gimli), phone and x1 (via `wireguard1`) | full management access. Separate gate: each device's `admin` user has its own `address=` restriction |
 | `ha-mikrotik-targets` | switch-main, switch-office, ap-main, switch-livingroom | HA's MikroTik integration (8728) through `services2users`. ap-main and switch-livingroom were added 2026-10-20. The router itself is reached through `chain=input` |
 | `octoprint` | OctoPrint wired (`.30.80`) and wifi (`.30.81`) | exception to `iot2internet` and `users2iot` |
 | `iotawatt` | IotaWatt (`.30.50`) | exception to `iot2internet` (firmware updates, NTP) |

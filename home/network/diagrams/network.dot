@@ -57,7 +57,7 @@ digraph home {
   tv      [label="Samsung TV\n192.168.10.50 wired  ·  .51 wifi" fillcolor="#dcfce7"];
   amp     [label="Onkyo amp\n192.168.10.52 wired  ·  .53 wifi" fillcolor="#dcfce7"];
   nintendo [label="Nintendo Switch\n192.168.10.54 wired  ·  .55 wifi" fillcolor="#dcfce7"];
-  users_wifi [label="users wireless clients\nlaptop \"gimli\" (.92), phones, others\n(DHCP lease review pending)" fillcolor="#dcfce7" style="rounded,filled,dashed"];
+  users_wifi [label="users wireless clients\nlaptop \"x1\" (.92), phones, others\n(DHCP lease review pending)" fillcolor="#dcfce7" style="rounded,filled,dashed"];
 
   // ------------------------------------------------------- vlan-services (20)
   pihole  [label="Pi-hole\n192.168.20.40  ·  wired\nDNS for the whole LAN" fillcolor="#ede9fe"];

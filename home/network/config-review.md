@@ -59,6 +59,20 @@ domain-ownership proof, never for updating the A record) — not yet reconciled.
 finding open, and the section below as originally written, until the actual mechanism is
 confirmed and documented properly; don't treat this as closed in the meantime.
 
+**Evidence, 2026-10-30** (Gandi zone export, `changelog.md`): `home 300 IN A 178.192.223.49` is
+current, with a 300 s TTL as a DDNS updater would leave it, but the apex `@ 10800 IN A
+188.61.18.91` is still the address from before the 2026-09-11 box swap. So something does update
+`home`, and only `home`. Not checked whether anything uses the bare `ledcom.fr`.
+
+**`vpn.ledcom.fr` (x1's WireGuard endpoint, 2026-10-30) is a plain A record kept by hand.** A
+CNAME to `home` would have followed the updater, but Pi-hole's stale answers turn it into HA's
+LAN address (`vpn.md`). So if the home address changes, `vpn` goes stale and x1's tunnel stops,
+while the phone (on `home.ledcom.fr`) keeps working. Two ways to keep `vpn` current, not
+decided: add `vpn` to whatever updates `home`, once that is identified (Home Assistant, by the
+2026-09-22 report); or a router script calling Gandi's LiveDNS API with `/tool/fetch`. The router
+runs `device-mode` `home`, which already refuses `/tool/sniffer`: check that `fetch` is allowed
+before designing that.
+
 Found 2026-09-11, during the Internet-Box replacement (see `changelog.md`). The record is a
 plain A record at Gandi, manually maintained — nothing watches for the ISP-assigned public IP
 changing and updates it. The box swap changed the public IP *twice* in one day (once from the
@@ -159,6 +173,60 @@ persistent-keepalive=25s responder=no`.
 the phone's next handshake sets again. Guillaume confirmed the tunnel still works from the
 phone, the same evening. **To verify:** no `giving up` round in the router log over the next
 days. The router rebooted that evening (43), so its log starts then.
+
+### 44. The router's `device-mode` is `home`, which turns off the scheduler, fetch and the sniffer (medium, found 2026-10-30, proposal, not decided)
+
+Found 2026-10-30: `/tool/sniffer` on the router answered `failure: not allowed by device-mode`
+(`changelog.md`). The router runs `mode: home` (2026-10-28 print), the default for home routers
+on RouterOS 7.17 and later. MikroTik's Device-mode page (help.mikrotik.com, 2026-10-30), for the
+features that matter here:
+
+| Feature | home | basic | advanced |
+|---|---|---|---|
+| Scheduler | no | yes | yes |
+| Fetch | no | yes | yes |
+| Sniffer | no | yes | yes |
+| RoMON | no | yes | yes |
+| Email | no | yes | yes |
+| Bandwidth test | no | no | yes |
+| Hotspot, proxy, SOCKS, ZeroTier | no | no | yes |
+| Containers, traffic generator | no | no | no |
+
+IPsec, L2TP, PPTP and SMB are on in all three. No mode has everything on; single features can
+be set with `update`, for example `bandwidth-test=yes`.
+
+What `home` costs here:
+- **No scheduler** (from the docs; not tried on the router). The README's pattern for changes
+  that can cut management, a scheduled auto-rollback, does not work on the router: the device
+  where it matters most. It has not been used there yet: the RB5009 cutover used plain
+  `/system/script`. Also no periodic job, such as a DDNS update.
+- **No fetch:** no router-side updater for `vpn.ledcom.fr` (finding 25), which also needs the
+  scheduler.
+- **No sniffer:** no capture on the router (2026-10-30, the x1 WireGuard debugging).
+- **No RoMON:** a management path over L2, independent of IP configuration, in addition to
+  MAC-Telnet. Useful only with RoMON on every device.
+
+What `home` protects: someone with the router's admin password but no physical access cannot
+turn these on. Without that protection, they could use the sniffer to capture traffic, the
+scheduler to keep a foothold, and fetch to download tools. The admin login is already limited
+to `mgmt` sources and to the `admin` user's own `address=` list.
+
+**Proposal: `basic` on the router.** It turns on exactly the useful set (scheduler, fetch,
+sniffer, RoMON, plus email) and keeps proxy, SOCKS, ZeroTier, hotspot, bandwidth test and
+containers off. `advanced` would add mostly attack surface here.
+
+**Procedure** (from the docs; physical access needed):
+`/system/device-mode/update mode=basic`, then within the activation timeout (5 min default)
+press the router's button briefly, or cold-boot it (unplug the power). The router reboots
+either way, so internet is down for the whole house for a minute or two: pick a quiet time. A
+`mode=` update replaces the whole device-mode config. After three `update` attempts, further
+attempts are blocked until a power cycle. Check afterwards: `/system/device-mode/print`, then
+`/system/scheduler/print` and `/tool/sniffer/quick` no longer refused.
+
+**First, read-only:** the switches' and ap-main's modes are not known. They were installed
+before 7.17, when every device was on `advanced` (formerly `enterprise`), and ap-main ran
+sniffer captures on the night of 2026-10-06 (`changelog.md`, S17). `/system/device-mode/print` was added to `dump-configs.sh` on 2026-10-30,
+so the next dump shows all five.
 
 ### S22. ap-main's log reaches back less than a day (low, found 2026-10-28, fix applied 2026-10-28, to verify)
 
