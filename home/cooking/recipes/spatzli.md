@@ -26,5 +26,5 @@
 
 ## Notes
 
-- Cooked spätzli keep warm in the buttered pan, so they can be done first and the halloumi
-  last.
+- Cooked spätzli keep warm in the buttered pan, so they can be done first and a main that
+  has to be served fresh (halloumi, sautéed cabbage) last.

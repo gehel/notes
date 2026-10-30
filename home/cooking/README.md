@@ -10,6 +10,7 @@ holds the household constraints every meal plan has to respect, and links everyt
 - **Known tastes:** Augustin doesn't love halloumi, but accepts it pan-fried.
 - **Everything is homemade** — spätzli, etc. Baselines should assume cooking from scratch,
   not bought shortcuts.
+- **Kitchen:** rice cooker, bread machine — homemade bread doesn't tie up the oven.
 - **Guillaume's diet: no carbs in the evening.** Everyone else does eat carbs. So a
   typical dinner is a shared low-carb main (protein + veg) that everyone eats, plus a carb
   side that only the girlfriend and kids eat. Guillaume makes up the missing volume with extra
@@ -37,6 +38,14 @@ holds the household constraints every meal plan has to respect, and links everyt
 | [Fried beetroot](recipes/fried-beetroot.md) | Yes | Baseline |
 | [Red cabbage with bacon](recipes/red-cabbage-bacon.md) | Yes | Guillaume's version |
 | [Rice](recipes/rice.md) | No — carb side | Guillaume's version (rice cooker) |
+| [Roasted pumpkin](recipes/roasted-pumpkin.md) | Yes | Baseline |
+| [Spaghetti primavera](recipes/spaghetti-primavera.md) | No — pasta (lunch dish) | Baseline |
+| [Pumpkin soup](recipes/pumpkin-soup.md) | Yes | Guillaume's version (coconut milk) |
+| [Bread](recipes/bread.md) | No — carb side | Guillaume's version (bread machine) |
+| [Roast chicken with vegetables](recipes/roast-chicken.md) | Yes | Baseline |
+| [Roasted potatoes](recipes/roasted-potatoes.md) | No — carb side | Baseline |
+| [Polenta](recipes/polenta.md) | No — starch | Baseline |
+| [Mushroom ragout with leek and spinach](recipes/mushroom-ragout.md) | Yes (add a protein) | Baseline |
 
 ## Conventions
 

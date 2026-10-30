@@ -22,7 +22,8 @@
 ## Notes
 
 - **Augustin (7) doesn't love halloumi**, but it goes down OK pan-fried — keep it to this
-  method rather than grilled/raw-in-salad when cooking for the whole family.
+  method rather than grilled/raw-in-salad when cooking for the whole family. Confirmed
+  2026-10-29: not a fan, but ate enough of it.
 - **Fry it last.** Halloumi turns rubbery as it cools, so it's the one thing that can't wait
   on the table.
 - Honey drizzle is a classic finish but doesn't fit Guillaume's plate — do it on the others'
