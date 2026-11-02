@@ -4,8 +4,8 @@
   net carbs per 100 g), but his diet is about starches, so it's fine.
 - **Status:** generic baseline, not yet Guillaume's version. Known: homemade, i.e. from raw
   beetroot.
-- **Serves:** the whole family, ~1 medium beetroot (~150 g) per adult, about half that per
-  kid — ~4 medium beetroots total.
+- **Serves:** the whole family, ~1 medium beetroot (~150 g) per adult and for Oscar, about
+  half that for Augustin — ~4 medium beetroots total.
 
 ## Ingredients
 

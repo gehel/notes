@@ -4,8 +4,8 @@
   or a lunch main for everyone.
 - **Status:** generic baseline, not yet Guillaume's version. *(Unknown: which polenta,
   stovetop or oven.)*
-- **Serves:** the whole family as a lunch main: 300 g coarse polenta (~80 g per adult,
-  ~60 g per kid, a little margin).
+- **Serves:** the whole family as a lunch main: 300 g coarse polenta (~80 g per adult and
+  for Oscar, ~60 g for Augustin).
 
 ## Ingredients
 

@@ -1,9 +1,9 @@
 # Spätzli
 
-- **Evening plate for Guillaume:** no — carb side for the girlfriend and kids.
+- **Evening plate for Guillaume:** no — carb side for France and the kids.
 - **Status:** generic baseline, not yet Guillaume's version. Known: always homemade.
   *(Unknown: press/hobel/board, any additions like cheese or herbs.)*
-- **Serves:** girlfriend + both kids (7 and 10) as a side. Scale ~100 g flour and 1 egg per
+- **Serves:** France + both kids (7 and 10) as a side. Scale ~100 g flour and 1 egg per
   person; 300 g leaves a little margin with kids' portions.
 
 ## Ingredients

@@ -5,8 +5,8 @@
 - **Status:** Guillaume's version (method, 2026-10-29). Quick-sautéed, not braised.
   *(Bacon quantity is an estimate, not yet confirmed.)*
 - **Serves:** the whole family. 1 large red cabbage and ~300 g bacon for 4, with bacon as the
-  protein — Guillaume's share is bigger since he has no carb side. *(Whether 1 large cabbage
-  is enough: to check on 2026-10-30.)*
+  protein — Guillaume's share is bigger since he has no carb side. 1 large cabbage is enough
+  for 4 (confirmed 2026-10-30).
 
 ## Ingredients
 

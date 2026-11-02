@@ -1,9 +1,9 @@
 # Bread
 
-- **Evening plate for Guillaume:** no — carb side for the girlfriend and kids.
+- **Evening plate for Guillaume:** no — carb side for France and the kids.
 - **Status:** Guillaume's version (bread machine, 2026-10-30). *(Unknown: which flour and
   recipe, which program, loaf size.)*
-- **Serves:** one loaf — more than the girlfriend and kids eat with one dinner; the rest does
+- **Serves:** one loaf — more than France and the kids eat with one dinner; the rest does
   for breakfast.
 
 ## Ingredients

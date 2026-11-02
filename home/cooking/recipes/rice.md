@@ -1,8 +1,8 @@
 # Rice
 
-- **Evening plate for Guillaume:** no — carb side for the girlfriend and kids.
+- **Evening plate for Guillaume:** no — carb side for France and the kids.
 - **Status:** Guillaume's version (rice cooker, 2026-10-29). *(Unknown: which rice.)*
-- **Serves:** girlfriend + both kids (7 and 10) as a side: **2 measures**, the rice cooker's
+- **Serves:** France + both kids (7 and 10) as a side: **2 measures**, the rice cooker's
   minimum. That's more than the three eat, so there are always leftovers.
 
 ## Ingredients

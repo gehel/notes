@@ -4,8 +4,8 @@
   so Guillaume eats it too.
 - **Status:** generic baseline, not yet Guillaume's version. *(Unknown: homemade or dry
   pasta, which vegetables, cream or not.)*
-- **Serves:** the whole family as a main: 400 g dry spaghetti (~120 g per adult, ~80 g per
-  kid).
+- **Serves:** the whole family as a main: ~450 g dry spaghetti (~120 g per adult and for
+  Oscar, ~80 g for Augustin).
 
 ## Ingredients
 

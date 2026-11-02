@@ -1,7 +1,7 @@
 # Roast chicken with vegetables
 
 - **Evening plate for Guillaume:** yes — shared main, chicken plus the vegetables from the
-  tray. He adds a green salad instead of the potatoes.
+  tray. He takes more of the vegetables instead of the potatoes.
 - **Status:** generic baseline, not yet Guillaume's version.
 - **Serves:** the whole family. A ~1.8 kg chicken for 4, with Guillaume's share bigger
   since he has no carb side. A ~2 kg bird leaves some for the next day's lunch.
@@ -11,7 +11,8 @@
 - 1 whole chicken, ~1.8–2 kg
 - Butter or olive oil
 - 1 lemon, 1 head of garlic (halved across), a few sprigs of thyme
-- Vegetables for the tray: ~600 g carrots, 2 fennel bulbs, 2 onions, cut in big chunks
+- Vegetables for the tray, cut in big chunks: ~1.3 kg carrots and 1 celeriac. 1 kg carrots
+  and 1 celeriac was only just enough for 4 (2026-11-01). Fennel and onions also work.
 - Salt, pepper
 
 ## Steps

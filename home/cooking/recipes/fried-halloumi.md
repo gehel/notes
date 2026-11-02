@@ -2,9 +2,9 @@
 
 - **Evening plate for Guillaume:** yes — it's his main protein on carb-free evenings.
 - **Status:** generic baseline, not yet Guillaume's version.
-- **Serves:** the whole family, ~400 g total (two 250 g blocks leave some spare): ~150 g for
-  Guillaume since he has no carb side, ~100 g for his girlfriend, ~80 g for the 10-year-old,
-  a small portion for Augustin.
+- **Serves:** the whole family, ~450 g total (two 250 g blocks): ~150 g for Guillaume
+  since he has no carb side, ~100 g for France, ~120 g for Oscar (a full portion and then
+  some), ~80 g for Augustin (both seen 2026-10-29).
 
 ## Ingredients
 

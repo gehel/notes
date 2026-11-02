@@ -1,8 +1,8 @@
 # Roasted potatoes
 
-- **Evening plate for Guillaume:** no — carb side for the girlfriend and kids.
+- **Evening plate for Guillaume:** no — carb side for France and the kids.
 - **Status:** generic baseline, not yet Guillaume's version.
-- **Serves:** girlfriend + both kids (7 and 10) as a side: ~700 g potatoes.
+- **Serves:** France + both kids (7 and 10) as a side: ~700 g potatoes.
 
 ## Ingredients
 
