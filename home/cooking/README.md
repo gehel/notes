@@ -49,16 +49,18 @@ portion aside just in case.)*
   **recette de base générique** waiting to be replaced by how he actually makes it. A
   `## Historique` section at the end logs each time the dish was cooked, with how it went —
   the raw material for learning what the family likes and for suggesting future meals.
-- **KitchenOwl is the meal plan** (since 2026-11-02; the repo's `meal-log.md` was migrated
-  into it and deleted — see git history for the original). Its planner holds what is eaten
-  on which day, past and upcoming, from 2026-10-29 on. It only stores a recipe and a date: no
-  lunch/dinner, no notes, no dishes without a recipe (sausages, ham, boiled potatoes, plain
-  pasta). Run `pull` to read the current plan before planning or logging anything.
+- [`planning.md`](planning.md) — the meal plan, past and upcoming, from 2026-10-29 on: one
+  `## YYYY-MM-DD` heading per day, one line per meal (midi/soir), linking the recipes eaten.
+  It is the source for KitchenOwl's planner, which only stores a recipe and a date — the
+  lunch/dinner split and the notes stay in this file. Every side gets a recipe (even plain
+  [pâtes](recipes/pates.md)), so that it lands on the planner; sausages and ham stay as text.
+  (It replaced `meal-log.md`; the meal feedback moved into the recipes' `## Historique`.)
 - `scripts/kitchenowl.py` — syncs with the family's KitchenOwl household ("Cap 21" on
   app.kitchenowl.org, French catalog). `pull` writes a read-only snapshot to `kitchenowl/`
-  (gitignored). `sync-recipes` pushes `recipes/*.md`. `plan DATE recipe.md…` puts recipes on
-  the planner and their ingredients on the shopping list (`--no-shopping` for leftovers or
-  past meals). Both write commands are dry runs unless given `--apply`. The token is
+  (gitignored). `sync-recipes` pushes `recipes/*.md`. `sync-plan` pushes `planning.md` to the
+  planner; it lists the planner entries that aren't in the file and removes them only with
+  `--prune`. `shop DATE|recipe.md…` puts ingredients on the shopping list (a day skips meals
+  marked `*(restes)*`). The write commands are dry runs unless given `--apply`. The token is
   `KITCHENOWL_TOKEN`. Inside the sandbox it comes from the keyring
   (`secret-tool … service nono username kitchenowl_token`). The script's header holds the
   details, including `PANTRY`: the staples (salt, oil, dried spices…) that `plan` never puts
@@ -79,10 +81,13 @@ portion aside just in case.)*
 | [Pain](recipes/pain.md) | No — carb side | Guillaume's version (bread machine) |
 | [Poulet rôti aux légumes](recipes/poulet-roti-legumes.md) | Yes | Baseline |
 | [Pommes de terre rôties](recipes/pommes-de-terre-roties.md) | No — carb side | Baseline |
+| [Pommes de terre bouillies](recipes/pommes-de-terre-bouillies.md) | No — carb side | Baseline |
+| [Pâtes](recipes/pates.md) | No — carb side (fine at lunch) | Baseline |
 | [Polenta](recipes/polenta.md) | No — starch | Baseline |
 | [Ragoût de champignons, poireau et épinards](recipes/ragout-champignons.md) | Yes (add a protein) | Baseline |
 | [Poulet au beurre](recipes/poulet-au-beurre.md) | Yes (without the rice) | Baseline |
 | [Saumon au four et brocoli](recipes/saumon-brocoli.md) | Yes | Baseline |
+| [Cabillaud au four et brocoli](recipes/cabillaud-brocoli.md) | Yes | Baseline |
 | [Boulettes de viande à la sauce tomate](recipes/boulettes-sauce-tomate.md) | Yes (without the pasta) | Baseline |
 
 ## Conventions
@@ -97,12 +102,14 @@ portion aside just in case.)*
   shopping list. Mark optional items `(facultatif)`. An item used in two sub-groups (garlic in
   the meatballs and in the sauce) can appear twice; the script merges the lines. Run
   `sync-recipes` without `--apply` to see which names would create new catalog items.
-- **Planning a meal:** `plan DATE recipe.md… --apply`, with `--no-shopping` when it uses
-  leftovers. Sides with no recipe (boiled potatoes, pasta) aren't on the planner or the
-  shopping list: say so when proposing the meal.
+- **Planning a meal:** add it to `planning.md`, then `sync-recipes --apply` for any new
+  recipe, `sync-plan --apply`, and `shop DATE --apply` if it needs shopping. Run `pull` first:
+  the family also edits the planner and the shopping list in the app. A planner change made
+  in the app goes back into `planning.md` (or `sync-plan` re-adds what was removed).
 - **Logging a meal once cooked:** add a line to each recipe's `## Historique`, as
   `- YYYY-MM-DD midi|soir — avec quoi. Bilan, retours de la famille.`, then
-  `sync-recipes --apply`. If the meal changed from the plan, fix the planner too. "midi"/"soir"
+  `sync-recipes --apply`. If the meal changed from the plan, fix `planning.md` and
+  `sync-plan --prune --apply`. "midi"/"soir"
   rather than "dîner"/"souper", which mean different meals in Switzerland and in France.
   Family feedback is always worth recording — "les enfants n'y ont pas touché" included.
 - When Guillaume describes how he makes a dish, his version replaces the baseline and the

@@ -42,4 +42,5 @@
 - Variante sur une seule plaque : les fleurettes de brocoli, mélangées à l'huile et au sel,
   vont au four en premier ; le saumon les rejoint 5 min plus tard. Le brocoli rôti a les bords
   dorés au lieu de rester vert.
-- Un poisson blanc maigre (cabillaud, perche) est encore plus léger : même méthode, ~10 min.
+- Un poisson blanc maigre est encore plus léger : voir le
+  [cabillaud au four et brocoli](cabillaud-brocoli.md).

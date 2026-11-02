@@ -17,7 +17,7 @@
 - Œufs : 1
 - Pain : 1 tranche rassise, trempée dans un peu de lait et essorée (ou ~40 g de chapelure)
 - Lait : un peu, pour tremper le pain
-- Parmesan : ~30 g, râpé
+- Sbrinz : ~30 g, râpé (ou du parmesan)
 - Oignon : 1 petit, râpé ou très finement haché
 - Ail : 1 gousse, écrasée
 - Persil
