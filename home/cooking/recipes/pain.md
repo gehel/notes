@@ -30,3 +30,7 @@ d'emploi de la machine :
 - Sans surveillance, et le four reste libre. Le départ différé permet de l'avoir prêt à une
   heure donnée ; avec de la levure sèche et sans lait ni œufs dans la pâte, on peut le
   laisser tourner pendant la nuit.
+
+## Historique
+
+- 2026-10-31 soir — avec la soupe de courge et des saucisses. Bien passé.

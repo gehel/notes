@@ -21,3 +21,7 @@
 2. Cuire les spaghetti dans une eau bien salée. Garder une tasse d'eau de cuisson avant
    d'égoutter.
 3. Chauffer la moitié des tomates au micro-ondes *(la suite de la recette manque)*
+
+## Historique
+
+- 2026-11-01 midi — bien passé.

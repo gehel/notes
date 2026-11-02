@@ -34,3 +34,8 @@ entrouvert, en remuant souvent — elle crache.
 - La bramata a besoin de ses ~45 min ; la polenta instantanée ou fine prend ~5 min, mais a
   moins de goût.
 - Les restes durcissent : les couper en tranches et les poêler le lendemain.
+
+## Historique
+
+- 2026-10-31 midi — prévue avec le ragoût de champignons, remplacée par des pâtes. Pas
+  encore faite : à caser dans un prochain menu.

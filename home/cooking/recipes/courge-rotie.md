@@ -31,3 +31,8 @@
 
 - En rôtir plus ne coûte rien : les restes se gardent 3–4 jours au frigo, et deviennent une
   [soupe](soupe-courge.md) en ~20 min.
+
+## Historique
+
+- 2026-10-30 midi — avec du jambon et les restes de riz et de betteraves de la veille.
+  Bien passé.

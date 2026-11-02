@@ -40,3 +40,8 @@
 - ~25 min. Avec la polenta au four, commencer le ragoût ~20 min après avoir enfourné la
   polenta.
 - Un œuf au plat dessus ajoute des protéines pour qui en veut plus.
+
+## Historique
+
+- 2026-10-31 midi — avec des pâtes, à la place de la polenta prévue. Bien passé. Il en
+  est resté pour un autre repas (prévu le 2026-11-02 midi, avec des pâtes).

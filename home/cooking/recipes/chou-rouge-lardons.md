@@ -35,3 +35,8 @@ fois peut absorber toute la graisse — ajouter un peu d'huile si la poêle devi
 - Un gros chou, c'est beaucoup pour une poêle — le faire sauter en plusieurs fois s'il ne
   tient pas en une couche, sinon il cuit à la vapeur au lieu de frire.
 - Rapide à faire (~20 min), meilleur servi tout de suite.
+
+## Historique
+
+- 2026-10-30 soir — avec des spätzli, variante lardons d'abord. Bien passé. 1 gros chou
+  rouge a suffi pour 4.

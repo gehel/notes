@@ -46,17 +46,23 @@ portion aside just in case.)*
 - `recipes/` — one file per dish, in French, reusable across meals (e.g. halloumi poêlé goes
   with more than spätzli). Each file says whether it fits Guillaume's evening plate
   (**Assiette du soir de Guillaume**), and whether it's **version de Guillaume** or still a
-  **recette de base générique** waiting to be replaced by how he actually makes it.
-- [meal-log.md](meal-log.md) — dated log of what was cooked, with how it went, in French. The
-  raw material for learning what the family likes and for suggesting future meals. Upcoming
-  meals go in too, marked *(prévu)*, and become regular entries once cooked.
+  **recette de base générique** waiting to be replaced by how he actually makes it. A
+  `## Historique` section at the end logs each time the dish was cooked, with how it went —
+  the raw material for learning what the family likes and for suggesting future meals.
+- **KitchenOwl is the meal plan** (since 2026-11-02; the repo's `meal-log.md` was migrated
+  into it and deleted — see git history for the original). Its planner holds what is eaten
+  on which day, past and upcoming, from 2026-10-29 on. It only stores a recipe and a date: no
+  lunch/dinner, no notes, no dishes without a recipe (sausages, ham, boiled potatoes, plain
+  pasta). Run `pull` to read the current plan before planning or logging anything.
 - `scripts/kitchenowl.py` — syncs with the family's KitchenOwl household ("Cap 21" on
   app.kitchenowl.org, French catalog). `pull` writes a read-only snapshot to `kitchenowl/`
-  (gitignored). `sync-recipes` and `plan` (planner + shopping list from the *(prévu)* meal-log
-  entries) are dry runs unless given `--apply`. The token is `KITCHENOWL_TOKEN`. Inside the
-  sandbox it comes from the keyring (`secret-tool … service nono username kitchenowl_token`).
-  The script's header holds the details, including `PANTRY`: the staples (salt, oil, dried
-  spices…) that `plan` never puts on the shopping list.
+  (gitignored). `sync-recipes` pushes `recipes/*.md`. `plan DATE recipe.md…` puts recipes on
+  the planner and their ingredients on the shopping list (`--no-shopping` for leftovers or
+  past meals). Both write commands are dry runs unless given `--apply`. The token is
+  `KITCHENOWL_TOKEN`. Inside the sandbox it comes from the keyring
+  (`secret-tool … service nono username kitchenowl_token`). The script's header holds the
+  details, including `PANTRY`: the staples (salt, oil, dried spices…) that `plan` never puts
+  on the shopping list.
 
 ## Recipes
 
@@ -81,8 +87,8 @@ portion aside just in case.)*
 
 ## Conventions
 
-- **Recipes and the meal log are in French** (since 2026-11-02), to match the KitchenOwl
-  household's French item catalog. This README stays in English. Recipe file names are
+- **Recipes are in French** (since 2026-11-02), to match the KitchenOwl household's French
+  item catalog. This README stays in English. Recipe file names are
   French slugs of the title, ASCII only.
 - **One ingredient per line, `Article : quantité, précisions`**, e.g.
   `- Carottes : ~500 g, en bâtonnets`. `Article` is the exact name of a catalog item (it's
@@ -91,17 +97,18 @@ portion aside just in case.)*
   shopping list. Mark optional items `(facultatif)`. An item used in two sub-groups (garlic in
   the meatballs and in the sauce) can appear twice; the script merges the lines. Run
   `sync-recipes` without `--apply` to see which names would create new catalog items.
-- Meal-log headings are `## YYYY-MM-DD (lun) — midi|soir`, plus `*(prévu)*` until cooked.
-  Planned entries list the recipes in an `**Au menu :**` line and become `**Cuisiné :**`
-  once cooked. "midi"/"soir" rather than "dîner"/"souper", which mean different meals in
-  Switzerland and in France. A "reste" in the `Au menu` line keeps that meal's ingredients
-  off the shopping list.
+- **Planning a meal:** `plan DATE recipe.md… --apply`, with `--no-shopping` when it uses
+  leftovers. Sides with no recipe (boiled potatoes, pasta) aren't on the planner or the
+  shopping list: say so when proposing the meal.
+- **Logging a meal once cooked:** add a line to each recipe's `## Historique`, as
+  `- YYYY-MM-DD midi|soir — avec quoi. Bilan, retours de la famille.`, then
+  `sync-recipes --apply`. If the meal changed from the plan, fix the planner too. "midi"/"soir"
+  rather than "dîner"/"souper", which mean different meals in Switzerland and in France.
+  Family feedback is always worth recording — "les enfants n'y ont pas touché" included.
 - When Guillaume describes how he makes a dish, his version replaces the baseline and the
   status flips to "version de Guillaume". Never present a baseline as his recipe.
 - Quantities are for the whole family unless stated otherwise; carb sides are sized for the
   people who eat them (not Guillaume).
-- Log every meal cooked to `meal-log.md` with family feedback when there is any — "kids
-  wouldn't touch it" is worth recording.
 
 ## Lessons
 

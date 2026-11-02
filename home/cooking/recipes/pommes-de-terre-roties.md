@@ -28,3 +28,7 @@
 - Avec le [poulet rôti](poulet-roti-legumes.md) : les enfourner ~45 min avant que le poulet
   soit prêt. Pendant que le poulet repose, monter le four à 220 °C pour qu'elles finissent
   croustillantes.
+
+## Historique
+
+- 2026-11-01 soir — avec le poulet rôti aux légumes. Bien passé.

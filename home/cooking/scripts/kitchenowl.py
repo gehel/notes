@@ -4,10 +4,10 @@
 Usage:
   ./kitchenowl.py pull                    # read-only snapshot into ../kitchenowl/
   ./kitchenowl.py sync-recipes [--apply] [--adopt] [recipe.md ...]
-  ./kitchenowl.py plan [--apply] [--from YYYY-MM-DD] [--no-shopping]
+  ./kitchenowl.py plan [--apply] [--no-shopping] YYYY-MM-DD recipe.md [recipe.md ...]
 
-The recipes and the meal log are in French, to match the household's
-French item catalog. Each line under "## Ingrédients" is one item:
+The recipes are in French, to match the household's French item catalog.
+Each line under "## Ingrédients" is one item:
 
   - Article : quantité, précisions
   - Article : quantité, précisions (facultatif)
@@ -24,15 +24,17 @@ sync-recipes pushes recipes/*.md into KitchenOwl. A recipe it creates has
 recipe by that marker and update it in place. KitchenOwl replaces the whole
 ingredient list on update, so a second run gives the same result. A
 KitchenOwl recipe with the same name but no marker was made by hand in the
-app: it is skipped, unless --adopt says to take it over.
+app: it is skipped, unless --adopt says to take it over. The description
+holds the "Étapes", "Notes" and "Historique" sections.
 
-plan reads the "*(prévu)*" entries in meal-log.md, from today on by
-default. It puts each recipe linked from the "Au menu" line on the planner
-for that date. It also adds the recipe's non-optional ingredients to the
-default shopping list. It skips the items in PANTRY, the items already on
-the list, and meals that use leftovers ("reste" in the "Au menu" line).
-KitchenOwl's planner has days, not meals, so lunch and dinner on the same
-day land on the same day.
+plan puts the recipes on the planner for that date. KitchenOwl is the meal
+plan: there is no meal log in the repo. plan finds each recipe by its
+`source` marker, or else by its name (for a recipe made in the app). It
+also adds the recipes' non-optional ingredients to the default shopping
+list, without the items in PANTRY and the items already on the list. Use
+--no-shopping for a meal made from leftovers, or for a past meal.
+KitchenOwl's planner has days, not meals: lunch and dinner on the same day
+land on the same day.
 
 Both write commands only print what they would do, unless --apply is given.
 
@@ -58,7 +60,6 @@ from pathlib import Path
 
 COOKING = Path(__file__).resolve().parent.parent
 RECIPES = COOKING / "recipes"
-MEAL_LOG = COOKING / "meal-log.md"
 SNAPSHOT = COOKING / "kitchenowl"
 SOURCE_PREFIX = "notes-home:home/cooking/recipes/"
 
@@ -174,7 +175,7 @@ def parse_recipe(path):
     secs = sections(md)
     items = merge_items(parse_ingredient(b) for b in bullets(secs.get("Ingrédients", [])))
     parts = []
-    for heading in ("Étapes", "Notes"):
+    for heading in ("Étapes", "Notes", "Historique"):
         if heading in secs:
             body = "\n".join(secs[heading]).strip()
             parts.append(f"## {heading}\n\n{plain(body)}")
@@ -187,30 +188,6 @@ def parse_recipe(path):
         "source": SOURCE_PREFIX + path.name,
         "items": items,
     }
-
-
-MEAL = re.compile(r"^(\d{4}-\d{2}-\d{2}) \([^)]*\) — (\w+)(.*)$")
-MENU = re.compile(r"^\*\*Au menu\s*:\*\*")
-RECIPE_LINK = re.compile(r"\]\(recipes/([\w-]+\.md)\)")
-
-
-def planned_meals(since):
-    meals = []
-    for heading, lines in sections(MEAL_LOG.read_text()).items():
-        m = MEAL.match(heading)
-        if not m or "prévu" not in m.group(3):
-            continue
-        date = dt.date.fromisoformat(m.group(1))
-        if date < since:
-            continue
-        menu = next((b for b in bullets(lines) if MENU.match(b)), "")
-        meals.append({
-            "date": date,
-            "meal": m.group(2),
-            "recipes": RECIPE_LINK.findall(menu),
-            "leftovers": "reste" in menu.lower(),
-        })
-    return sorted(meals, key=lambda x: (x["date"], x["meal"]))
 
 
 # --- Commands ---------------------------------------------------------------
@@ -310,45 +287,42 @@ def quantity(description):
 def cmd_plan(api, args):
     h = api.household()
     hid, lid = h["id"], h["default_shopping_list"]["id"]
-    by_file = managed(api.get(f"/household/{hid}/recipe"))
+    existing = api.get(f"/household/{hid}/recipe")
+    by_file = managed(existing)
+    by_name = {r["name"].casefold(): r for r in existing}
     planner = {(p["recipe"]["id"], p["cooking_date"]) for p in api.get(f"/household/{hid}/planner")}
     on_list = {i["id"] for i in api.get(f"/shoppinglist/{lid}/items")}
-    since = dt.date.fromisoformat(args.since) if args.since else dt.date.today()
+    date = dt.date.fromisoformat(args.date)
+    midnight = dt.datetime.combine(date, dt.time(), dt.timezone.utc)
+    ms = int(midnight.timestamp() * 1000)
     to_buy = {}
-    for meal in planned_meals(since):
-        label = f"{meal['date']} {meal['meal']}"
-        if not meal["recipes"]:
-            print(f"{label}: no linked recipe, nothing to plan.")
+    for path in (Path(p).resolve() for p in args.recipes):
+        recipe = by_file.get(path.name) or by_name.get(parse_recipe(path)["name"].casefold())
+        if not recipe:
+            print(f"{date}: {path.name} is not in KitchenOwl yet. Run sync-recipes first.")
             continue
-        for name in meal["recipes"]:
-            recipe = by_file.get(name)
-            if not recipe:
-                print(f"{label}: {name} is not in KitchenOwl yet. Run sync-recipes first.")
+        if (recipe["id"], ms) in planner:
+            print(f"{date}: '{recipe['name']}' already planned.")
+        else:
+            print(f"{date}: plan '{recipe['name']}'.")
+            if args.apply:
+                api.post(f"/household/{hid}/planner/recipe",
+                         {"recipe_id": recipe["id"], "cooking_date": ms})
+            planner.add((recipe["id"], ms))
+        if args.no_shopping:
+            continue
+        for item in recipe["items"]:
+            if (item["optional"] or item["id"] in on_list
+                    or item["name"].casefold() in PANTRY):
                 continue
-            midnight = dt.datetime.combine(meal["date"], dt.time(), dt.timezone.utc)
-            ms = int(midnight.timestamp() * 1000)
-            if (recipe["id"], ms) in planner:
-                print(f"{label}: '{recipe['name']}' already planned.")
-            else:
-                print(f"{label}: plan '{recipe['name']}'.")
-                if args.apply:
-                    api.post(f"/household/{hid}/planner/recipe",
-                             {"recipe_id": recipe["id"], "cooking_date": ms})
-                planner.add((recipe["id"], ms))
-            if meal["leftovers"] or args.no_shopping:
+            description = quantity(item.get("description") or "")
+            if item["id"] in to_buy:
+                # Used by several recipes: one list entry, all quantities.
+                old = to_buy[item["id"]]["description"]
+                to_buy[item["id"]]["description"] = " + ".join(d for d in (old, description) if d)
                 continue
-            for item in recipe["items"]:
-                if (item["optional"] or item["id"] in on_list
-                        or item["name"].casefold() in PANTRY):
-                    continue
-                description = quantity(item.get("description") or "")
-                if item["id"] in to_buy:
-                    # Used by several meals: one list entry, all quantities.
-                    old = to_buy[item["id"]]["description"]
-                    to_buy[item["id"]]["description"] = " + ".join(d for d in (old, description) if d)
-                    continue
-                to_buy[item["id"]] = {"id": item["id"], "name": item["name"],
-                                      "description": description, "optional": False}
+            to_buy[item["id"]] = {"id": item["id"], "name": item["name"],
+                                  "description": description, "optional": False}
     if to_buy:
         print(f"Add to shopping list '{h['default_shopping_list']['name']}':")
         for i in to_buy.values():
@@ -368,10 +342,12 @@ def main():
     p.add_argument("--apply", action="store_true", help="write (default: dry run)")
     p.add_argument("--adopt", action="store_true",
                    help="replace a same-name recipe that was made in the app")
-    p = sub.add_parser("plan", help="put planned meals on the planner and shopping list")
+    p = sub.add_parser("plan", help="put recipes on the planner and the shopping list")
+    p.add_argument("date", help="YYYY-MM-DD")
+    p.add_argument("recipes", nargs="+", help="recipe files")
     p.add_argument("--apply", action="store_true", help="write (default: dry run)")
-    p.add_argument("--from", dest="since", help="first date (default: today)")
-    p.add_argument("--no-shopping", action="store_true", help="planner only")
+    p.add_argument("--no-shopping", action="store_true",
+                   help="planner only (leftovers, past meals)")
     args = parser.parse_args()
     commands = {"pull": cmd_pull, "sync-recipes": cmd_sync_recipes, "plan": cmd_plan}
     commands[args.command](Api(), args)

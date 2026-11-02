@@ -39,3 +39,8 @@
 - La betterave tache tout — planche, mains, et tout ce qu'elle touche dans l'assiette (y
   compris le halloumi et les spätzli). Certains enfants trouvent les spätzli roses rigolos,
   d'autres non.
+
+## Historique
+
+- 2026-10-29 soir — avec du halloumi poêlé et du riz, à partir de betteraves crues. Bien
+  passé. Les restes sont partis le lendemain midi, avec la courge rôtie.

@@ -36,3 +36,8 @@
 - Se prépare à l'avance : se garde 2–3 jours au frigo et se réchauffe en 5 min.
 - Pour manger dehors, un thermos la garde chaude des heures — le remplir d'abord d'eau
   bouillante pour le préchauffer.
+
+## Historique
+
+- 2026-10-31 soir (Halloween) — avec des saucisses et du pain maison. Préparée à l'avance
+  et réchauffée, la famille était dehors. Bien passé.

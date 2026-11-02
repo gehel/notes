@@ -24,3 +24,8 @@
 - **Les restes sont prévus d'office.** Les refroidir vite et les mettre au frigo dans l'heure
   ou les deux heures ; les manger dans la journée, bien réchauffés. Bons pour du riz sauté à
   midi — pas de restriction de glucides à ce moment-là.
+
+## Historique
+
+- 2026-10-29 soir — avec du halloumi et des betteraves poêlés. Les restes sont partis le
+  lendemain midi, avec la courge rôtie.

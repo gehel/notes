@@ -39,3 +39,9 @@ et les oignons conviennent aussi.
 - Les légumes sous le poulet récupèrent le jus de cuisson ; les remuer une fois à mi-cuisson.
 - Servir avec des [pommes de terre rôties](pommes-de-terre-roties.md) pour les autres — elles
   partagent le four.
+
+## Historique
+
+- 2026-11-01 soir — avec ~1 kg de carottes et 1 céleri-rave (au lieu des carottes, du
+  fenouil et des oignons prévus), et des pommes de terre rôties. Bien passé. Juste assez de
+  légumes — un peu plus de carottes aurait été bien. Pas de reste de poulet.

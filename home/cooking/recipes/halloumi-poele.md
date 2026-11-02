@@ -33,3 +33,9 @@
   seule chose qui ne peut pas attendre sur la table.
 - Un filet de miel est une finition classique, mais ne convient pas à l'assiette de
   Guillaume — le faire seulement sur les portions des autres, si on veut.
+
+## Historique
+
+- 2026-10-29 soir — avec des betteraves poêlées et du riz. Bien passé. Augustin n'est
+  toujours pas fan, mais en a mangé assez (~80 g) ; Oscar a mangé une portion complète, et
+  même plus.

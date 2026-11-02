@@ -32,3 +32,8 @@
 
 - Les spätzli cuits restent chauds dans la poêle beurrée : on peut donc les faire en premier,
   et finir par un plat qui doit être servi tout de suite (halloumi, chou sauté).
+
+## Historique
+
+- 2026-10-30 soir — avec le chou rouge aux lardons (prévus le jeudi, faits le vendredi).
+  Bien passé.
