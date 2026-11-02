@@ -20,6 +20,7 @@
 * meld
 * openssh-server
 * yubikey-manager-qt
+* libsecret-tools
 
 # Snap
 * intellij
