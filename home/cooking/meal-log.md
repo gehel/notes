@@ -1,109 +1,113 @@
-# Meal log
+# Journal des repas
 
-Newest first. One entry per meal: what was cooked, who ate what, how it went.
+Du plus récent au plus ancien. Une entrée par repas : ce qui a été cuisiné, qui a mangé quoi,
+comment ça s'est passé.
 
-## 2026-11-04 (Wed) — dinner *(planned)*
+## 2026-11-04 (mer) — soir *(prévu)*
 
-- **Cooking:** [butter chicken](recipes/butter-chicken.md) with green beans,
-  [rice](recipes/rice.md) (2 measures). Moved from Monday lunch.
-- **Guillaume's plate:** butter chicken + a big share of the green beans (no rice).
-- **Family's plate:** all of it.
-- **How it went:** *(to fill in)*
+- **Au menu :** [poulet au beurre](recipes/poulet-au-beurre.md) avec des haricots verts,
+  [riz](recipes/riz.md) (2 mesures). Déplacé depuis le lundi midi.
+- **Assiette de Guillaume :** poulet au beurre + une grosse part de haricots verts (sans riz).
+- **Assiette de la famille :** tout.
+- **Bilan :** *(à remplir)*
 
-## 2026-11-03 (Tue) — dinner *(planned)*
+## 2026-11-03 (mar) — soir *(prévu)*
 
-- **Cooking:** [meatballs in tomato sauce](recipes/meatballs-tomato-sauce.md) with carrot
-  and courgette in the sauce, a tray of roasted cauliflower and carrots, pasta. Meatballs
-  and vegetables both go in the oven — less time at the stove while alone with the kids.
-- **Who's there:** Guillaume and the kids — France works late.
-- **Guillaume's plate:** meatballs + sauce + a big share of the roasted vegetables (no
-  pasta).
-- **Kids' plate:** all of it. The kids can roll the meatballs.
-- **For France:** a portion of meatballs, sauce and pasta set aside, in case France eats at
-  home after work.
-- **How it went:** *(to fill in)*
+- **Au menu :** [boulettes à la sauce tomate](recipes/boulettes-sauce-tomate.md) avec carotte
+  et courgette dans la sauce, une plaque de chou-fleur et de carottes rôtis, des pâtes. Les
+  boulettes et les légumes vont tous au four — moins de temps aux fourneaux, seul avec les
+  enfants.
+- **Qui est là :** Guillaume et les enfants — France travaille tard.
+- **Assiette de Guillaume :** boulettes + sauce + une grosse part de légumes rôtis (sans
+  pâtes).
+- **Assiette des enfants :** tout. Les enfants peuvent rouler les boulettes.
+- **Pour France :** une portion de boulettes, sauce et pâtes mise de côté, au cas où France
+  mange à la maison après le travail.
+- **Bilan :** *(à remplir)*
 
-*(Tue lunch: Guillaume and France at a restaurant — nothing cooked.)*
+*(Mardi midi : Guillaume et France au restaurant — rien à cuisiner.)*
 
-## 2026-11-02 (Mon) — dinner *(planned)*
+## 2026-11-02 (lun) — soir *(prévu)*
 
-- **Cooking:** [oven-baked salmon with broccoli](recipes/baked-salmon-broccoli.md), boiled
-  potatoes (~700 g) for the others.
-- **Constraint:** Guillaume eats before his Kendo lesson — has to be light. ~25 min to
-  make.
-- **Guillaume's plate:** salmon + extra broccoli (no potatoes).
-- **Family's plate:** all of it.
-- **How it went:** *(to fill in)*
+- **Au menu :** [saumon au four et brocoli](recipes/saumon-brocoli.md), pommes de terre
+  bouillies (~700 g) pour les autres.
+- **Contrainte :** Guillaume mange avant son cours de kendo — ça doit être léger. ~25 min de
+  préparation.
+- **Assiette de Guillaume :** saumon + brocoli en plus (sans pommes de terre).
+- **Assiette de la famille :** tout.
+- **Bilan :** *(à remplir)*
 
-## 2026-11-02 (Mon) — lunch *(planned)*
+## 2026-11-02 (lun) — midi *(prévu)*
 
-- **Cooking:** pasta with the leftover
-  [mushroom ragout](recipes/mushroom-ragout.md) from Saturday's lunch. Replaces the butter
-  chicken first planned here, which moves to Wednesday's dinner.
-- **Who's there:** Guillaume and the kids; France eats later and reheats a portion.
-- **Everyone's plate**, Guillaume included — lunch has no carb restriction.
-- **How it went:** *(to fill in)*
+- **Au menu :** pâtes avec le reste de [ragoût de champignons](recipes/ragout-champignons.md)
+  du samedi midi. Remplace le poulet au beurre prévu ici au départ, qui passe au mercredi
+  soir.
+- **Qui est là :** Guillaume et les enfants ; France mange plus tard et réchauffe une portion.
+- **Assiette de tout le monde**, Guillaume compris — pas de restriction de glucides à midi.
+- **Bilan :** *(à remplir)*
 
-## 2026-11-01 (Sun) — dinner
+## 2026-11-01 (dim) — soir
 
-- **Cooked:** [roast chicken](recipes/roast-chicken.md) with ~1 kg carrots and 1 celeriac
-  (instead of the planned carrots, fennel and onions),
-  [roasted potatoes](recipes/roasted-potatoes.md).
-- **Guillaume's plate:** chicken + vegetables (no potatoes).
-- **Family's plate:** all of it.
-- **How it went:** went well. Just enough vegetables — a bit more carrots would have been
-  good. No leftover chicken.
+- **Cuisiné :** [poulet rôti](recipes/poulet-roti-legumes.md) avec ~1 kg de carottes et 1
+  céleri-rave (au lieu des carottes, du fenouil et des oignons prévus),
+  [pommes de terre rôties](recipes/pommes-de-terre-roties.md).
+- **Assiette de Guillaume :** poulet + légumes (sans pommes de terre).
+- **Assiette de la famille :** tout.
+- **Bilan :** bien passé. Juste assez de légumes — un peu plus de carottes aurait été bien.
+  Pas de reste de poulet.
 
-## 2026-11-01 (Sun) — lunch
+## 2026-11-01 (dim) — midi
 
-- **Cooked:** [spaghetti primavera](recipes/spaghetti-primavera.md).
-- **Everyone's plate**, Guillaume included — lunch has no carb restriction.
-- **How it went:** went well.
+- **Cuisiné :** [spaghetti primavera](recipes/spaghetti-primavera.md).
+- **Assiette de tout le monde**, Guillaume compris — pas de restriction de glucides à midi.
+- **Bilan :** bien passé.
 
-## 2026-10-31 (Sat) — dinner
+## 2026-10-31 (sam) — soir
 
-- **Cooked:** [pumpkin soup](recipes/pumpkin-soup.md), sausages, homemade
-  [bread](recipes/bread.md) (bread machine).
-- **Guillaume's plate:** soup + extra sausages (no bread).
-- **Family's plate:** all of it.
-- **Constraint:** Halloween — the family is outside, so dinner has to be quick and warm.
-  The soup is made ahead and only reheated.
-- **How it went:** went well.
+- **Cuisiné :** [soupe de courge](recipes/soupe-courge.md), saucisses, [pain](recipes/pain.md)
+  maison (machine à pain).
+- **Assiette de Guillaume :** soupe + saucisses en plus (sans pain).
+- **Assiette de la famille :** tout.
+- **Contrainte :** Halloween — la famille est dehors, donc le repas du soir doit être rapide
+  et chaud. La soupe est préparée à l'avance et seulement réchauffée.
+- **Bilan :** bien passé.
 
-## 2026-10-31 (Sat) — lunch
+## 2026-10-31 (sam) — midi
 
-- **Cooked:** pasta with
-  [mushroom ragout with leek and spinach](recipes/mushroom-ragout.md). Pasta replaced the
-  planned [polenta](recipes/polenta.md), which is still to do — a candidate for this week.
-- **Everyone's plate**, Guillaume included — lunch has no carb restriction.
-- **How it went:** went well.
+- **Cuisiné :** pâtes avec du
+  [ragoût de champignons, poireau et épinards](recipes/ragout-champignons.md). Les pâtes ont
+  remplacé la [polenta](recipes/polenta.md) prévue, qui reste à faire — une candidate pour
+  cette semaine.
+- **Assiette de tout le monde**, Guillaume compris — pas de restriction de glucides à midi.
+- **Bilan :** bien passé.
 
-## 2026-10-30 (Fri) — dinner
+## 2026-10-30 (ven) — soir
 
-- **Cooked:** [red cabbage with bacon](recipes/red-cabbage-bacon.md),
-  [spätzli](recipes/spatzli.md) (moved from Thursday; replaces the rice first planned here).
-- **Guillaume's plate:** red cabbage with bacon (no spätzli).
-- **Family's plate:** both.
-- **Trying:** the bacon-first variant (cabbage sautéed in the bacon fat).
-- **How it went:** went well. 1 large red cabbage was enough for 4.
+- **Cuisiné :** [chou rouge aux lardons](recipes/chou-rouge-lardons.md),
+  [spätzli](recipes/spatzli.md) (déplacés depuis jeudi ; remplacent le riz prévu ici au
+  départ).
+- **Assiette de Guillaume :** chou rouge aux lardons (sans spätzli).
+- **Assiette de la famille :** les deux.
+- **À l'essai :** la variante lardons d'abord (chou sauté dans la graisse des lardons).
+- **Bilan :** bien passé. 1 gros chou rouge a suffi pour 4.
 
-## 2026-10-30 (Fri) — lunch
+## 2026-10-30 (ven) — midi
 
-- **Cooked:** [roasted pumpkin](recipes/roasted-pumpkin.md) and ham, with leftover
-  [rice](recipes/rice.md) and leftover [beetroot](recipes/fried-beetroot.md), both from
-  Thursday's dinner.
-- **Everyone's plate:** all of it — lunch has no carb restriction.
-- **How it went:** went well.
+- **Cuisiné :** [courge rôtie](recipes/courge-rotie.md) et jambon, avec les restes de
+  [riz](recipes/riz.md) et de [betteraves](recipes/betteraves-poelees.md), tous deux du jeudi
+  soir.
+- **Assiette de tout le monde :** tout — pas de restriction de glucides à midi.
+- **Bilan :** bien passé.
 
-## 2026-10-29 (Thu) — dinner
+## 2026-10-29 (jeu) — soir
 
-- **Cooked:** [fried halloumi](recipes/fried-halloumi.md),
-  [fried beetroot](recipes/fried-beetroot.md), [rice](recipes/rice.md). Spätzli were planned
-  but moved to Friday's dinner.
-- **Guillaume's plate:** halloumi + beetroot (no rice).
-- **Family's plate:** all three (France, Oscar, Augustin).
-- **Everything homemade**, beetroot from raw.
-- **Leftovers:** rice and beetroot, eaten at Friday's lunch.
-- **Going in:** Augustin doesn't love halloumi, but OK with it pan-fried.
-- **How it went:** went well. Augustin still isn't a huge fan of the halloumi, but ate
-  enough of it (~80 g). Oscar ate a full portion and then some.
+- **Cuisiné :** [halloumi poêlé](recipes/halloumi-poele.md),
+  [betteraves poêlées](recipes/betteraves-poelees.md), [riz](recipes/riz.md). Les spätzli
+  étaient prévus, mais ont été déplacés au vendredi soir.
+- **Assiette de Guillaume :** halloumi + betteraves (sans riz).
+- **Assiette de la famille :** les trois (France, Oscar, Augustin).
+- **Tout fait maison**, les betteraves à partir de crues.
+- **Restes :** riz et betteraves, mangés le vendredi midi.
+- **Au départ :** Augustin n'aime pas trop le halloumi, mais l'accepte poêlé.
+- **Bilan :** bien passé. Augustin n'est toujours pas fan du halloumi, mais en a mangé assez
+  (~80 g). Oscar a mangé une portion complète, et même plus.

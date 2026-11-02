@@ -69,6 +69,10 @@ fabric.properties
 # from it. See home/home-assistant/README.md.
 /home/home-assistant/config/
 
+# Raw KitchenOwl snapshot (scripts/kitchenowl.py pull): household and user
+# details. Regenerate it; don't commit it. See home/cooking/README.md.
+/home/cooking/kitchenowl/
+
 # Marp slide tooling: node deps and rendered decks
 /node_modules/
 /talks/*.html

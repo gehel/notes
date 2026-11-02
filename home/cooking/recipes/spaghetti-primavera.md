@@ -1,21 +1,23 @@
 # Spaghetti primavera
 
-- **Evening plate for Guillaume:** no — pasta. A lunch dish here (no carb restriction then),
-  so Guillaume eats it too.
-- **Status:** generic baseline, not yet Guillaume's version. *(Unknown: homemade or dry
-  pasta, which vegetables, cream or not.)*
-- **Serves:** the whole family as a main: ~450 g dry spaghetti (~120 g per adult and for
-  Oscar, ~80 g for Augustin).
+- **Assiette du soir de Guillaume :** non — des pâtes. Un plat de midi ici (pas de restriction
+  de glucides à ce moment-là), donc Guillaume en mange aussi.
+- **Statut :** recette de base générique, pas encore la version de Guillaume. *(Inconnu :
+  pâtes maison ou sèches, quels légumes, crème ou pas.)*
+- **Pour :** toute la famille en plat : ~450 g de spaghetti secs (~120 g par adulte et pour
+  Oscar, ~80 g pour Augustin).
 
-## Ingredients
+## Ingrédients
 
-- 400 g spaghetti
-- ~700 g tomatoes
-- 2 garlic cloves, olive oil
-- 3 balls of mozzarella
+- Spaghetti : 400 g
+- Tomates : ~700 g
+- Ail : 2 gousses
+- Huile d'olive
+- Mozzarella : 3 boules
 
-## Steps
+## Étapes
 
-1. Cut the vegetables into bite-size pieces of roughly the same size.
-2. Cook the spaghetti in well-salted water. Keep a cup of the cooking water before draining.
-3. Heat half the tomatoes in the microwave
+1. Couper les légumes en morceaux d'une bouchée, à peu près de la même taille.
+2. Cuire les spaghetti dans une eau bien salée. Garder une tasse d'eau de cuisson avant
+   d'égoutter.
+3. Chauffer la moitié des tomates au micro-ondes *(la suite de la recette manque)*
