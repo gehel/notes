@@ -23,3 +23,8 @@
 - Le tofu fumé a déjà du goût : pas besoin de marinade.
 - Peut partager le four avec des légumes rôtis : l'ajouter à mi-cuisson, comme avec la
   [courge](courge-rotie.md) et les [choux de Bruxelles](choux-de-bruxelles-rotis.md).
+
+## Historique
+
+- 2026-11-05 soir — avec de la courge et des choux de Bruxelles rôtis. Bon, pas excellent. Il
+  en est resté, à réchauffer le 2026-11-07.

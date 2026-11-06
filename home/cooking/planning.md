@@ -57,3 +57,15 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
   [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md), [pâtes](recipes/pates.md)
   (~220 g, avec un peu de parmesan). Guillaume seul avec les enfants, et il va chercher
   Augustin au kendo : préparer les plaques avant de partir.
+
+## 2026-11-06 ven
+
+- midi : [tarte aux poireaux](recipes/tarte-aux-poireaux.md).
+- soir : [hachis parmentier](recipes/hachis-parmentier.md), préparé par France. Guillaume : la
+  bolognaise seule, avec des carottes crues.
+
+## 2026-11-07 sam
+
+- repas à préciser : Guillaume réchauffe les restes de
+  [tofu fumé rôti](recipes/tofu-fume-roti.md), de [courge rôtie](recipes/courge-rotie.md) et de
+  [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) du jeudi soir. *(restes)*

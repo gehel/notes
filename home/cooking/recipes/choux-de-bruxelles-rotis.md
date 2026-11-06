@@ -20,3 +20,8 @@
 ## Notes
 
 - Se prépare à l'avance : la plaque attend au frigo, et n'a plus qu'à aller au four.
+
+## Historique
+
+- 2026-11-05 soir — avec du tofu fumé et de la courge rôtis. Il en est resté, à réchauffer le
+  2026-11-07.

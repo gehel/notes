@@ -99,6 +99,8 @@ portion aside just in case.)*
 | [Boulettes de viande à la sauce tomate](recipes/boulettes-sauce-tomate.md) | Yes (without the pasta) | Baseline |
 | [Tofu fumé rôti](recipes/tofu-fume-roti.md) | Yes | Baseline |
 | [Choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) | Yes | Baseline |
+| [Tarte aux poireaux](recipes/tarte-aux-poireaux.md) | No — pastry (lunch dish) | Guillaume's ingredients, baseline steps |
+| [Hachis parmentier](recipes/hachis-parmentier.md) | Bolognese only, without the mash | Baseline (France cooks it) |
 
 ## Conventions
 

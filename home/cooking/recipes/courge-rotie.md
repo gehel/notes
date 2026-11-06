@@ -36,3 +36,5 @@
 
 - 2026-10-30 midi — avec du jambon et les restes de riz et de betteraves de la veille.
   Bien passé.
+- 2026-11-05 soir — avec du tofu fumé et des choux de Bruxelles rôtis. Il en est resté, à
+  réchauffer le 2026-11-07.
