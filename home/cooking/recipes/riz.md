@@ -29,3 +29,4 @@
 
 - 2026-10-29 soir — avec du halloumi et des betteraves poêlés. Les restes sont partis le
   lendemain midi, avec la courge rôtie.
+- 2026-11-04 soir — avec le poulet au beurre et des haricots verts.

@@ -49,3 +49,11 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 
 - soir : [poulet au beurre](recipes/poulet-au-beurre.md) avec des haricots verts,
   [riz](recipes/riz.md).
+
+## 2026-11-05 jeu
+
+- soir : [tofu fumé rôti](recipes/tofu-fume-roti.md),
+  [courge rôtie](recipes/courge-rotie.md) (une Hokkaido d'~1 kg),
+  [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md), [pâtes](recipes/pates.md)
+  (~220 g, avec un peu de parmesan). Guillaume seul avec les enfants, et il va chercher
+  Augustin au kendo : préparer les plaques avant de partir.

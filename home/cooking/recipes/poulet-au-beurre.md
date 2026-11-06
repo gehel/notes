@@ -1,16 +1,16 @@
 # Poulet au beurre
 
 - **Assiette du soir de Guillaume :** oui, sans le riz — du poulet dans une sauce tomate,
-  beurre et crème, c'est pauvre en glucides. Le soir, les haricots verts remplacent le riz
-  dans son assiette.
+  beurre et crème, c'est pauvre en glucides. Le soir, les carottes remplacent le riz dans son
+  assiette. Pas de haricots verts : ils comptent comme un féculent pour son régime.
 - **Statut :** recette de base générique, pas encore la version de Guillaume.
 - **Pour :** toute la famille, en plat avec du [riz](riz.md) : ~700 g de poulet, ~600 g de
-  haricots verts.
+  carottes.
 
 ## Ingrédients
 
 - Cuisses de poulet : ~700 g, désossées (ou du blanc), en morceaux d'une bouchée
-- Beurre : 40 g
+- Beurre : 20 g
 - Huile : un filet
 - Oignon : 1, finement haché
 - Ail : 3 gousses, râpées
@@ -20,18 +20,15 @@
 - Cumin : 1 cc, moulu
 - Curcuma : ½ cc
 - Passata : 400 g (ou une boîte de tomates concassées, mixées)
-- Crème : ~1,5 dl
+- Crème : ~0,75 dl
 - Sel
 - Sucre : une pincée, si les tomates sont acides
 - Coriandre : fraîche (facultatif)
 - Piment : en flocons, ou un piment frais (facultatif)
 
-**Haricots verts** (l'accompagnement de légumes) :
+**Carottes** (l'accompagnement de légumes) :
 
-- Haricots verts : ~600 g, équeutés
-- Ail : 1 gousse, émincée
-- Beurre : une noisette, pour les haricots (ou de l'huile)
-- Sel
+- Carottes : ~600 g, en bâtonnets, à servir crues
 
 ## Étapes
 
@@ -43,14 +40,14 @@
 3. Ajouter la passata, laisser mijoter ~10 min. Mixer si on la veut lisse.
 4. Remettre le poulet avec la crème. Laisser mijoter ~8–10 min, jusqu'à ce que le poulet soit
    cuit à cœur. Rectifier l'assaisonnement.
-5. Pendant ce temps, cuire les haricots verts à l'eau bouillante salée ~6–8 min, jusqu'à ce
-   qu'ils soient juste tendres. Égoutter, les faire sauter à la poêle 1–2 min avec le beurre
-   ou l'huile et l'ail.
+5. Pendant ce temps, couper les carottes en bâtonnets.
 
 ## Notes
 
 - ~35 min, surtout du mijotage. Lancer le [riz](riz.md) en premier — il lui faut ~45 min.
 - Piquant au goût : ajouter le piment avec les épices, ou le servir à part.
+- Beurre et crème réduits de moitié après le 2026-11-04, jugé un peu trop gras (40 g de
+  beurre, 1,5 dl de crème). Pour alléger encore : du blanc plutôt que des cuisses.
 - **Se réchauffe très bien**, encore meilleur le lendemain. Pour quelqu'un qui mange plus
   tard : la sauce dans un récipient, le riz dans un autre, les deux réchauffés jusqu'à être
   bien chauds.
@@ -58,3 +55,8 @@
   l'étape 4, juste le temps de le réchauffer (~5 min).
 - Avec plus de temps devant soi : faire mariner le poulet cru la veille dans ~150 g de yaourt
   nature avec le sel et les épices, pour une viande plus tendre.
+
+## Historique
+
+- 2026-11-04 soir — avec du riz et des haricots verts ; Guillaume a pris des carottes crues à
+  la place des haricots. Bon, mais un peu trop de lipides.

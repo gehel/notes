@@ -23,8 +23,16 @@ holds the household constraints every meal plan has to respect, and links everyt
 - **Guillaume wants plenty of vegetables at dinner** — beyond what's in a sauce. He almost
   never eats salad, so a cooked vegetable side is the default, not a green salad.
 - **Not super strict:** it's about starches (pasta, spätzli, bread, potatoes, rice). Sweeter
-  veg like beetroot are fine on his plate.
+  veg like beetroot are fine on his plate. **Legumes count as starches**: beans (green beans
+  included), peas, lentils, etc. — never the vegetable side on his plate.
+- **Watch the fat on his plate too:** the butter chicken of 2026-11-04 (40 g butter, 1.5 dl
+  cream) was good but a bit too fatty.
 - Lunch has no carb restriction.
+- **Plant-based proteins, at least from time to time** (asked 2026-11-05, for the planet):
+  meal proposals should regularly offer a non-animal protein, not default to meat or fish.
+  Beans and lentils can't fill that role on Guillaume's evening plate (see above), but they
+  can at lunch. Tofu is fine on his evening plate (confirmed 2026-11-05), even though it's
+  soy. *(Unknown: tempeh.)*
 
 ## Weekly rhythm
 
@@ -89,6 +97,8 @@ portion aside just in case.)*
 | [Saumon au four et brocoli](recipes/saumon-brocoli.md) | Yes | Baseline |
 | [Cabillaud au four et brocoli](recipes/cabillaud-brocoli.md) | Yes | Baseline |
 | [Boulettes de viande à la sauce tomate](recipes/boulettes-sauce-tomate.md) | Yes (without the pasta) | Baseline |
+| [Tofu fumé rôti](recipes/tofu-fume-roti.md) | Yes | Baseline |
+| [Choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) | Yes | Baseline |
 
 ## Conventions
 
