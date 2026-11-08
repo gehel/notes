@@ -4726,6 +4726,32 @@ get_bucket_lifecycle_configuration -> [{'Expiration': {'Days': 30}, 'ID': 'expir
 **Every object in the bucket now expires after 30 days.** Not checked: which endpoint motionEye's
 upload settings use (both answered with region `gva2`).
 
+## MotionEye camera: libcamera path, and a broken sensor mode (2026-11-08)
+
+Host side, no network change. Logged here because MotionEye has no notes area of its own.
+
+- **`gpu_mem=16` broke the camera** (Guillaume had set it before closing the enclosure, along
+  with `disable-bt` and the LED off). It boots the cut-down firmware, so `bcm2835_mmal_vchiq:
+  Failed to open VCHI service connection` and no ISP/codec. Now `gpu_mem=128` in
+  `/boot/firmware/config.txt` (`vcgencmd get_mem gpu` -> `gpu=128M`), plus
+  `/etc/modprobe.d/bcm2835-v4l2.conf` (`max_video_width=2592 max_video_height=1944`, confirmed in
+  `/sys/module/bcm2835_v4l2/parameters/`). The second did not change anything visible.
+- **motion was reading the raw sensor** (`/dev/video0` is `unicam`; there is no `mmal service`
+  device on this kernel), so no ISP: poor image, garbage at some sizes. motion 4.7 only speaks
+  V4L2, and motion's own docs say to run it under `libcamerify`. Done for motion only, not the
+  whole service: wrapper `/usr/local/bin/motion-libcamera` (`LD_PRELOAD=
+  /usr/libexec/aarch64-linux-gnu/libcamera/v4l2-compat.so exec /usr/bin/motion "$@"`) and
+  `motion_binary /usr/local/bin/motion-libcamera` in `/etc/motioneye/motioneye.conf` (line 24).
+  Verified: `v4l2-compat` mapped 4 times in motion's `/proc/<pid>/maps`. Undo: comment line 24
+  back out and restart motioneye. Known risks of this setup: zombie processes, crashes.
+- **The sensor (OV5647, likely a clone) gives garbage in its 2x2-binned 1296x972 mode.**
+  `rpicam-still --mode 1296:972` and the auto mode for 1280x960: garbage. `--mode 2592:1944`:
+  fine. Through v4l2-compat, 1280x960 frames are garbage too, with no stride padding
+  (`Bytes per Line` 1280, `Size Image` 1843200), so it is the mode, not motion. 1280x720
+  works (served from another mode).
+- The camera was deleted and recreated in motionEye, which resets its settings (stream port
+  9081, S3, email) and probably its number in HA.
+
 ## ap-main `wifi1` pinned to channel 1, 20 MHz (2026-11-16)
 
 **Why.** legolas (laptop, `00:28:F8:B5:3C:7C`, `.10.192`) had WiFi drops. Its kernel log showed a
