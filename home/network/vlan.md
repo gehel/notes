@@ -143,7 +143,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 
 | Device | Address | Attachment | Status |
 |---|---|---|---|
-| MotionEye (garage camera, Pi Zero 2 W) | `.30.20` | wireless, `LEDCOM-IoT` | added 2026-11-08; HTTP/HTTPS exception in place |
+| MotionEye (garage camera, Pi Zero 2 W) | `.30.20` | wireless, `LEDCOM-IoT` | added 2026-11-08; HTTP/HTTPS exception and NTP pin verified |
 | IotaWatt | `.30.50` | wireless | migrated, verified — back online 2026-09-11 after an extended outage |
 | Kids light (Tasmota) | `.30.61` | wireless | migrated, verified |
 | Hombli ceiling fan | `.30.63` | wireless | migrated, verified |

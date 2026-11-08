@@ -4519,3 +4519,42 @@ protocols. **Still to verify:** `sudo apt update` on the Pi works, and the next
 `dump-logs.sh` shows no TCP/80 or TCP/443 drop from `E4:5F:01:53:A0:EC`. Its NTP drops
 continue until the host change above is made. `firewall.md`, `vlan.md` and both diagrams
 updated.
+
+## MotionEye NTP: option 42 is served, the Pi ignores it (2026-11-08)
+
+Guillaume: MotionEye does not take its NTP server from DHCP. **Router side checked, correct**
+(11:58 dump): the `192.168.30.0/24` network has `dhcp-option=ntp-iot`, `code=42
+value=0xC0A81E01` = `192.168.30.1`, and `iot: NTP from gateway` accepts it on `chain=input`.
+The gap is on the Pi, the same as Pi-hole (findings 23 and 27) and OctoPrint: Raspberry Pi
+OS's DHCP client does not pass option 42 to `systemd-timesyncd`, which then uses its
+compiled-in Debian pools (the UDP/123 drops in the entry above).
+
+**Fix, prepared (Guillaume runs it on the Pi):** the same pin as Pi-hole and OctoPrint, as a
+drop-in rather than an edit of `timesyncd.conf`, so a package upgrade cannot revert it.
+`FallbackNTP=` gets the same server, not an empty value (README lesson: an empty value does not
+clear the compiled-in list). Wiring DHCP into timesyncd (a NetworkManager dispatcher script)
+would still need that fallback pin, so it adds a moving part for nothing.
+
+**Applied** (Guillaume, on the Pi, 12:10). Before: `LinkNTPServers=` and `SystemNTPServers=`
+empty, `FallbackNTPServers=0.debian.pool.ntp.org ... 3.debian.pool.ntp.org`, `ServerName=
+1.debian.pool.ntp.org` (`141.144.241.16`, which the firewall drops). This confirms DHCP never
+reached timesyncd. Wrote `/etc/systemd/timesyncd.conf.d/10-gateway.conf`:
+```
+[Time]
+NTP=192.168.30.1
+FallbackNTP=192.168.30.1
+```
+then `systemctl restart systemd-timesyncd`. After: `SystemNTPServers=192.168.30.1`,
+`FallbackNTPServers=192.168.30.1`, no Debian pool left. `timesync-status`: `Server:
+192.168.30.1`, stratum 2, delay 26.7 ms, packet count 1.
+
+**The Pi's clock was more than a month behind:** `Offset: +1month 2d 23h 35min`, local time
+`2026-10-06 03:04` (the Pi has no RTC, so it boots at its last saved time and had never
+reached an NTP server). timesyncd steps the clock after this first answer. **Still to verify:**
+`date` on the Pi gives the real time, and the next `dump-logs.sh` has no UDP/123 drop from
+`E4:5F:01:53:A0:EC`.
+
+**Verified** (Guillaume, 2026-11-08): `apt update` on the Pi works (`deb.debian.org`,
+`archive.raspberrypi.com`, Debian 13 trixie), and `date` is correct. The MotionEye installer
+also downloaded `motion` 4.7.1 from GitHub over HTTPS. The HTTP/HTTPS exception and the NTP
+pin both work. Left: the next `dump-logs.sh` should show no drop from `E4:5F:01:53:A0:EC`.
