@@ -97,7 +97,8 @@ a full Linux host sitting among microcontrollers. Implemented as a named address
 accept for tcp/443 ahead of the catch-all drop — see [firewall.md](firewall.md) for the live
 rule and address-list membership. `iotawatt` (added 2026-09-11, same shape, firmware updates)
 is the second entry. `motioneye` (added 2026-11-08, TCP 80/443, IPv4 and IPv6) is the third: a
-Raspberry Pi OS host like OctoPrint, for apt and MotionEye updates.
+Raspberry Pi OS host like OctoPrint, for apt and MotionEye updates and S3 uploads, plus SMTP
+(587) to Gmail for email alerts.
 
 A domain-level allowlist (TLS SNI matching, `tls-host=` — no proxy, transparent to any
 device) was tried and abandoned the same day: found not to work as intended (a wildcard match

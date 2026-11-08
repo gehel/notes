@@ -4663,3 +4663,53 @@ dumps already showed 7.25.1 everywhere. Evidence from the 14:57 logs and dumps:
 - `/system/resource/print` gives `version: 7.25.1` on all five devices.
 
 Nothing else was changed with the upgrade. README updated.
+
+## MotionEye uploads to Infomaniak S3; SMTP to Gmail prepared (2026-11-08)
+
+**S3 upload, host side (no network change):** Infomaniak Public Cloud's Ceph object storage
+(endpoint `https://s3.gva2.infomaniak.cloud`, region `gva2`), in a project of its own: an
+access key opens every bucket of its project, and bucket policies cannot restrict users in the
+same project. On the Pi, `/etc/systemd/system/motioneye.service.d/s3-region.conf` sets
+`AWS_DEFAULT_REGION=gva2`, because motionEye's S3 settings have no region field. Guillaume:
+motionEye's *Test Service* passes, and files show up in Infomaniak's S3 explorer. It runs over
+HTTPS, so the existing `iot2internet` exception covers it. Retention (a bucket lifecycle rule;
+motionEye never deletes remote files) is not confirmed yet.
+
+**Email notifications through Gmail:** `smtp.gmail.com` on TCP **587** (STARTTLS). The
+`iot2internet` exception allows 80/443 only, so this needs a new accept, on IPv4 and IPv6
+(`smtp.gmail.com` has AAAA records, and an IPv6 attempt that is dropped makes the client wait
+for a timeout first). It is a separate rule, not 587 added to the HTTP/HTTPS one, so that each
+comment says what its rule does. Prepared, not applied:
+```
+:global cmt "iot2internet: motioneye SMTP submission (Gmail)"
+:global tgt [/ip/firewall/filter/find comment="iot2internet: deny everything else"]
+/ip/firewall/filter/add chain=iot2internet action=accept disabled=yes comment=$cmt place-before=$tgt
+/ip/firewall/filter/set [find comment=$cmt] connection-state=new protocol=tcp
+/ip/firewall/filter/set [find comment=$cmt] src-address-list=motioneye dst-port=587
+/ip/firewall/filter/set [find comment=$cmt] disabled=no
+:global tgt [/ipv6/firewall/filter/find comment="iot2internet: deny everything else"]
+/ipv6/firewall/filter/add chain=iot2internet action=accept disabled=yes comment=$cmt place-before=$tgt
+/ipv6/firewall/filter/set [find comment=$cmt] connection-state=new protocol=tcp
+/ipv6/firewall/filter/set [find comment=$cmt] src-address-list=motioneye-v6 dst-port=587
+/ipv6/firewall/filter/set [find comment=$cmt] disabled=no
+/system/script/environment/remove [find name=cmt]
+/system/script/environment/remove [find name=tgt]
+```
+
+**Applied** (Guillaume, router terminal), then printed:
+```
+/ip/firewall/filter/print where chain=iot2internet
+10  ;;; iot2internet: motioneye HTTP/HTTPS exception
+    chain=iot2internet action=accept connection-state=new protocol=tcp src-address-list=motioneye dst-port=80,443
+11  ;;; iot2internet: motioneye SMTP submission (Gmail)
+    chain=iot2internet action=accept connection-state=new protocol=tcp src-address-list=motioneye dst-port=587
+12  ;;; iot2internet: deny everything else
+/ipv6/firewall/filter/print where chain=iot2internet
+1  ;;; iot2internet: motioneye HTTP/HTTPS
+2  ;;; iot2internet: motioneye SMTP submission (Gmail)
+   chain=iot2internet action=accept connection-state=new protocol=tcp src-address-list=motioneye-v6 dst-port=587
+3  ;;; iot2internet: deny everything else
+```
+(other rules unchanged, trimmed here). Both accepts are directly above their deny-all, with no
+`X` or `I` flag. **Verified:** motionEye's *Test Email* succeeded (Guillaume), through
+`smtp.gmail.com:587` with TLS and a Gmail app password.

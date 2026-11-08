@@ -18,7 +18,8 @@ are the WireGuard rules (already on mikrotik1 before), finding 36's `samsung-tv`
 13, `DHCP server (vlan-services)` and `DHCP server (vlan-iot)` (finding 38). Every `#` from 14 on
 is therefore 2 higher on the device until the next regeneration. On 2026-11-08, MotionEye's
 HTTP/HTTPS exception went into `iot2internet` on IPv4 and IPv6, each just above the deny-all,
-with the `motioneye` and `motioneye-v6` lists (rows marked `(+)` below). The same day, HA got
+with the `motioneye` and `motioneye-v6` lists, then SMTP submission (587, Gmail) the same way
+(rows marked `(+)` below). The same day, HA got
 MotionEye's API and stream (`services2iot`, 8765 and 9081) and SSH (`.30.20` in `ssh-hosts`).
 On the switches,
 `ingress-filtering=yes` was set on every Ethernet/SFP port (S21, a bridge setting, not a
@@ -37,7 +38,7 @@ the same way:
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53, UDP+TCP); HA web (443) for everyone; DoT (853) rejected quietly (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI (80) (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
 | **services** | HTTPS from any host; HTTP (80) for `http-outbound` (HA); Pi-hole's own DNS (53) and DoT (853) (`services2internet`) | HA -> MikroTik API on `ha-mikrotik-targets` (8728), printer (631), Samsung TV (8002), `ssh-hosts` (22) (`services2users`) | — | HA -> Tuya (6668), Tasmota/IotaWatt (80), ESPHome (6053), motionEye API + stream (8765, 9081), `ssh-hosts` (22) (`services2iot`) | NTP (123) to gateway; HA API (8728) |
-| **iot** | deny by default; ceiling fan silenced first; `octoprint`, `iotawatt` and `motioneye` 80/443; `iotawatt` NTP (123) (`iot2internet`) | deny, logged (`iot2users`) | ceiling fan's DNS dropped first; Pi-hole DNS (53); MQTT to HA (1883); DoT rejected quietly (`iot2services`) | — | NTP (123) to gateway only |
+| **iot** | deny by default; ceiling fan silenced first; `octoprint`, `iotawatt` and `motioneye` 80/443; `motioneye` SMTP (587); `iotawatt` NTP (123) (`iot2internet`) | deny, logged (`iot2users`) | ceiling fan's DNS dropped first; Pi-hole DNS (53); MQTT to HA (1883); DoT rejected quietly (`iot2services`) | — | NTP (123) to gateway only |
 | **wireguard** (phone) | as users (`users2internet`) | `mgmt` hosts only (`wireguard2users`; the phone is in `mgmt`) | as users (`users2services`) | as users (`users2iot`) | `mgmt` list (the phone is in it) |
 | **internet** | — | — | HA HTTPS (443) via dst-nat only (`internet2services`) | — | WireGuard (UDP 51820) only |
 
@@ -191,6 +192,7 @@ Every chain except `users2internet` and `internet2services` ends in a logged den
 | 58 | accept | `connection-state=new protocol=tcp src-address-list=iotawatt dst-port=80,443` | iot2internet: iotawatt firmware updates exception |
 | 59 | accept | `connection-state=new protocol=udp src-address-list=iotawatt dst-port=123` | iot2internet: iotawatt NTP exception |
 | (+) | accept | `connection-state=new protocol=tcp src-address-list=motioneye dst-port=80,443` | iot2internet: motioneye HTTP/HTTPS exception, added 2026-11-08 |
+| (+) | accept | `connection-state=new protocol=tcp src-address-list=motioneye dst-port=587` | iot2internet: motioneye SMTP submission (Gmail), added 2026-11-08 |
 | 60 | drop, logged | *(none, catch-all)* | iot2internet: deny everything else |
 
 **`iot2users`**
@@ -247,7 +249,7 @@ rule change. IPv6 has one more NAT rule, the NAT66 masquerade (below).
 | `ha-mikrotik-targets` | switch-main, switch-office, ap-main, switch-livingroom | HA's MikroTik integration (8728) through `services2users`. ap-main and switch-livingroom were added 2026-10-20. The router itself is reached through `chain=input` |
 | `octoprint` | OctoPrint wired (`.30.80`) and wifi (`.30.81`) | exception to `iot2internet` and `users2iot` |
 | `iotawatt` | IotaWatt (`.30.50`) | exception to `iot2internet` (firmware updates, NTP) |
-| `motioneye` | MotionEye (`.30.20`), added 2026-11-08 | exception to `iot2internet` (HTTP/HTTPS: apt, MotionEye updates); destination of `services2iot`'s HA -> API + stream (8765, 9081) |
+| `motioneye` | MotionEye (`.30.20`), added 2026-11-08 | exception to `iot2internet` (HTTP/HTTPS: apt, updates, S3 upload; SMTP 587: email alerts); destination of `services2iot`'s HA -> API + stream (8765, 9081) |
 | `http-outbound` | Home Assistant (`.20.60`) | exception to `services2internet`'s HTTPS-only policy |
 | `ssh-hosts` | desktop, OctoPrint wired and wifi, MotionEye (2026-11-08) | HA's SSH monitoring, used by `services2users` and `services2iot` |
 | `samsung-tv` | TV wired (`.10.50`) and wifi (`.10.51`) | finding 36's fix: HA -> TV (8002) |
@@ -290,6 +292,7 @@ Separately, `/ip/dns/static` holds one `<hostname>.home.ledcom.fr` entry per bou
 | 25 | `services2users` | drop, logged | *(none, catch-all)* | services2users: deny everything else |
 | 26 | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=octoprint-v6 dst-port=80,443` | iot2internet: octoprint updates |
 | (+) | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=motioneye-v6 dst-port=80,443` | iot2internet: motioneye HTTP/HTTPS, added 2026-11-08 |
+| (+) | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=motioneye-v6 dst-port=587` | iot2internet: motioneye SMTP submission (Gmail), added 2026-11-08 |
 | 27 | `iot2internet` | drop, logged | *(none, catch-all)* | iot2internet: deny everything else |
 
 
