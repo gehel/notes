@@ -363,3 +363,41 @@ separately (`ha apps logs core_zwave_js`).
 → `addons-list.txt`, same pattern as the existing Core/Z-Wave JS pulls. Not yet run against a
 live capture — next sync will show whether Supervisor's own log or the add-ons list points at
 the actual source of the HTTP traffic.
+
+## MotionEye added to Linux Monitor, SSH side (2026-11-08)
+
+New host: MotionEye (garage camera, Pi Zero 2 W, Raspberry Pi OS trixie, `192.168.30.20`, see
+`home/network/changelog.md`). The network side (`.30.20` in `ssh-hosts`, so the existing
+`services2iot` SSH accept covers it) was applied first. Same pattern as Pi-hole, the desktop
+and OctoPrint (2026-09-16): an unprivileged `ha-monitor` account, no sudo, HA's existing key
+`/config/.ssh/host_monitor_key` (`ssh-ed25519 ...KCX5 ha-linux-monitor`).
+
+**On the Pi** (Guillaume): `useradd --system --create-home --shell /bin/bash ha-monitor`, then
+`/home/ha-monitor/.ssh` (700) and `authorized_keys` (600, owned by `ha-monitor`) with the
+key restricted to HA: `from="192.168.20.60",no-port-forwarding,no-agent-forwarding,
+no-X11-forwarding`. The other three hosts may not have this restriction.
+
+**In HA's terminal:** `ssh-keyscan -t ed25519 motioneye.home.ledcom.fr >>
+/config/.ssh/known_hosts`. This is the first `known_hosts` entry keyed by name (the three
+older ones are IPs), following this README's hostname convention. Fingerprint
+`SHA256:0TKBkEA7rVFmb94U/46kY2CQRqd3BjLZ9fwK8qMtMMk`, the same as `ssh-keygen -lf
+/etc/ssh/ssh_host_ed25519_key.pub` on the Pi.
+
+A first test failed with `Permission denied (publickey)`. The Pi's sshd log said `Invalid user
+ha-monitor`: the account step had not run yet. After it ran:
+```
+ssh -i /config/.ssh/host_monitor_key -o UserKnownHostsFile=/config/.ssh/known_hosts \
+    -o StrictHostKeyChecking=yes ha-monitor@motioneye.home.ledcom.fr 'id; uname -r'
+uid=999(ha-monitor) gid=985(ha-monitor) groups=985(ha-monitor)
+6.18.60+rpt-rpi-v8
+```
+**SSH verified** from HA, with strict host-key checking.
+
+**Linux Monitor entry added** (Guillaume): host `motioneye.home.ledcom.fr`, display name
+`motioneye`, user `ha-monitor`, key `/config/.ssh/host_monitor_key`, `offline_expected` off,
+remote patching off. Guillaume confirmed it works. **Still to do:** the motionEye
+integration (`http://motioneye.home.ledcom.fr:8765`).
+
+**motionEye integration added** (Guillaume): `http://motioneye.home.ledcom.fr:8765`. The
+camera showed no image until streaming was turned on in motionEye (stream port 9081, opened
+in `services2iot`, see `home/network/changelog.md`). HA now shows the camera.
