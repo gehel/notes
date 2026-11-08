@@ -4558,3 +4558,91 @@ reached an NTP server). timesyncd steps the clock after this first answer. **Sti
 `archive.raspberrypi.com`, Debian 13 trixie), and `date` is correct. The MotionEye installer
 also downloaded `motion` 4.7.1 from GitHub over HTTPS. The HTTP/HTTPS exception and the NTP
 pin both work. Left: the next `dump-logs.sh` should show no drop from `E4:5F:01:53:A0:EC`.
+
+## Home Assistant -> MotionEye: API (8765) and SSH (2026-11-08)
+
+MotionEye runs (Guillaume: `meyectl` was missing from `sudo`'s `PATH`, fixed on the Pi).
+Request: HA reaches its API (TCP 8765) and SSH (the Linux monitoring integration).
+
+**Prepared, not applied** (router terminal, short lines, paste once):
+- SSH: MotionEye goes into `ssh-hosts`. `services2iot: HA SSH (ssh-hosts list)` already
+  accepts HA -> `ssh-hosts` port 22, so no new rule.
+- API: one accept in `services2iot` above its deny-all. It is narrower than the chain's
+  older rules (those match any IoT destination): the destination is the `motioneye` list.
+```
+/ip/firewall/address-list/add list=ssh-hosts address=192.168.30.20 comment=MotionEye
+:global cmt "services2iot: HA -> motioneye API"
+:global tgt [/ip/firewall/filter/find comment="services2iot: deny everything else"]
+/ip/firewall/filter/add chain=services2iot action=accept disabled=yes comment=$cmt place-before=$tgt
+/ip/firewall/filter/set [find comment=$cmt] connection-state=new protocol=tcp
+/ip/firewall/filter/set [find comment=$cmt] src-address=192.168.20.60 dst-port=8765
+/ip/firewall/filter/set [find comment=$cmt] dst-address-list=motioneye disabled=no
+/system/script/environment/remove [find name=cmt]
+/system/script/environment/remove [find name=tgt]
+```
+IPv4 only: the IPv6 firewall has no `services2iot` chain, and `motioneye.home.ledcom.fr` has
+only an A record, so HA connects over IPv4.
+
+**Applied** (Guillaume, router terminal, 14:46), then printed:
+```
+/ip/firewall/address-list/print where list=ssh-hosts
+;;; MotionEye
+3 ssh-hosts  192.168.30.20  2026-11-08 14:46:29
+/ip/firewall/filter/print where chain=services2iot
+3  ;;; services2iot: HA SSH (ssh-hosts list)
+   chain=services2iot action=accept connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22
+4  ;;; services2iot: HA -> motioneye API
+   chain=services2iot action=accept connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=motioneye dst-port=8765
+5  ;;; services2iot: deny everything else
+   chain=services2iot action=drop log=yes log-prefix="services2iot"
+```
+(`ssh-hosts` entries 0-2 and `services2iot` rules 0-2 unchanged, trimmed here.) The accept sits
+directly above the deny-all, with no `X` and no `I` flag. **Still to verify:** HA's motionEye
+and SSH integrations connect, and no `services2iot` drop to `.30.20` appears in the next
+`dump-logs.sh`. If camera entities show no image, add the stream port (8081 for camera 1).
+
+**HA -> MotionEye SSH verified:** from HA's terminal, `ssh ... ha-monitor@motioneye.home.ledcom.fr
+'id; uname -r'` returned `uid=999(ha-monitor)` and `6.18.60+rpt-rpi-v8`. Before the account
+existed, the Pi's sshd logged `Invalid user ha-monitor from 192.168.20.60`, so the traffic
+already crossed `services2iot` then. Host side: `home/home-assistant/changelog.md`. The API
+(8765) is still to verify, with the motionEye integration.
+
+**Logs, 14:57 `dump-logs.sh`:** no firewall drop from `E4:5F:01:53:A0:EC` after `12:10:07`. The
+last one is UDP/123 to `83.228.204.112`, sent in the same second as the timesyncd restart.
+**The HTTP/HTTPS exception and the NTP pin are verified.** No `services2iot` drop either, but
+this log was taken before HA's motionEye integration was set up, so it says nothing about the
+API or stream ports. Guillaume: the integration is configured, but the camera shows no image.
+
+**`/log/print where message~"192.168.30.20"`** (Guillaume, after HA's integration was set up): no
+`services2iot` drop to `.30.20` at all. The last firewall line is the 12:10:07 NTP packet, and
+the last line is the 14:46:29 `ssh-hosts` add. So HA's stream requests were not being dropped:
+the blank camera is not (only) the firewall.
+
+**Stream port added anyway** (Guillaume, router terminal): motionEye's default stream port for
+camera 1, which HA needs once streaming works:
+```
+/ip/firewall/filter/set [find comment="services2iot: HA -> motioneye API"] dst-port=8765,8081
+/ip/firewall/filter/set [find comment="services2iot: HA -> motioneye API"] comment="services2iot: HA -> motioneye API + stream"
+4  ;;; services2iot: HA -> motioneye API + stream
+   chain=services2iot action=accept connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=motioneye dst-port=8765,8081
+5  ;;; services2iot: deny everything else
+```
+No `X` or `I` flag, still directly above the deny-all. Next: check the stream on the motionEye
+side (streaming on, port, bind address).
+
+**Streaming was off in motionEye** (Guillaume): turned it on, with stream port **9081**, not
+the default 8081. HA now shows the camera. The rule still allows 8765 and 8081 only, so HA's
+connections to 9081 should hit `services2iot`'s deny-all. The working image may be stills
+fetched through the API (8765), not the live stream. To check: `services2iot` drops to
+`.30.20:9081` in the router log. If there are any, the rule becomes `dst-port=8765,9081`.
+
+**Rule moved to 9081** (Guillaume, router terminal):
+```
+4  ;;; services2iot: HA -> motioneye API + stream
+   chain=services2iot action=accept connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=motioneye dst-port=8765,9081
+   log=no log-prefix=""
+5  ;;; services2iot: deny everything else
+```
+8081 is no longer open. `log=no log-prefix=""` now prints on this rule: those are the
+defaults, so behaviour is unchanged. Still directly above the deny-all, no `X` or `I` flag.
+**HA -> MotionEye is in place:** API 8765, stream 9081, SSH (verified above).

@@ -117,8 +117,10 @@ plain A record (see the lesson on `home.ledcom.fr` endpoints). x1 is gimli reima
 on (the two lines are in `changelog.md`'s 2026-10-29 entry).
 
 **MotionEye** (garage camera, Pi Zero 2 W, `.30.20`, added 2026-11-08, see `changelog.md`).
-Verified: HTTP/HTTPS to the internet (`iot2internet`, IPv4 and IPv6) and NTP from `192.168.30.1`
-(pinned on the host, it ignores DHCP option 42 like the other Pis).
+Verified: HTTP/HTTPS to the internet (`iot2internet`, IPv4 and IPv6), NTP from `192.168.30.1`
+(pinned on the host, it ignores DHCP option 42 like the other Pis), and HA's SSH (Linux
+Monitor works). HA shows the camera: `services2iot` allows its API (8765) and its stream on
+9081, a non-default port set in motionEye.
 
 **switch-office is on the office's power for now** (Guillaume, 2026-10-28): it goes off when
 the office does, which is expected. The separate power strip decided 2026-10-20 is not in
