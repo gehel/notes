@@ -4752,6 +4752,11 @@ Host side, no network change. Logged here because MotionEye has no notes area of
 - The camera was deleted and recreated in motionEye, which resets its settings (stream port
   9081, S3, email) and probably its number in HA.
 
+**Settled at 1280x720** (Guillaume): works through the ISP; quality "not great, but ok". A
+better module may follow; the candidate noted is the Raspberry Pi Camera Module 3 Wide NoIR
+(IMX708, 120°, libcamera-supported), with a Zero (22-pin) camera cable and an 850 nm IR
+illuminator. It needs no change to this setup: the libcamera wrapper already covers it.
+
 ## ap-main `wifi1` pinned to channel 1, 20 MHz (2026-11-16)
 
 **Why.** legolas (laptop, `00:28:F8:B5:3C:7C`, `.10.192`) had WiFi drops. Its kernel log showed a
