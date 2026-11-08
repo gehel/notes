@@ -4713,3 +4713,15 @@ comment says what its rule does. Prepared, not applied:
 (other rules unchanged, trimmed here). Both accepts are directly above their deny-all, with no
 `X` or `I` flag. **Verified:** motionEye's *Test Email* succeeded (Guillaume), through
 `smtp.gmail.com:587` with TLS and a Gmail app password.
+
+**S3 retention set** (Guillaume, on the Pi, with motionEye's own boto3: no `aws` CLI on the
+desktop, and the bucket was made in Infomaniak's web console). Bucket **`motioneye`**. The
+endpoint used was **`https://s3.gva1.infomaniak.cloud`**, not the `gva2` one written above (the
+docs' example); the region given was still `gva2`, and the server accepted it.
+```
+s3.put_bucket_lifecycle_configuration(Bucket='motioneye', LifecycleConfiguration={'Rules': [
+    {'ID': 'expire-30d', 'Filter': {'Prefix': ''}, 'Status': 'Enabled', 'Expiration': {'Days': 30}}]})
+get_bucket_lifecycle_configuration -> [{'Expiration': {'Days': 30}, 'ID': 'expire-30d', 'Prefix': '', 'Status': 'Enabled'}]
+```
+**Every object in the bucket now expires after 30 days.** Not checked: which endpoint motionEye's
+upload settings use (both answered with region `gva2`).

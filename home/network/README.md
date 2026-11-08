@@ -121,7 +121,8 @@ Verified: HTTP/HTTPS to the internet (`iot2internet`, IPv4 and IPv6), NTP from `
 (pinned on the host, it ignores DHCP option 42 like the other Pis), and HA's SSH (Linux
 Monitor works). HA shows the camera: `services2iot` allows its API (8765) and its stream on
 9081, a non-default port set in motionEye. It uploads to Infomaniak S3 (HTTPS) and emails
-through Gmail (587, its own `iot2internet` accept). Left: confirm the bucket's retention rule.
+through Gmail (587, its own `iot2internet` accept). The `motioneye` bucket expires objects
+after 30 days.
 
 **switch-office is on the office's power for now** (Guillaume, 2026-10-28): it goes off when
 the office does, which is expected. The separate power strip decided 2026-10-20 is not in
