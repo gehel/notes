@@ -35,7 +35,7 @@ The `router1`-`router6` Pi-hole records stay as aliases until 2026-10-27.
 | ap-main | `192.168.10.4` | standalone `wifi-qcom-ac` AP, 2.4 + 5 GHz, `LEDCOM` only; router `ether3`, 1 Gbps + PoE |
 | switch-livingroom | `192.168.10.5` | L2 switch, living room, 5×GE: TV on `ether2`. **On the TV's switched power strip: only up while the TV is on, so "unreachable" is its normal state.** Uplink at 1G since the cables were replaced (2026-10-20) |
 
-All on RouterOS 7.24.5 (stable; upgrade the whole fleet together with
+All on RouterOS 7.25.1 (stable, since 2026-11-08; upgrade the whole fleet together with
 `scripts/upgrade-fleet.sh`). Three VLANs: `users` (`192.168.10.0/24`), `services`
 (`192.168.20.0/24`), `iot` (`192.168.30.0/24`), plus `wireguard1` (`192.168.50.0/24`) — see
 [vlan.md](vlan.md). Upstream is a Swisscom Internet-Box at `192.168.1.1` with no bridge mode:

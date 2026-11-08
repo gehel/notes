@@ -4646,3 +4646,20 @@ fetched through the API (8765), not the live stream. To check: `services2iot` dr
 8081 is no longer open. `log=no log-prefix=""` now prints on this rule: those are the
 defaults, so behaviour is unchanged. Still directly above the deny-all, no `X` or `I` flag.
 **HA -> MotionEye is in place:** API 8765, stream 9081, SSH (verified above).
+
+## Fleet upgraded to RouterOS 7.25.1 (2026-11-08, morning)
+
+Guillaume upgraded all five devices from 7.24.5 to **7.25.1** (latest stable), before the
+MotionEye work above. Every reboot is an SSH command from the desktop, which fits
+`scripts/upgrade-fleet.sh` (not confirmed). Logged after the fact: the 11:58
+dumps already showed 7.25.1 everywhere. Evidence from the 14:57 logs and dumps:
+- Reboots `by ssh-cmd:admin@192.168.10.90/reboot`: switch-office 09:49:43, switch-livingroom
+  09:54:25, switch-main 09:56:53, router 09:59:16.
+- ap-main logs `rebooted without proper shutdown, probably power outage`: it is powered by the
+  router's `ether3` PoE, so the router's reboot cut its power. Its uptime at 14:57:38 (4h58m35s)
+  puts that boot at about 09:59, with the router. The log line says 08:48:38 because ap-main has
+  no NTP time yet at that point in its boot. Its own upgrade reboot is not in the log: the
+  memory log starts again at each boot.
+- `/system/resource/print` gives `version: 7.25.1` on all five devices.
+
+Nothing else was changed with the upgrade. README updated.
