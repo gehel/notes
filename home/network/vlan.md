@@ -82,7 +82,7 @@ RB2011 until 2026-10-20, the RB5009 since); the switches stay pure L2 and simply
 |---|---|---|---|---|---|
 | **users** | allow | — | `mgmt` full; else DNS/HA | `mgmt` full only | `mgmt` list only |
 | **services** | allow | drop + log | — | HA: 6053, 80, 6668 | `mgmt` list only |
-| **iot** | DROP | drop | Pi-hole 53, HA 1883 | — | NTP 123 to gateway |
+| **iot** | DROP, named exceptions only | drop | Pi-hole 53, HA 1883 | — | NTP 123 to gateway |
 
 The one hole in IoT containment is `iot -> services` on tcp/1883 (the MQTT broker runs on the
 HA host); services -> iot is HA reaching device APIs (ESPHome, Tasmota/IotaWatt web, Tuya
@@ -96,7 +96,8 @@ a full Linux host sitting among microcontrollers. Implemented as a named address
 (`octoprint`, renamed from `iot-internet` during the Phase 5 reorg) with a narrow forward-chain
 accept for tcp/443 ahead of the catch-all drop — see [firewall.md](firewall.md) for the live
 rule and address-list membership. `iotawatt` (added 2026-09-11, same shape, firmware updates)
-is the second entry.
+is the second entry. `motioneye` (added 2026-11-08, TCP 80/443, IPv4 and IPv6) is the third: a
+Raspberry Pi OS host like OctoPrint, for apt and MotionEye updates.
 
 A domain-level allowlist (TLS SNI matching, `tls-host=` — no proxy, transparent to any
 device) was tried and abandoned the same day: found not to work as intended (a wildcard match
@@ -142,6 +143,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 
 | Device | Address | Attachment | Status |
 |---|---|---|---|
+| MotionEye (garage camera, Pi Zero 2 W) | `.30.20` | wireless, `LEDCOM-IoT` | added 2026-11-08; HTTP/HTTPS exception in place |
 | IotaWatt | `.30.50` | wireless | migrated, verified — back online 2026-09-11 after an extended outage |
 | Kids light (Tasmota) | `.30.61` | wireless | migrated, verified |
 | Hombli ceiling fan | `.30.63` | wireless | migrated, verified |

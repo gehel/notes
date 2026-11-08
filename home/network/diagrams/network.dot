@@ -66,6 +66,7 @@ digraph home {
   // ------------------------------------------------------------- vlan-iot (30)
   octoprint [label="OctoPrint\n192.168.30.80 wired  ·  .81 wifi\nnamed internet exception (updates)" fillcolor="#fed7aa"];
   iotawatt  [label="IotaWatt\n192.168.30.50  ·  wireless" fillcolor="#fed7aa"];
+  motioneye [label="MotionEye (garage camera)\n192.168.30.20  ·  wireless\nnamed internet exception (HTTP/HTTPS)" fillcolor="#fed7aa"];
   kidslight [label="Kids light (Tasmota)\n192.168.30.61  ·  wireless" fillcolor="#fed7aa"];
   fan       [label="Hombli ceiling fan\n192.168.30.63  ·  wireless\nDNS dropped by design" fillcolor="#fed7aa"];
 
@@ -97,11 +98,12 @@ digraph home {
   { capmain; apmain; } -> users_wifi [style=dashed];
   capmain -> octoprint [style=dashed label="  LEDCOM-IoT"];
   capmain -> iotawatt  [style=dashed];
+  capmain -> motioneye [style=solid label="  LEDCOM-IoT\n  verified"];
   capmain -> kidslight [style=dashed];
   capmain -> fan       [style=dashed];
 
   { rank=same; router; rb2011; }
   { rank=same; desktop; printer; tv; amp; nintendo; users_wifi; }
   { rank=same; pihole; ha; }
-  { rank=same; octoprint; iotawatt; kidslight; fan; }
+  { rank=same; octoprint; iotawatt; kidslight; fan; motioneye; }
 }

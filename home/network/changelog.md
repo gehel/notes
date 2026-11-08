@@ -4436,3 +4436,86 @@ changed on any device. `scripts/dump-configs.sh` now also runs `/system/device-m
 5 min after the last query): `EDE: 3 (Stale Answer)`, TTL 0, `vpn.ledcom.fr A 178.192.223.49`, no
 `aa` flag. The case that broke the CNAME now gives the public address. Still to verify: x1 used
 for 15-20 min, `wg show` endpoint still `178.192.223.49:51820`.
+
+## MotionEye added on `iot` (`.30.20`); HTTP/HTTPS exception prepared (2026-11-08)
+
+**New device** (Guillaume): a Raspberry Pi Zero 2 W running MotionEye, for a camera in the
+garage. It runs Raspberry Pi OS, judging by what it fetches: `deb.debian.org` (Fastly
+`151.101.x.132`) and Raspberry Pi mirrors (Mythic Beasts `93.93.135.x`, `46.235.231.x`,
+`176.126.x`). From the router log and the 11:58 dumps:
+- **Reservation**, added by Guillaume from the desktop's WebFig at 11:04: `address=192.168.30.20
+  client-id=1:e4:5f:1:53:a0:ec comment=MotionEye mac-address=E4:5F:01:53:A0:EC
+  server=dhcp-iot`. `.30.20` is outside `pool-iot` (`.100`-`.200`).
+- 11:35:16: `dhcp-iot assigned 192.168.30.20 for E4:5F:01:53:A0:EC motioneye`, and the
+  lease-script added `motioneye.home.ledcom.fr A 192.168.30.20`.
+- Wireless, on `LEDCOM-IoT` through switch-main's CAP (`ap-switch-main-1-1`), -76 dBm.
+- IPv6: EUI-64 address `2a02:1210:7621:9ac2:e65f:1ff:fe53:a0ec` (computed from the MAC, and the
+  only address from that MAC in the log, 449 drops). No temporary address seen so far.
+- No `iot2services` drop: DNS to Pi-hole works.
+
+**`iot2internet` drops, 11:01-11:58** (all `E4:5F:01:53:A0:EC`): 361 on IPv4 and 449 on IPv6.
+- TCP/80 to the apt mirrors above, on both protocols (apt update/install).
+- UDP/123 to public NTP pools on both protocols (`systemd-timesyncd` defaults). This is the
+  usual Pi default, and the fix is on the host, not the firewall: `NTP=192.168.30.1` and
+  `FallbackNTP=192.168.30.1` (README lesson on `FallbackNTP=`). Not done yet.
+
+**Request** (Guillaume): HTTP and HTTPS from MotionEye to the internet. Same shape as
+`octoprint`/`octoprint-v6`: an address list and one accept before the deny-all, on IPv4 and
+IPv6 (the Pi uses both, so an IPv4-only exception leaves apt waiting on IPv6 timeouts first).
+
+**Prepared, not applied:** commands for Guillaume to paste into the router's terminal (no SSH
+from the Claude sandbox). Every line stays near 100 characters (README lesson on long pasted
+lines being cut silently): each rule is added disabled with no matchers, its matchers are set
+in two short `set`s, then it is enabled. `cmt`/`tgt` are short-lived globals, the same pattern
+as finding 37's lease script (2026-10-20). Paste once: there is no duplicate guard.
+```
+/ip/firewall/address-list/add list=motioneye address=192.168.30.20 comment=motioneye
+:global cmt "iot2internet: motioneye HTTP/HTTPS exception"
+:global tgt [/ip/firewall/filter/find comment="iot2internet: deny everything else"]
+/ip/firewall/filter/add chain=iot2internet action=accept disabled=yes comment=$cmt place-before=$tgt
+/ip/firewall/filter/set [find comment=$cmt] connection-state=new protocol=tcp
+/ip/firewall/filter/set [find comment=$cmt] src-address-list=motioneye dst-port=80,443
+/ip/firewall/filter/set [find comment=$cmt] disabled=no
+
+/ipv6/firewall/address-list/add list=motioneye-v6 address=2a02:1210:7621:9ac2:e65f:1ff:fe53:a0ec/128
+/ipv6/firewall/address-list/set [find list=motioneye-v6] comment="MotionEye, EUI-64 from E4:5F:01:53:A0:EC"
+:global cmt "iot2internet: motioneye HTTP/HTTPS"
+:global tgt [/ipv6/firewall/filter/find comment="iot2internet: deny everything else"]
+/ipv6/firewall/filter/add chain=iot2internet action=accept disabled=yes comment=$cmt place-before=$tgt
+/ipv6/firewall/filter/set [find comment=$cmt] connection-state=new protocol=tcp
+/ipv6/firewall/filter/set [find comment=$cmt] src-address-list=motioneye-v6 dst-port=80,443
+/ipv6/firewall/filter/set [find comment=$cmt] disabled=no
+
+/system/script/environment/remove [find name=cmt]
+/system/script/environment/remove [find name=tgt]
+```
+Separately, the dumps show the whole fleet on RouterOS **7.25.1**; the README still says
+7.24.5, and this file has no entry for the upgrade.
+
+**Applied** (Guillaume, router terminal, 12:06-12:07), then printed:
+```
+/ip/firewall/address-list/print where list=motioneye
+;;; motioneye
+0 motioneye  192.168.30.20  2026-11-08 12:06:53
+/ip/firewall/filter/print where chain=iot2internet
+3  ;;; iot2internet: iotawatt NTP exception
+   chain=iot2internet action=accept connection-state=new protocol=udp src-address-list=iotawatt dst-port=123
+4  ;;; iot2internet: motioneye HTTP/HTTPS exception
+   chain=iot2internet action=accept connection-state=new protocol=tcp src-address-list=motioneye dst-port=80,443
+5  ;;; iot2internet: deny everything else
+   chain=iot2internet action=drop log=yes log-prefix="iot2internet"
+/ipv6/firewall/address-list/print where list=motioneye-v6
+;;; MotionEye, EUI-64 from E4:5F:01:53:A0:EC
+0 motioneye-v6  2a02:1210:7621:9ac2:e65f:1ff:fe53:a0ec/128  2026-11-08 12:07:04
+/ipv6/firewall/filter/print where chain=iot2internet
+0  ;;; iot2internet: octoprint updates
+1  ;;; iot2internet: motioneye HTTP/HTTPS
+   chain=iot2internet action=accept connection-state=new protocol=tcp src-address-list=motioneye-v6 dst-port=80,443
+2  ;;; iot2internet: deny everything else
+```
+(rules 0-2 of the IPv4 chain unchanged, trimmed here). One entry in each list. Each accept sits
+directly above its chain's deny-all, with no `X` and no `I` flag. Rules in place on both
+protocols. **Still to verify:** `sudo apt update` on the Pi works, and the next
+`dump-logs.sh` shows no TCP/80 or TCP/443 drop from `E4:5F:01:53:A0:EC`. Its NTP drops
+continue until the host change above is made. `firewall.md`, `vlan.md` and both diagrams
+updated.

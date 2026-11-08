@@ -116,6 +116,10 @@ plain A record (see the lesson on `home.ledcom.fr` endpoints). x1 is gimli reima
 `.10.92` reservation. Also left: add `192.168.50.3` to switch-livingroom's `mgmt` when the TV is
 on (the two lines are in `changelog.md`'s 2026-10-29 entry).
 
+**MotionEye** (garage camera, Pi Zero 2 W, `.30.20`, added 2026-11-08, see `changelog.md`).
+HTTP/HTTPS to the internet is open (`iot2internet`, IPv4 and IPv6). Left: confirm `apt update`
+works, and point its NTP at `192.168.30.1`: it still asks public NTP pools, which are dropped.
+
 **switch-office is on the office's power for now** (Guillaume, 2026-10-28): it goes off when
 the office does, which is expected. The separate power strip decided 2026-10-20 is not in
 place yet. Like switch-livingroom, switch-office being down is not a failure until then.
