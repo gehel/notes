@@ -33,6 +33,10 @@ holds the household constraints every meal plan has to respect, and links everyt
   Beans and lentils can't fill that role on Guillaume's evening plate (see above), but they
   can at lunch. Tofu is fine on his evening plate (confirmed 2026-11-05), even though it's
   soy. *(Unknown: tempeh.)*
+- **Vegetarian doesn't mean tofu** (2026-11-09): vary the meat-free meals instead of making
+  tofu the default. For Guillaume's evening plate that means eggs (omelette, frittata,
+  shakshuka), cheese (halloumi, feta, gratins without the starch), seitan, or a vegetable
+  main with one of those as the protein. Legumes stay a lunch option.
 
 ## Weekly rhythm
 
@@ -101,6 +105,7 @@ portion aside just in case.)*
 | [Choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) | Yes | Baseline |
 | [Tarte aux poireaux](recipes/tarte-aux-poireaux.md) | No — pastry (lunch dish) | Guillaume's ingredients, baseline steps |
 | [Hachis parmentier](recipes/hachis-parmentier.md) | Bolognese only, without the mash | Baseline (France cooks it) |
+| [Tofu sauté aux légumes](recipes/tofu-saute-legumes.md) | Yes (without the rice) | Baseline |
 
 ## Conventions
 

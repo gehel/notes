@@ -69,3 +69,8 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 - repas à préciser : Guillaume réchauffe les restes de
   [tofu fumé rôti](recipes/tofu-fume-roti.md), de [courge rôtie](recipes/courge-rotie.md) et de
   [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) du jeudi soir. *(restes)*
+
+## 2026-11-09 lun
+
+- soir : [tofu sauté aux légumes](recipes/tofu-saute-legumes.md), [riz](recipes/riz.md).
+  Léger : Guillaume mange avant le kendo.
