@@ -106,6 +106,8 @@ portion aside just in case.)*
 | [Tarte aux poireaux](recipes/tarte-aux-poireaux.md) | No — pastry (lunch dish) | Guillaume's ingredients, baseline steps |
 | [Hachis parmentier](recipes/hachis-parmentier.md) | Bolognese only, without the mash | Baseline (France cooks it) |
 | [Tofu sauté aux légumes](recipes/tofu-saute-legumes.md) | Yes (without the rice) | Baseline |
+| [Frittata aux poireaux, champignons et épinards](recipes/frittata-poireaux-champignons.md) | Yes | Baseline |
+| [Carottes et chou-fleur rôtis](recipes/carottes-chou-fleur-rotis.md) | Yes | Baseline |
 
 ## Conventions
 

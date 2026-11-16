@@ -74,3 +74,10 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 
 - soir : [tofu sauté aux légumes](recipes/tofu-saute-legumes.md), [riz](recipes/riz.md).
   Léger : Guillaume mange avant le kendo.
+
+## 2026-11-16 lun
+
+- soir : [frittata aux poireaux, champignons et épinards](recipes/frittata-poireaux-champignons.md),
+  [carottes et chou-fleur rôtis](recipes/carottes-chou-fleur-rotis.md),
+  [pommes de terre bouillies](recipes/pommes-de-terre-bouillies.md) pour France et les enfants.
+  Léger : Guillaume mange avant le kendo.
