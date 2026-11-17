@@ -4856,3 +4856,46 @@ on 2.4 GHz (22:56:55, 22:58:24), then nothing until wake-up (`08:23:25 associate
 `4C:5E:0C:91:51:99`, ch 11), and nothing in the 20 minutes after that. That is a short window.
 **Check again after a full working day:** ap-main's `reconnecting` pairs for `00:28:F8` should
 have stopped. The `connection lost` events are the ones to compare against the channel-9 days.
+
+## legolas (kid's laptop) given management access: `.10.94` reservation and `mgmt` (2026-11-16/17)
+
+legolas (`00:28:F8:B5:3C:7C`, was on the pool address `.10.192`) is the kid's laptop, which
+Guillaume also uses. Goal: it can manage every MikroTik, like the desktop and x1.
+
+**Found already done, not logged at the time** (2026-11-16 around 22:37-22:43, read from the
+2026-11-17 14:56 `dump-configs.sh`):
+- router: reservation `add address=192.168.10.94 client-id=1:0:28:f8:b5:3c:7c comment="Kid's laptop"
+  mac-address=00:28:F8:B5:3C:7C server=dhcp-home` (outside `pool-users`, like x1's `.10.92`).
+  The lease-script's DNS entry follows: `legolas.home.ledcom.fr` → `192.168.10.94`. legolas was
+  associated to switch-main's 2.4 GHz at the time of the dump.
+- `192.168.10.94` in `mgmt`, **with no comment**, on router (created 22:37:41), switch-main
+  (22:40:58) and ap-main (22:43:23).
+- **Missing on switch-office and switch-livingroom.**
+- `admin` `address=192.168.10.0/24,192.168.50.0/24` on all five devices, so it covers `.10.94`.
+  No change needed there.
+
+Side effect on the router: `mgmt` is not only the management gate. It also gives full access
+to `services` (`users2services`) and `iot` (`users2iot`), and to `users` from `wireguard1`.
+legolas gets all of this too.
+
+**Completed 2026-11-17** (Guillaume's terminal). The comment was added on router, switch-main
+and ap-main:
+```
+/ip/firewall/address-list/set [find address=192.168.10.94] comment="legolas, kid's laptop"
+```
+On switch-office:
+```
+/ip/firewall/address-list/add list=mgmt address=192.168.10.94 comment="legolas, kid's laptop"
+```
+On switch-livingroom (the TV was on), together with the x1 item left open on 2026-10-29:
+```
+/ip/firewall/address-list/add list=mgmt address=192.168.10.94 comment="legolas, kid's laptop"
+/ip/firewall/address-list/add list=mgmt address=192.168.50.3 comment="x1, via wireguard1"
+/ip/firewall/address-list/set [find address=192.168.10.92] comment="x1, work laptop"
+```
+**Verified** with `/ip/firewall/address-list/print where list=mgmt` on all five: 11 entries
+each, with `;;; legolas, kid's laptop` `192.168.10.94` (router 22:37:41, switch-main 22:40:58,
+ap-main 22:43:23 on 11-16; switch-office 15:14:13 and switch-livingroom 15:14:48 on 11-17).
+switch-livingroom also has `;;; x1, via wireguard1` `192.168.50.3` and `;;; x1, work laptop`
+`192.168.10.92`, so its list now matches the others. Not yet tested: an SSH login from
+legolas to each device.

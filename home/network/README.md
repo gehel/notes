@@ -113,8 +113,8 @@ re-baseline are done.
 **x1 road-warrior VPN** — [vpn.md](vpn.md)'s "x1" section. Worked from outside the LAN
 2026-10-30, then failed again: the endpoint `vpn.ledcom.fr` is being changed from a CNAME to a
 plain A record (see the lesson on `home.ledcom.fr` endpoints). x1 is gimli reimaged, same
-`.10.92` reservation. Also left: add `192.168.50.3` to switch-livingroom's `mgmt` when the TV is
-on (the two lines are in `changelog.md`'s 2026-10-29 entry).
+`.10.92` reservation. switch-livingroom got `192.168.50.3` in `mgmt` on 2026-11-17, so x1's
+tunnel address is now on all five devices.
 
 **MotionEye** (garage camera, Pi Zero 2 W, `.30.20`, added 2026-11-08, see `changelog.md`).
 Verified: HTTP/HTTPS to the internet (`iot2internet`, IPv4 and IPv6), NTP from `192.168.30.1`

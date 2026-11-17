@@ -245,7 +245,7 @@ rule change. IPv6 has one more NAT rule, the NAT66 masquerade (below).
 
 | List | Members | Purpose |
 |---|---|---|
-| `mgmt` | router (`.10.1`), switch-main, switch-office, ap-main, switch-livingroom, `.10.6` (router staging address, until the rollback week ends), desktop, x1 (work laptop, was gimli), phone and x1 (via `wireguard1`) | full management access. Separate gate: each device's `admin` user has its own `address=` restriction |
+| `mgmt` | router (`.10.1`), switch-main, switch-office, ap-main, switch-livingroom, `.10.6` (router staging address, until the rollback week ends), desktop, x1 (work laptop, was gimli), legolas (kid's laptop, `.10.94`), phone and x1 (via `wireguard1`) | full management access. Separate gate: each device's `admin` user has its own `address=` restriction |
 | `ha-mikrotik-targets` | switch-main, switch-office, ap-main, switch-livingroom | HA's MikroTik integration (8728) through `services2users`. ap-main and switch-livingroom were added 2026-10-20. The router itself is reached through `chain=input` |
 | `octoprint` | OctoPrint wired (`.30.80`) and wifi (`.30.81`) | exception to `iot2internet` and `users2iot` |
 | `iotawatt` | IotaWatt (`.30.50`) | exception to `iot2internet` (firmware updates, NTP) |
@@ -333,5 +333,5 @@ dumps). They are pure L2 devices with `disable-ipv6=yes`, so there is no NAT and
 switch-main and switch-office also have three defconf `chain=forward` rules (established,
 related, invalid) in front. They never match: the bridges have `use-ip-firewall=no`, so bridged
 traffic skips the IP firewall. switch-livingroom's six router-style forward rules and its IPv6
-filter were removed on 2026-10-20 (S19). Each device's `mgmt` list holds the same 9 addresses as
+filter were removed on 2026-10-20 (S19). Each device's `mgmt` list holds the same 11 addresses as
 the router's.
