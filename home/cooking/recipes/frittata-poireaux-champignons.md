@@ -8,7 +8,7 @@
 
 ## Ingrédients
 
-- Œufs : 10
+- Œufs : 7 (10 était trop, 2026-11-16)
 - Poireau : 2, émincés en demi-rondelles et lavés
 - Champignons : ~300 g, en lamelles
 - Épinards : ~150 g, frais
@@ -41,3 +41,6 @@
 - Peu de fromage, pour ne pas alourdir l'assiette de Guillaume.
 
 ## Historique
+
+- 2026-11-16 soir — avec des carottes et du chou-fleur rôtis, et des pommes de terre bouillies
+  pour France et les enfants. Très bonne, mais trop copieuse avec 10 œufs : 7 suffisent.

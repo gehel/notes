@@ -81,3 +81,13 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
   [carottes et chou-fleur rôtis](recipes/carottes-chou-fleur-rotis.md),
   [pommes de terre bouillies](recipes/pommes-de-terre-bouillies.md) pour France et les enfants.
   Léger : Guillaume mange avant le kendo.
+
+## 2026-11-17 mar
+
+- soir : [poulet basquaise](recipes/poulet-basquaise.md), [pain](recipes/pain.md) maison pour
+  les enfants. Guillaume seul avec les enfants ; France mange au travail.
+
+## 2026-11-18 mer
+
+- soir : [curry de paneer maison, épinards et chou-fleur](recipes/curry-paneer-epinards-chou-fleur.md),
+  [riz](recipes/riz.md). Le paneer se fait ~1 h 30 avant le repas (ou la veille).

@@ -48,10 +48,7 @@ constraint yet.
 | Mon lunch | Guillaume alone with the kids; France back later | Quick, and reheats well for France |
 | Mon dinner | Guillaume eats before his Kendo lesson | Not too heavy |
 | Tue lunch | Guillaume and France eat at a restaurant | Nothing to plan |
-| Tue dinner | Guillaume alone with the kids; France works late | A portion kept for France |
-
-*(Unknown: whether France eats at home after working late on Tuesday — the plans keep a
-portion aside just in case.)*
+| Tue dinner | Guillaume alone with the kids; France works late and eats at work | Cook for 3 — no portion for France (confirmed 2026-11-17) |
 
 ## Layout
 
@@ -108,6 +105,8 @@ portion aside just in case.)*
 | [Tofu sauté aux légumes](recipes/tofu-saute-legumes.md) | Yes (without the rice) | Baseline |
 | [Frittata aux poireaux, champignons et épinards](recipes/frittata-poireaux-champignons.md) | Yes | Baseline |
 | [Carottes et chou-fleur rôtis](recipes/carottes-chou-fleur-rotis.md) | Yes | Baseline |
+| [Poulet basquaise](recipes/poulet-basquaise.md) | Yes (without the bread) | Baseline |
+| [Curry de paneer, épinards et chou-fleur](recipes/curry-paneer-epinards-chou-fleur.md) | Yes (without the rice) | Baseline |
 
 ## Conventions
 
