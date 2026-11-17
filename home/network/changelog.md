@@ -4725,3 +4725,66 @@ get_bucket_lifecycle_configuration -> [{'Expiration': {'Days': 30}, 'ID': 'expir
 ```
 **Every object in the bucket now expires after 30 days.** Not checked: which endpoint motionEye's
 upload settings use (both answered with region `gva2`).
+
+## ap-main `wifi1` pinned to channel 1, 20 MHz (2026-11-16)
+
+**Why.** x1 (work laptop, `00:28:F8:B5:3C:7C`, `.10.192`) had WiFi drops. Its kernel log showed a
+loop every 1-2 minutes: it left ap-main `wifi1` (`…0E`) for `wifi2` (`…0F`, 5 GHz), was refused
+(`denied authentication (status 1)`, very likely S23's `-120..-81` reject rule), took about 1 s
+more to get back onto `…0E` (`status 30`, comeback 1025 ms, PMF), and was sometimes then
+disconnected by ap-main for weak signal (`DISASSOC_LOW_ACK`) and fell back to switch-main. While
+looking into it: **ap-main's `wifi1` had never had a channel pinned.** It had picked
+**2452/n/Ce, channel 9 at 40 MHz**, overlapping switch-main on channel 11. The September
+channel plan had used ch 1 and ch 11. Ch 1 went with mikrotik1's radio, and ap-main's 2.4 GHz
+radio was never set to it.
+
+**Before** (Guillaume, ap-main terminal), no `channel.*` set on the interface:
+```
+/interface/wifi/print detail where name=wifi1
+0  MBR default-name="wifi1" name="wifi1" l2mtu=1560 mac-address=48:A9:8A:2E:10:0E arp-timeout=auto radio-mac=48:A9:8A:2E:10:0E configuration.ssid="LEDCOM" .mode=ap security.authentication-types=wpa2-psk-sha2
+```
+**Applied:**
+```
+/interface/wifi/set wifi1 channel.frequency=2412 channel.width=20mhz
+/interface/wifi/monitor wifi1 once
+               state: switching channel
+             channel: 2452/n/Ce
+    registered-peers: 2
+            tx-power: 14
+  channel-priorities: 0:2412/n
+```
+`monitor` caught the radio mid-switch, so its `channel:` line still shows the old value.
+**Verified from a client** (x1, `nmcli dev wifi list` after a rescan, a few seconds later):
+```
+*  48:A9:8A:2E:10:0E  LEDCOM      1    2412 MHz  57
+   4C:5E:0C:91:51:99  LEDCOM      11   2462 MHz  57
+   48:A9:8A:2E:10:0F  LEDCOM      100  5500 MHz  52
+```
+ap-main 2.4 GHz is on channel 1 and x1 reassociated to it. **Verified on the AP** (second
+`monitor`, after the switch). `2412/n` has no `Ce` suffix, so the width is 20 MHz:
+```
+               state: running
+             channel: 2412/n
+    registered-peers: 3
+            tx-power: 14
+```
+ap-main's log shows the same switch for x1: `22:49:45 disconnected, connection lost, signal
+strength -69, channel 2412/n`, then `22:50:17 connected, signal strength -60, channel 2412/n`.
+
+**ap-main's own log for x1, 2026-11-14 to 11-16** (`/log print where message~"00:28:F8"`):
+- On `wifi1`: a `reconnecting` / `connected` pair every 1-5 minutes. That is the AP's view of
+  the kernel log's failed 5 GHz attempt followed by the reassociation to `…0E`. About every
+  10-20 minutes there is also a `disconnected, connection lost` with a 5-60 s gap. The signal
+  ap-main hears from x1 on 2.4 GHz is -61 to -86, mostly -64 to -78.
+- **Not one rejection is logged for `wifi2`**: at these log topics, refused 5 GHz attempts leave
+  no trace. So "the denials are S23's rule" is still inferred, not seen.
+- x1 was on `wifi2` only once: `2026-11-15 14:36:35 connected, signal strength -83`, `15:17:24
+  disconnected, connection lost, signal strength -91`. **ap-main hears x1 at -83 to -91 on 5 GHz.**
+  That is unusable, so relaxing S23's threshold would not help x1. Also, x1 got in at -83 even
+  though the rule rejects -120..-81. The signal the AP reads during the join must differ from
+  the one it logs.
+
+**Not addressed here:** x1's 5 GHz attempt loop. The cause is on x1's side: Linux prefers 5 GHz,
+and x1 hears `…0F` at about -75 while ap-main hears x1 at -83 or worse. Options are still to be
+decided. `tx-power: 14` on `wifi1` was also not set on purpose. **To check around 2026-11-17:** whether
+ap-main's `connection lost` events for x1 become rarer on channel 1.
