@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mealie
+  labels:
+    # Mealie runs as its own non-root user (911) with no capabilities, so the strictest
+    # Pod Security level fits. cert-manager's HTTP-01 solver pods, created in this
+    # namespace, also comply.
+    pod-security.kubernetes.io/enforce: restricted

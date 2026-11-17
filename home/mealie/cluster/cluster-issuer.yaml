@@ -1,0 +1,19 @@
+# Let's Encrypt production issuer, HTTP-01 through Traefik. Used by any Ingress annotated
+# `cert-manager.io/cluster-issuer: letsencrypt`.
+#
+# No contact email: Let's Encrypt stopped sending expiry mails in 2025, and cert-manager
+# renews 30 days before expiry. A failed renewal shows up as a not-Ready Certificate
+# (`kubectl get certificate -A`).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik

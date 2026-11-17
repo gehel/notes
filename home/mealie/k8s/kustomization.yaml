@@ -1,0 +1,10 @@
+# The whole Mealie deployment: the app (app/) plus its public exposure through Traefik.
+# The routine command is `kubectl apply -k k8s/`. Never `kubectl delete -k` it: that deletes
+# the namespace, and with it the data volume (see README.md, "Operations").
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mealie
+resources:
+  - app
+  - middleware.yaml
+  - ingress.yaml

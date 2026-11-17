@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mealie-data
+  labels:
+    app.kubernetes.io/name: mealie
+spec:
+  # A Cinder block volume (Ceph RBD behind it) formatted ext4 and mounted on one node at a
+  # time. SQLite is safe on it: Mealie's warning is about network *file systems* (NFS, SMB),
+  # where file locking breaks; here locking stays local to the node.
+  accessModes:
+    - ReadWriteOnce
+  # No storageClassName: use the cluster's default class. Check it with
+  # `kubectl get storageclass` and pin it here if there is none or it isn't block storage.
+  resources:
+    requests:
+      storage: 5Gi

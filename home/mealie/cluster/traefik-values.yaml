@@ -1,0 +1,19 @@
+# Values for the traefik/traefik Helm chart, release "traefik" in namespace "traefik".
+# Chart version is pinned in README.md. The chart's defaults do most of the work: one
+# Traefik replica, the `web` (80) and `websecure` (443, TLS) entrypoints, and one Service of
+# type LoadBalancer, which Infomaniak's cloud controller turns into an Octavia load
+# balancer with a public IP. That IP is what mealie.ledcom.fr points to at Gandi.
+#
+# Traefik rather than ingress-nginx: ingress-nginx was retired by Kubernetes SIG Network in
+# March 2026 and gets no more fixes.
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+
+service:
+  spec:
+    type: LoadBalancer
+
+# The chart's own redirect setting (ports.web.http.redirections) is deliberately unused:
+# see k8s/middleware.yaml for why the redirect is per Ingress.

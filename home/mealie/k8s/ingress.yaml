@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mealie
+  labels:
+    app.kubernetes.io/name: mealie
+  annotations:
+    # cert-manager gets a Let's Encrypt certificate into mealie-tls and renews it.
+    cert-manager.io/cluster-issuer: letsencrypt
+    # <namespace>-<name>@kubernetescrd: the Middleware in middleware.yaml.
+    traefik.ingress.kubernetes.io/router.middlewares: mealie-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - mealie.ledcom.fr
+      secretName: mealie-tls
+  rules:
+    # Keep in sync with BASE_URL in app/mealie.env.
+    - host: mealie.ledcom.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mealie
+                port:
+                  name: http

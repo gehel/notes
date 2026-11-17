@@ -1,0 +1,17 @@
+# Mealie itself, without public exposure. Applied alone on the first deployment, so that the
+# default admin account can be changed over a port-forward before the Ingress exists (see
+# README.md, "First deployment"). After that, always apply the parent directory (k8s/).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mealie
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - networkpolicy.yaml
+configMapGenerator:
+  # The name gets a content hash suffix, so editing mealie.env rolls the Deployment.
+  - name: mealie-env
+    envs:
+      - mealie.env

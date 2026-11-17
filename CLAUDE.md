@@ -30,13 +30,16 @@ The planning files are processed by [TaskJuggler](https://taskjuggler.org/) (`tj
 
 ## Working with `home/`
 
-`home/` holds Guillaume's personal home-infrastructure notes, split into two independent,
+`home/` holds Guillaume's personal home-infrastructure notes, split into independent,
 self-contained areas — each with its own `README.md`; **read that first** before touching
 anything in its directory, since it names the currently active work and links every other
 document in the area:
 
 - `home/network/` — a MikroTik-based home network (VLANs, firewall, wifi, IPv6, QoS).
 - `home/home-assistant/` — review and maintenance of a Home Assistant instance.
+- `home/mealie/` — self-hosted Mealie on Infomaniak managed Kubernetes (Helm values,
+  kustomize manifests, setup procedure). No `config-review.md`: open items live in its README.
+  The kubeconfig stays in `~/.kube/`, never in the repo.
 
 `home/cooking/` is a third area, but not infrastructure: family recipes and meal planning. Its
 README holds the household constraints (notably Guillaume's no-carbs-in-the-evening diet) and

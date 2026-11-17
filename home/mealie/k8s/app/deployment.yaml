@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mealie
+  labels:
+    app.kubernetes.io/name: mealie
+spec:
+  # Exactly one pod, ever: the data volume is ReadWriteOnce and SQLite takes one writer.
+  # Recreate stops the old pod before the new one starts, so an upgrade or a node change
+  # never has two pods fighting over the volume.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mealie
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mealie
+    spec:
+      securityContext:
+        # 911 is the image's own "abc" user (= the default PUID/PGID). Started directly as
+        # that uid, the entrypoint skips its root-only usermod/chown/gosu step.
+        runAsUser: 911
+        runAsGroup: 911
+        runAsNonRoot: true
+        # Makes the fresh volume writable by 911; only re-chowns when the root dir doesn't
+        # match yet, not on every start.
+        fsGroup: 911
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mealie
+          # Pin a release, never :latest. Read the release notes before bumping (README.md,
+          # "Upgrading Mealie").
+          image: ghcr.io/mealie-recipes/mealie:v3.30.0
+          ports:
+            - name: http
+              containerPort: 9000
+          envFrom:
+            - configMapRef:
+                name: mealie-env
+          volumeMounts:
+            # Everything Mealie writes lives here: the SQLite database, images, the
+            # session-signing secret, and the backups made from the admin page.
+            - name: data
+              mountPath: /app/data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              # Upstream recommends a memory limit: without one, Python sizes itself on the
+              # node's RAM and idles high.
+              memory: 1000Mi
+          # Same endpoint as the image's own HEALTHCHECK. The first start runs database
+          # migrations, so give it up to 5 minutes before liveness takes over.
+          startupProbe:
+            httpGet:
+              path: /api/app/about
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/app/about
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/app/about
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mealie-data

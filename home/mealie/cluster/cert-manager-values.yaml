@@ -1,0 +1,8 @@
+# Values for the jetstack/cert-manager Helm chart, release "cert-manager" in namespace
+# "cert-manager". Chart version is pinned in README.md.
+
+crds:
+  # Let the chart install and upgrade cert-manager's CRDs. `keep` (the chart default)
+  # leaves them in place on `helm uninstall`, so certificates aren't deleted with it.
+  enabled: true
+  keep: true

@@ -1,0 +1,24 @@
+# Only Traefik may open connections to Mealie. This is what makes HOST_IP=* in mealie.env
+# acceptable: every client that can reach the pod is a trusted proxy. Kubelet probes come
+# from the node itself and stay allowed. Egress stays open: Mealie fetches recipe pages
+# and images from arbitrary sites when importing by URL.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mealie-from-traefik
+  labels:
+    app.kubernetes.io/name: mealie
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mealie
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 9000
+          protocol: TCP

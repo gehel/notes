@@ -1,0 +1,15 @@
+# HTTP -> HTTPS redirect, attached to Mealie's Ingress only rather than to the whole `web`
+# entrypoint. An entrypoint-wide redirect would also catch cert-manager's HTTP-01 challenge
+# on port 80. Here, the challenge Ingress that cert-manager creates has a longer rule
+# (exact challenge path), so Traefik routes it first, without the redirect. On HTTPS the
+# middleware is a no-op: Traefik skips a redirect whose target equals the request URL.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  labels:
+    app.kubernetes.io/name: mealie
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
