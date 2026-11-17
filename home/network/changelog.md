@@ -4728,7 +4728,7 @@ upload settings use (both answered with region `gva2`).
 
 ## ap-main `wifi1` pinned to channel 1, 20 MHz (2026-11-16)
 
-**Why.** x1 (work laptop, `00:28:F8:B5:3C:7C`, `.10.192`) had WiFi drops. Its kernel log showed a
+**Why.** legolas (laptop, `00:28:F8:B5:3C:7C`, `.10.192`) had WiFi drops. Its kernel log showed a
 loop every 1-2 minutes: it left ap-main `wifi1` (`…0E`) for `wifi2` (`…0F`, 5 GHz), was refused
 (`denied authentication (status 1)`, very likely S23's `-120..-81` reject rule), took about 1 s
 more to get back onto `…0E` (`status 30`, comeback 1025 ms, PMF), and was sometimes then
@@ -4754,13 +4754,13 @@ radio was never set to it.
   channel-priorities: 0:2412/n
 ```
 `monitor` caught the radio mid-switch, so its `channel:` line still shows the old value.
-**Verified from a client** (x1, `nmcli dev wifi list` after a rescan, a few seconds later):
+**Verified from a client** (legolas, `nmcli dev wifi list` after a rescan, a few seconds later):
 ```
 *  48:A9:8A:2E:10:0E  LEDCOM      1    2412 MHz  57
    4C:5E:0C:91:51:99  LEDCOM      11   2462 MHz  57
    48:A9:8A:2E:10:0F  LEDCOM      100  5500 MHz  52
 ```
-ap-main 2.4 GHz is on channel 1 and x1 reassociated to it. **Verified on the AP** (second
+ap-main 2.4 GHz is on channel 1 and legolas reassociated to it. **Verified on the AP** (second
 `monitor`, after the switch). `2412/n` has no `Ce` suffix, so the width is 20 MHz:
 ```
                state: running
@@ -4768,23 +4768,47 @@ ap-main 2.4 GHz is on channel 1 and x1 reassociated to it. **Verified on the AP*
     registered-peers: 3
             tx-power: 14
 ```
-ap-main's log shows the same switch for x1: `22:49:45 disconnected, connection lost, signal
+ap-main's log shows the same switch for legolas: `22:49:45 disconnected, connection lost, signal
 strength -69, channel 2412/n`, then `22:50:17 connected, signal strength -60, channel 2412/n`.
 
-**ap-main's own log for x1, 2026-11-14 to 11-16** (`/log print where message~"00:28:F8"`):
+**ap-main's own log for legolas, 2026-11-14 to 11-16** (`/log print where message~"00:28:F8"`):
 - On `wifi1`: a `reconnecting` / `connected` pair every 1-5 minutes. That is the AP's view of
   the kernel log's failed 5 GHz attempt followed by the reassociation to `…0E`. About every
   10-20 minutes there is also a `disconnected, connection lost` with a 5-60 s gap. The signal
-  ap-main hears from x1 on 2.4 GHz is -61 to -86, mostly -64 to -78.
+  ap-main hears from legolas on 2.4 GHz is -61 to -86, mostly -64 to -78.
 - **Not one rejection is logged for `wifi2`**: at these log topics, refused 5 GHz attempts leave
   no trace. So "the denials are S23's rule" is still inferred, not seen.
-- x1 was on `wifi2` only once: `2026-11-15 14:36:35 connected, signal strength -83`, `15:17:24
-  disconnected, connection lost, signal strength -91`. **ap-main hears x1 at -83 to -91 on 5 GHz.**
-  That is unusable, so relaxing S23's threshold would not help x1. Also, x1 got in at -83 even
+- legolas was on `wifi2` only once: `2026-11-15 14:36:35 connected, signal strength -83`, `15:17:24
+  disconnected, connection lost, signal strength -91`. **ap-main hears legolas at -83 to -91 on 5 GHz.**
+  That is unusable, so relaxing S23's threshold would not help legolas. Also, legolas got in at -83 even
   though the rule rejects -120..-81. The signal the AP reads during the join must differ from
   the one it logs.
 
-**Not addressed here:** x1's 5 GHz attempt loop. The cause is on x1's side: Linux prefers 5 GHz,
-and x1 hears `…0F` at about -75 while ap-main hears x1 at -83 or worse. Options are still to be
+**Not addressed here:** legolas's 5 GHz attempt loop. The cause is on legolas's side: Linux prefers 5 GHz,
+and legolas hears `…0F` at about -75 while ap-main hears legolas at -83 or worse. Options are still to be
 decided. `tx-power: 14` on `wifi1` was also not set on purpose. **To check around 2026-11-17:** whether
-ap-main's `connection lost` events for x1 become rarer on channel 1.
+ap-main's `connection lost` events for legolas become rarer on channel 1.
+
+## legolas locked to 2.4 GHz on `LEDCOM` (2026-11-16, evening)
+
+The fix for the 5 GHz attempt loop in the entry above. It is on the client, not on any MikroTik.
+**Applied** (Guillaume, on legolas):
+```
+nmcli connection modify LEDCOM 802-11-wireless.band bg
+nmcli connection up LEDCOM
+```
+Only the `LEDCOM` profile is affected. To undo: `802-11-wireless.band ""`. The cost is no 5 GHz
+for legolas at home, even next to ap-main.
+
+**Verified 2026-11-17 08:43** (legolas):
+```
+nmcli -g 802-11-wireless.band connection show LEDCOM
+bg
+```
+legolas's kernel log since the lock (from the `associated` at 22:55:49, the reconnect with the
+new profile) shows no further authentication attempt to `…0F`. There are no `denied
+authentication` lines either. The remaining events are two roams between switch-main and ap-main
+on 2.4 GHz (22:56:55, 22:58:24), then nothing until wake-up (`08:23:25 associated` to switch-main,
+`4C:5E:0C:91:51:99`, ch 11), and nothing in the 20 minutes after that. That is a short window.
+**Check again after a full working day:** ap-main's `reconnecting` pairs for `00:28:F8` should
+have stopped. The `connection lost` events are the ones to compare against the channel-9 days.
