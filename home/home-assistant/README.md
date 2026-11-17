@@ -39,6 +39,10 @@ Also newly open: HA sweeping the entire `services` subnet with reverse-DNS looku
 hour, found from the `home/network` side (finding 17) — the source mechanism isn't identified
 yet.
 
+**Newest, high:** the `home.ledcom.fr` TLS cert has expired. Let's Encrypt renewal fails
+every night because the Gandi token gets a 403 (finding 30). The fix is a new Gandi personal
+access token in the add-on's config, and there is no alert yet for this kind of failure.
+
 Convention for address fixes: **hostname, not IP** — Pi-hole runs its own local DNS, so pointing
 integrations at e.g. `pihole.home.ledcom.fr` survives any future re-addressing that a bare IP
 wouldn't.

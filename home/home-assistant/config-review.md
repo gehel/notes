@@ -12,6 +12,49 @@ the parts of round 1 originally left for later.
 
 ## Open findings
 
+### 30. `home.ledcom.fr` TLS certificate expired: Let's Encrypt renewal fails silently with Gandi 403 (high)
+
+Found 2026-11-16: the `home-assistant` MCP connection fails with `CERT_HAS_EXPIRED`. The
+`core_letsencrypt` add-on (v6.5.0, DNS-01 via `dns-gandi`, Gandi personal access token) is
+started every night by the "Renew Let's Encrypt" automation (`id: '1771098251453'`,
+`hassio.addon_start` at hour `00`). A manual run on 2026-11-16 15:41 failed with:
+
+```
+Renewing an existing certificate for home.ledcom.fr
+unable to get TXT records for domain ledcom.fr and name _acme-challenge.home: 403: request failed: Access was denied to this resource.
+```
+
+The failure happens on the first LiveDNS call (reading TXT records), before any write. So the
+Gandi token no longer has access to `ledcom.fr`'s DNS. A 403 means Gandi recognised the
+request but refused it. Probable causes: the PAT expired (Gandi PATs have a fixed lifetime and
+must be rotated), or it was revoked, or it lost the `ledcom.fr` scope or the "Manage domain
+name technical configurations" permission. The cert is valid for 90 days and certbot renews at
+30 days left. So the renewal has probably failed every night for 30+ days with no alert.
+
+**Fix:**
+
+1. Gandi admin → Organization → Sharing → Personal Access Tokens: check the current token's
+   expiry, then create a new one. Scope it to `ledcom.fr` only. Grant "Manage domain name
+   technical configurations" (LiveDNS) only. Pick the longest lifetime and note its expiry date
+   here.
+2. HA → Settings → Add-ons → Let's Encrypt → Configuration: replace `dns.gandi_token`, save,
+   start. The log must end with `Successfully received certificate`.
+3. Make whatever serves TLS load the new cert. HA Core reads `/ssl/fullchain.pem` only at
+   startup, so restart Core. Caveat: the synced `configuration.yaml` has no `http:`
+   `ssl_certificate` block. Find out what actually terminates TLS for `home.ledcom.fr` and record
+   it here.
+4. Revoke the old token in Gandi.
+
+**Also fix the silent failure:** add the core `cert_expiry` integration for
+`home.ledcom.fr:443`, plus an automation that notifies when the expiry is less than 14 days away.
+That warns before any future token expiry breaks access. The nightly automation also
+never restarts Core after a successful renewal. Without that, a renewed cert only goes live at
+the next unrelated restart.
+
+**Verify:** `openssl s_client -connect home.ledcom.fr:443 -servername home.ledcom.fr </dev/null
+| openssl x509 -noout -dates` shows a `notAfter` about 90 days out. The `home-assistant` MCP
+connects again.
+
 ### 15. IotaWatt's Energy dashboard aggregates reference sensors that don't exist (medium)
 
 Found 2026-09-11 while confirming finding 1's IotaWatt fix (now closed — see `changelog.md`).
