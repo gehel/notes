@@ -122,7 +122,8 @@ Verified: HTTP/HTTPS to the internet (`iot2internet`, IPv4 and IPv6), NTP from `
 Monitor works). HA shows the camera: `services2iot` allows its API (8765) and its stream on
 9081, a non-default port set in motionEye. It uploads to Infomaniak S3 (HTTPS) and emails
 through Gmail (587, its own `iot2internet` accept). The `motioneye` bucket expires objects
-after 30 days. Camera: OV5647 (likely a clone) at 1280x720, through libcamera via a
+after 30 days. Upload endpoint: `s3.gva1.infomaniak.cloud`. Recreating the camera in motionEye
+resets these settings (upload, email, port 9081); they were restored on 2026-11-09. Camera: OV5647 (likely a clone) at 1280x720, through libcamera via a
 `motion_binary` wrapper; its binned 1296x972 mode gives garbage, and `gpu_mem` must stay at 128
 (16 kills the camera). A Camera Module 3 Wide NoIR may replace it.
 

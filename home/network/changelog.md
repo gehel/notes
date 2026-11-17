@@ -4757,6 +4757,19 @@ better module may follow; the candidate noted is the Raspberry Pi Camera Module 
 (IMX708, 120°, libcamera-supported), with a Zero (22-pin) camera cable and an 850 nm IR
 illuminator. It needs no change to this setup: the libcamera wrapper already covers it.
 
+## MotionEye: upload, email and stream port restored after the camera was recreated (2026-11-09)
+
+Host side, no network change. Recreating the camera (entry above) had reset its settings.
+Re-entered by Guillaume in motionEye's *File Storage* and notification settings:
+- **S3 upload:** service S3, endpoint **`https://s3.gva1.infomaniak.cloud`** (the one the
+  lifecycle rule was set and read back through, which settles the open endpoint question
+  above), bucket `motioneye`, keys of the dedicated project. The `AWS_DEFAULT_REGION=gva2`
+  drop-in on the host survived the recreation.
+- **Email** through `smtp.gmail.com:587` (TLS, Gmail app password).
+- **Stream port 9081**, which HA and `services2iot` expect.
+
+**Verified** (Guillaume): "all configured and working".
+
 ## ap-main `wifi1` pinned to channel 1, 20 MHz (2026-11-16)
 
 **Why.** legolas (laptop, `00:28:F8:B5:3C:7C`, `.10.192`) had WiFi drops. Its kernel log showed a
