@@ -4899,3 +4899,202 @@ ap-main 22:43:23 on 11-16; switch-office 15:14:13 and switch-livingroom 15:14:48
 switch-livingroom also has `;;; x1, via wireguard1` `192.168.50.3` and `;;; x1, work laptop`
 `192.168.10.92`, so its list now matches the others. Not yet tested: an SSH login from
 legolas to each device.
+
+## Reolink W320 garage camera to replace MotionEye: plan and prepared commands (2026-11-19)
+
+**New device** (Guillaume): a Reolink W320 (wifi) for the garage, on `LEDCOM-IoT`. It
+**replaces MotionEye** (`.30.20`), which is retired once the Reolink works in HA. Decisions:
+- **Local only, no internet.** No `iot2internet` exception, no Reolink cloud/P2P. NTP from
+  `192.168.30.1` (already accepted on `chain=input` from `iot`). Firmware updated by hand from
+  the desktop (`mgmt` has full access to `iot` through `users2iot`). Remote viewing goes through
+  the WireGuard VPN (the phone's `192.168.50.2` is in `mgmt`) or HA.
+- **Address `192.168.30.21`**, outside `pool-iot`. `.30.20` is not reused: a new address avoids
+  any leftover MotionEye reference matching the camera (README lesson on renumbering).
+- **Name `camera-garage.home.ledcom.fr`**, as a static DNS record with its own comment. The
+  lease-script names a host from its DHCP hostname, which the camera sets itself.
+- **HA -> camera, one accept in `services2iot`**, destination list `camera-garage`, TCP
+  80/443 (HTTP(S) API), 554 (RTSP), 1935 (RTMP), 8000 (ONVIF), 9000 (Reolink "Baichuan" port,
+  which the HA integration uses for push events). No camera -> HA rule: with push events on 9000,
+  the ONVIF webhook path (camera -> HA) is not needed. *Assumption, not verified:* if HA's
+  Reolink repairs say push events don't work, revisit that.
+- IPv4 only, like MotionEye: the IPv6 firewall has no `services2iot` chain, and the static
+  record is A only.
+
+State when planned: HA has no `reolink` config entry yet. HA's `motioneye` entry is in
+`setup_retry` (`Connect call failed ('192.168.30.20', 8765)`), so the Pi may already be off.
+The latest dumps (2026-11-17) show no new IoT device.
+
+**Step 1, camera onboarding (Guillaume, Reolink app on the phone).** ~~The phone joins
+`LEDCOM-IoT` for the setup.~~ **Failed, 2026-11-19:** the Reolink app refuses to start on
+`LEDCOM-IoT` (no internet). From `LEDCOM`, scanning the camera's UID QR code ends in
+"Connection Failed": the app reaches a camera either by LAN discovery (does not cross VLANs) or
+by UID through Reolink's cloud (the camera has no internet). So the app cannot onboard a camera
+that is only on `iot`, by design.
+
+**Revised:** onboard it wired on `users`, then move it to wifi. Every switch-office port is an
+untagged VLAN 10 access port, with free ports next to the desktop and printer. Bring the camera
+to the office, connect its own power and an ethernet cable to a free switch-office port. On
+`users` it gets a pool lease and internet, and the app on `LEDCOM` finds it on the LAN. In the
+app, in this order: update the firmware (it has internet only now), set a strong admin
+password, device name `camera-garage`, time zone Europe/Zurich and NTP server `192.168.30.1`.
+Configure wifi to `LEDCOM-IoT`, turn off UID/P2P and UPnP, and leave HTTP/HTTPS, RTSP, RTMP and
+ONVIF on. Then unplug the cable: the camera falls back to wifi, on `iot`. **The reservation
+needs the wifi MAC, not the wired one** (they differ): read it from the router log (`dhcp-iot
+assigned`) or `/caps-man/registration-table/print`. The camera talks to Reolink's servers while
+it is on `users`; that ends when it moves to `iot`. After this the app on `LEDCOM` cannot reach
+the camera any more (expected): use the VPN (`mgmt`) or HA.
+
+**Step 2, router (prepared, not applied).** Short lines, paste once (no duplicate guard). Fill
+in the MAC on the first line. `[find mac-address=$mac]` only matches the dynamic lease because
+the static one does not exist yet. After this, reboot the camera so it binds `.30.21`.
+```
+:global mac "XX:XX:XX:XX:XX:XX"
+/ip/dhcp-server/lease/remove [find mac-address=$mac]
+/ip/dhcp-server/lease/add server=dhcp-iot address=192.168.30.21 mac-address=$mac
+/ip/dhcp-server/lease/set [find address=192.168.30.21] comment="Reolink W320, garage"
+/ip/dns/static/add name=camera-garage.home.ledcom.fr address=192.168.30.21 type=A
+/ip/dns/static/set [find name=camera-garage.home.ledcom.fr] comment="Reolink W320, garage"
+/ip/firewall/address-list/add list=camera-garage address=192.168.30.21
+/ip/firewall/address-list/set [find list=camera-garage] comment="Reolink W320, garage"
+:global cmt "services2iot: HA -> camera-garage (Reolink)"
+:global tgt [/ip/firewall/filter/find comment="services2iot: deny everything else"]
+/ip/firewall/filter/add chain=services2iot action=accept disabled=yes comment=$cmt place-before=$tgt
+/ip/firewall/filter/set [find comment=$cmt] connection-state=new protocol=tcp
+/ip/firewall/filter/set [find comment=$cmt] src-address=192.168.20.60
+/ip/firewall/filter/set [find comment=$cmt] dst-port=80,443,554,1935,8000,9000
+/ip/firewall/filter/set [find comment=$cmt] dst-address-list=camera-garage disabled=no
+/system/script/environment/remove [find name=cmt]
+/system/script/environment/remove [find name=tgt]
+/system/script/environment/remove [find name=mac]
+/ip/dhcp-server/lease/print detail where address=192.168.30.21
+/ip/firewall/address-list/print where list=camera-garage
+/ip/firewall/filter/print where chain=services2iot
+```
+To check: the new accept sits right above `services2iot: deny everything else`, with no `X`
+and no `I` flag (re-print if `I` shows, see the README lesson on transient `I - INVALID`).
+
+**Step 3, HA:** add the Reolink integration, host `camera-garage.home.ledcom.fr`.
+
+**Step 4, retire MotionEye (prepared, not applied; only after step 3 works).** Comments are
+exact, from the 2026-11-17 dump. `[find address=192.168.30.20]` removes both the `motioneye`
+and the `ssh-hosts` entries.
+```
+/ip/firewall/filter/remove [find comment="iot2internet: motioneye HTTP/HTTPS exception"]
+/ip/firewall/filter/remove [find comment="iot2internet: motioneye SMTP submission (Gmail)"]
+/ip/firewall/filter/remove [find comment="services2iot: HA -> motioneye API + stream"]
+/ip/firewall/address-list/remove [find address=192.168.30.20]
+/ipv6/firewall/filter/remove [find comment="iot2internet: motioneye HTTP/HTTPS"]
+/ipv6/firewall/filter/remove [find comment="iot2internet: motioneye SMTP submission (Gmail)"]
+/ipv6/firewall/address-list/remove [find list=motioneye-v6]
+/ip/dhcp-server/lease/remove [find comment=MotionEye]
+/ip/firewall/address-list/print where address=192.168.30.20
+/ipv6/firewall/address-list/print where list=motioneye-v6
+/ip/dhcp-server/lease/print where address=192.168.30.20
+```
+Off the router: delete HA's `motioneye` config entry, revoke the Gmail app password MotionEye
+used, decide what happens to the Infomaniak `motioneye` bucket (objects expire after 30 days
+anyway), and wipe the Pi before reuse.
+
+**Onboarding, wired, 2026-11-19 evening** (21:10 dumps). The camera is up on `users`: hostname
+`W320`, pool lease `192.168.10.107` (lease-script record `W320.home.ledcom.fr`), and
+switch-office `ether4` link up at 21:10:20. `users2internet` accepts everything, so it has
+internet. The app on the phone still gives "Connection Failed" after the UID scan. The
+router's newest lease-script record for the phone is `Galaxy-S24-Ultra.home.ledcom.fr` ->
+`192.168.30.199` (`iot`), from the earlier attempt; no `dhcp-home` record for it. A renewal of
+an existing `dhcp-home` lease would not fire the script, so this does not prove which network
+the phone is on. Next: check the phone's IP, add the camera in the app by IP (`192.168.10.107`,
+port 9000) instead of by UID, or configure it from the desktop's browser at
+`http://192.168.10.107`. Side note: `ap-main.txt` from this run is truncated after the `/ip ssh`
+export block (1377 bytes); re-dump ap-main before relying on it.
+**Resolved:** the phone is on `users` (`192.168.10.105`). Adding the camera in the app **by IP
+(`192.168.10.107`, port 9000) works**; adding by UID does not. So the earlier failure was
+discovery/UID, not the network. The desktop's browser gets `ERR_CONNECTION_REFUSED` on both
+`http://` and `https://192.168.10.107`: the camera ships with its HTTP/HTTPS server off. HA's
+Reolink integration connects over HTTP(S), so HTTPS (and HTTP) must be turned on in the app's
+port settings, together with RTSP, RTMP and ONVIF, before step 3.
+
+**Camera moved to wifi** (Guillaume, 2026-11-19). Done in the app: firmware updated, admin
+password set, device name `camera-garage`, wifi set to `LEDCOM-IoT`, cable unplugged. **Not
+done yet:** ports (HTTP/HTTPS/RTSP/RTMP/ONVIF), time zone + NTP, UID/P2P and UPnP off. Wifi MAC
+(from Guillaume): `EC:71:DB:F6:01:61` (Reolink OUI). The camera is now on `iot`, so the rest of
+its settings are done from a `mgmt` host (`users2iot: mgmt hosts full`): the desktop with the
+Reolink client, or the phone over WireGuard, by IP, port 9000. Step 2 with the MAC filled in
+(`:global mac` dropped, the lines fit as they are):
+```
+/ip/dhcp-server/lease/remove [find mac-address=EC:71:DB:F6:01:61]
+/ip/dhcp-server/lease/add server=dhcp-iot address=192.168.30.21 mac-address=EC:71:DB:F6:01:61
+/ip/dhcp-server/lease/set [find address=192.168.30.21] comment="Reolink W320, garage"
+```
+then the DNS, address-list and `services2iot` lines of step 2 as written above, unchanged.
+
+**Step 2 applied** (Guillaume, router terminal, 2026-11-19 21:23). Output, trimmed:
+```
+/ip/dhcp-server/lease/print detail where address=192.168.30.21
+0  ;;; Reolink W320, garage
+   address=192.168.30.21 mac-address=EC:71:DB:F6:01:61 server=dhcp-iot status=waiting last-seen=never
+/ip/firewall/address-list/print where list=camera-garage
+;;; Reolink W320, garage
+0 camera-garage  192.168.30.21  2026-11-19 21:23:24
+/ip/firewall/filter/print where chain=services2iot
+4    ;;; services2iot: HA -> motioneye API + stream
+5  I ;;; services2iot: HA -> camera-garage (Reolink)
+     chain=services2iot action=accept connection-state=new protocol=tcp src-address=192.168.20.60
+     dst-address-list=camera-garage dst-port=80,443,554,1935,8000,9000
+6    ;;; services2iot: deny everything else
+```
+The lease was `waiting` because the camera had not rebound yet; it was then power-cycled.
+**Rule 5 printed `I - INVALID`.** Its shape matches the valid rule 4 (one address, one address
+list, no interface matcher). The README records a transient `I` right after an add, which
+clears on its own; to be confirmed with a re-print. The DNS static record was added on the
+router. Guillaume also added `camera-garage.home.ledcom.fr` as a Pi-hole local DNS record, which
+answers first. Guillaume reports the camera settings done (ports, time zone + NTP, UID/P2P and
+UPnP off), not yet checked here.
+
+**Step 2 verified** (re-print, 2026-11-19 ~21:40): rule 5 `services2iot: HA -> camera-garage
+(Reolink)` no longer shows `I` (the transient flag from the README lesson). Lease
+`192.168.30.21` `status=bound`, `active-mac-address=EC:71:DB:F6:01:61`, `host-name="camera-garage"`,
+`class-id="udhcp 1.31.1"`. Because the camera sends the hostname `camera-garage`, the
+lease-script owns `camera-garage.home.ledcom.fr`: on bind it removes every record with that
+name, so the static record from step 2 (comment "Reolink W320, garage") was most likely
+replaced by the script's own (`dhcp-to-dns: dhcp-iot`, TTL 5m, removed on deassign). Not checked.
+The name resolves either way through Guillaume's Pi-hole local record.
+
+HA (via MCP): a `reolink` entry exists with `source=ignore`, title `camera-garage
+(192.168.30.198)`. HA discovered the camera on the pool address it had before the reservation,
+and the discovery was ignored. HA's `motioneye` entry is no longer listed.
+
+**Step 3 done** (Guillaume, 2026-11-19): HA's `motioneye` entry deleted; Reolink integration
+added. HA (MCP): entry `reolink:MZG4` "camera-garage", `state=loaded`; it worked in the office.
+**Camera moved to the garage, then unreachable:** every `garage_camera_garage_*` entity is
+`unavailable` since 21:45 local (20:45 UTC). Most likely weak 2.4 GHz signal: `LEDCOM-IoT` is
+only on switch-main's radio, and MotionEye (inside the garage) got -76 dBm from it. Not
+verified: no registration-table/log output for `EC:71:DB:F6:01:61` from the garage yet.
+Guillaume plans an ethernet run to the garage. Push events not checked yet.
+
+**Garage, wifi confirmed dead** (Guillaume's router output, ~21:50): `/caps-man/registration-table/print`
+lists only IotaWatt, the Tasmota light (both `LEDCOM-IoT`) and the Nintendo Switch; no
+`EC:71:DB:F6:01:61`. Its log lines (`message~"EC:71:DB:F6:01:61"`) end at 21:28:53, before the
+move. They show the reservation working (`.30.198` deassigned 21:23:24, `.30.21` assigned
+21:24:10), plus `iot2internet` drops while UID/P2P and NTP were still at defaults: UDP 9999 to
+`15.188.197.53` every ~23 s (Reolink P2P), UDP 58200 to `172.239.7.91` once, and UDP 123 to
+public NTP servers about once a minute. To check later, once the camera is reachable: no more
+P2P or NTP drops from it now that UID is off and NTP is `192.168.30.1`.
+
+**Step 4 re-checked against the 21:10 dump** (grep for `30.20`, `motioneye`, the MAC and the
+EUI-64 suffix on router, switch-main and switch-office): exactly nine objects, all on the router,
+all covered by step 4: two `motioneye`/`ssh-hosts` list entries, one `motioneye-v6` entry, the
+reservation, three IPv4 rules and two IPv6 rules. No DNS static record left (the lease-script
+record went at deassign). Handed to Guillaume to paste.
+
+**Step 4 applied and verified** (Guillaume, router terminal, 2026-11-19 evening). Prints after
+the removals: IPv4 `iot2internet` = fan drop, octoprint, iotawatt 80/443, iotawatt NTP,
+deny-all (no motioneye rule). `services2iot` = Tuya, Tasmota/IotaWatt, ESPHome, HA SSH,
+`HA -> camera-garage (Reolink)`, deny-all. IPv6 `iot2internet` = octoprint, deny-all.
+`/ip/firewall/address-list/print where address=192.168.30.20`,
+`/ipv6/firewall/address-list/print where list=motioneye-v6` and
+`/ip/dhcp-server/lease/print where address=192.168.30.20` all empty. **MotionEye is off the
+router.** Off the router (Guillaume): HA `motioneye` entry deleted, Pi-hole local record
+removed, Infomaniak `motioneye` bucket deleted. Left: revoke MotionEye's Gmail app password,
+wipe the Pi Zero 2 W.
+Gmail app password used by MotionEye revoked (Guillaume, 2026-11-19). Only wiping the Pi Zero
+2 W is left.

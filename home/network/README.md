@@ -116,16 +116,17 @@ plain A record (see the lesson on `home.ledcom.fr` endpoints). x1 is gimli reima
 `.10.92` reservation. switch-livingroom got `192.168.50.3` in `mgmt` on 2026-11-17, so x1's
 tunnel address is now on all five devices.
 
-**MotionEye** (garage camera, Pi Zero 2 W, `.30.20`, added 2026-11-08, see `changelog.md`).
-Verified: HTTP/HTTPS to the internet (`iot2internet`, IPv4 and IPv6), NTP from `192.168.30.1`
-(pinned on the host, it ignores DHCP option 42 like the other Pis), and HA's SSH (Linux
-Monitor works). HA shows the camera: `services2iot` allows its API (8765) and its stream on
-9081, a non-default port set in motionEye. It uploads to Infomaniak S3 (HTTPS) and emails
-through Gmail (587, its own `iot2internet` accept). The `motioneye` bucket expires objects
-after 30 days. Upload endpoint: `s3.gva1.infomaniak.cloud`. Recreating the camera in motionEye
-resets these settings (upload, email, port 9081); they were restored on 2026-11-09. Camera: OV5647 (likely a clone) at 1280x720, through libcamera via a
-`motion_binary` wrapper; its binned 1296x972 mode gives garbage, and `gpu_mem` must stay at 128
-(16 kills the camera). A Camera Module 3 Wide NoIR may replace it.
+**Reolink W320 garage camera** (`camera-garage`, `.30.21`, 2026-11-19, see `changelog.md`).
+Local only: no internet exception, NTP from `192.168.30.1`, UID/P2P and UPnP off. HA's Reolink
+integration reaches it through `services2iot` (80/443/554/1935/8000/9000). The app on `LEDCOM`
+cannot onboard a camera that is only on `iot`: it was set up wired on `users`, then moved to
+wifi; manage it from a `mgmt` host by IP, port 9000. **Open:** `LEDCOM-IoT` does not reach the
+garage (camera absent from the registration table there), so an ethernet run to the garage is
+planned. Its port must be an `iot` access port, and the wired MAC needs its own reservation
+(wifi MAC `EC:71:DB:F6:01:61`). Then check push events in HA, and that the camera's P2P/NTP
+drops in `iot2internet` have stopped. MotionEye (Pi Zero 2 W, `.30.20`) was retired the same
+day: removed from the router, HA, Pi-hole, Infomaniak and Gmail (app password revoked). Left:
+wipe the Pi.
 
 **switch-office is on the office's power for now** (Guillaume, 2026-10-28): it goes off when
 the office does, which is expected. The separate power strip decided 2026-10-20 is not in

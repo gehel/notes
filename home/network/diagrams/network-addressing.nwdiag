@@ -67,7 +67,7 @@ nwdiag {
       label = "IoT devices";
       color = "#fed7aa";
 
-      motioneye [address = ".20", label = "MotionEye\ngarage camera\nHTTP/HTTPS exception"];
+      cameragarage [address = ".21", label = "camera-garage\nReolink W320\nlocal only"];
       iotawatt  [address = ".50", label = "IotaWatt\nfirmware + NTP\nexception"];
       kidslight [address = ".61", label = "Kids light\nTasmota"];
       fan       [address = ".63", label = "Ceiling fan\nHombli\nDNS dropped by design"];

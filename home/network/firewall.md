@@ -21,6 +21,10 @@ HTTP/HTTPS exception went into `iot2internet` on IPv4 and IPv6, each just above 
 with the `motioneye` and `motioneye-v6` lists, then SMTP submission (587, Gmail) the same way
 (rows marked `(+)` below). The same day, HA got
 MotionEye's API and stream (`services2iot`, 8765 and 9081) and SSH (`.30.20` in `ssh-hosts`).
+**On 2026-11-19 MotionEye was retired:** all of the above was removed (rows struck through
+below). The Reolink camera `camera-garage` (`.30.21`) got one `services2iot` accept, HA -> TCP
+80/443/554/1935/8000/9000 on the `camera-garage` list, just above the deny-all. It has no
+internet exception. See `changelog.md`, 2026-11-19.
 On the switches,
 `ingress-filtering=yes` was set on every Ethernet/SFP port (S21, a bridge setting, not a
 firewall rule).
@@ -37,8 +41,8 @@ the same way:
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
 | **users** | allow (`users2internet`) | — | `mgmt` full; DNS (53, UDP+TCP); HA web (443) for everyone; DoT (853) rejected quietly (`users2services`) | `mgmt` full; everyone -> OctoPrint web UI (80) (`users2iot`) | `mgmt` list only, + NTP (123) to gateway |
-| **services** | HTTPS from any host; HTTP (80) for `http-outbound` (HA); Pi-hole's own DNS (53) and DoT (853) (`services2internet`) | HA -> MikroTik API on `ha-mikrotik-targets` (8728), printer (631), Samsung TV (8002), `ssh-hosts` (22) (`services2users`) | — | HA -> Tuya (6668), Tasmota/IotaWatt (80), ESPHome (6053), motionEye API + stream (8765, 9081), `ssh-hosts` (22) (`services2iot`) | NTP (123) to gateway; HA API (8728) |
-| **iot** | deny by default; ceiling fan silenced first; `octoprint`, `iotawatt` and `motioneye` 80/443; `motioneye` SMTP (587); `iotawatt` NTP (123) (`iot2internet`) | deny, logged (`iot2users`) | ceiling fan's DNS dropped first; Pi-hole DNS (53); MQTT to HA (1883); DoT rejected quietly (`iot2services`) | — | NTP (123) to gateway only |
+| **services** | HTTPS from any host; HTTP (80) for `http-outbound` (HA); Pi-hole's own DNS (53) and DoT (853) (`services2internet`) | HA -> MikroTik API on `ha-mikrotik-targets` (8728), printer (631), Samsung TV (8002), `ssh-hosts` (22) (`services2users`) | — | HA -> Tuya (6668), Tasmota/IotaWatt (80), ESPHome (6053), Reolink `camera-garage` (80, 443, 554, 1935, 8000, 9000), `ssh-hosts` (22) (`services2iot`) | NTP (123) to gateway; HA API (8728) |
+| **iot** | deny by default; ceiling fan silenced first; `octoprint` and `iotawatt` 80/443; `iotawatt` NTP (123) (`iot2internet`) | deny, logged (`iot2users`) | ceiling fan's DNS dropped first; Pi-hole DNS (53); MQTT to HA (1883); DoT rejected quietly (`iot2services`) | — | NTP (123) to gateway only |
 | **wireguard** (phone) | as users (`users2internet`) | `mgmt` hosts only (`wireguard2users`; the phone is in `mgmt`) | as users (`users2services`) | as users (`users2iot`) | `mgmt` list (the phone is in it) |
 | **internet** | — | — | HA HTTPS (443) via dst-nat only (`internet2services`) | — | WireGuard (UDP 51820) only |
 
@@ -180,7 +184,8 @@ Every chain except `users2internet` and `internet2services` ends in a logged den
 | 76 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-port=80` | services2iot: HA -> Tasmota/IotaWatt |
 | 77 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-port=6053` | services2iot: HA -> ESPHome (IotaWatt) |
 | 78 | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=ssh-hosts dst-port=22` | services2iot: HA SSH (ssh-hosts list) |
-| (+) | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=motioneye dst-port=8765,9081` | services2iot: HA -> motioneye API + stream, added 2026-11-08 |
+| ~~(+)~~ | ~~accept~~ | ~~`... dst-address-list=motioneye dst-port=8765,9081`~~ | ~~services2iot: HA -> motioneye API + stream~~, removed 2026-11-19 |
+| (+) | accept | `connection-state=new protocol=tcp src-address=192.168.20.60 dst-address-list=camera-garage dst-port=80,443,554,1935,8000,9000` | services2iot: HA -> camera-garage (Reolink), added 2026-11-19 |
 | 79 | drop, logged | *(none, catch-all)* | services2iot: deny everything else |
 
 **`iot2internet`**
@@ -191,8 +196,7 @@ Every chain except `users2internet` and `internet2services` ends in a logged den
 | 57 | accept | `connection-state=new protocol=tcp src-address-list=octoprint dst-port=80,443` | iot2internet: octoprint updates exception |
 | 58 | accept | `connection-state=new protocol=tcp src-address-list=iotawatt dst-port=80,443` | iot2internet: iotawatt firmware updates exception |
 | 59 | accept | `connection-state=new protocol=udp src-address-list=iotawatt dst-port=123` | iot2internet: iotawatt NTP exception |
-| (+) | accept | `connection-state=new protocol=tcp src-address-list=motioneye dst-port=80,443` | iot2internet: motioneye HTTP/HTTPS exception, added 2026-11-08 |
-| (+) | accept | `connection-state=new protocol=tcp src-address-list=motioneye dst-port=587` | iot2internet: motioneye SMTP submission (Gmail), added 2026-11-08 |
+| ~~(+)~~ | ~~accept~~ | ~~`... src-address-list=motioneye dst-port=80,443` and `dst-port=587`~~ | ~~iot2internet: motioneye HTTP/HTTPS exception, SMTP submission~~, both removed 2026-11-19 |
 | 60 | drop, logged | *(none, catch-all)* | iot2internet: deny everything else |
 
 **`iot2users`**
@@ -249,9 +253,9 @@ rule change. IPv6 has one more NAT rule, the NAT66 masquerade (below).
 | `ha-mikrotik-targets` | switch-main, switch-office, ap-main, switch-livingroom | HA's MikroTik integration (8728) through `services2users`. ap-main and switch-livingroom were added 2026-10-20. The router itself is reached through `chain=input` |
 | `octoprint` | OctoPrint wired (`.30.80`) and wifi (`.30.81`) | exception to `iot2internet` and `users2iot` |
 | `iotawatt` | IotaWatt (`.30.50`) | exception to `iot2internet` (firmware updates, NTP) |
-| `motioneye` | MotionEye (`.30.20`), added 2026-11-08 | exception to `iot2internet` (HTTP/HTTPS: apt, updates, S3 upload; SMTP 587: email alerts); destination of `services2iot`'s HA -> API + stream (8765, 9081) |
+| `camera-garage` | Reolink W320 garage camera (`.30.21`), added 2026-11-19 | destination of `services2iot`'s HA -> camera-garage (Reolink). No internet exception. (Replaces `motioneye`, removed 2026-11-19.) |
 | `http-outbound` | Home Assistant (`.20.60`) | exception to `services2internet`'s HTTPS-only policy |
-| `ssh-hosts` | desktop, OctoPrint wired and wifi, MotionEye (2026-11-08) | HA's SSH monitoring, used by `services2users` and `services2iot` |
+| `ssh-hosts` | desktop, OctoPrint wired and wifi (MotionEye removed 2026-11-19) | HA's SSH monitoring, used by `services2users` and `services2iot` |
 | `samsung-tv` | TV wired (`.10.50`) and wifi (`.10.51`) | finding 36's fix: HA -> TV (8002) |
 | `bogons` | RFC 1918/3330 ranges; `10.0.0.0/8`, `192.168.0.0/16` and `224.0.0.0/4` disabled | `forward` rule 23 |
 | `Syn_Flooder`, `Port_Scanner`, `spammers` | dynamic, filled at runtime | anti-abuse |
@@ -291,8 +295,7 @@ Separately, `/ip/dns/static` holds one `<hostname>.home.ledcom.fr` entry per bou
 | 24 | `services2users` | accept | `connection-state=new protocol=tcp src-address-list=ha-v6 dst-port=8002` | services2users: HA -> Samsung TV |
 | 25 | `services2users` | drop, logged | *(none, catch-all)* | services2users: deny everything else |
 | 26 | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=octoprint-v6 dst-port=80,443` | iot2internet: octoprint updates |
-| (+) | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=motioneye-v6 dst-port=80,443` | iot2internet: motioneye HTTP/HTTPS, added 2026-11-08 |
-| (+) | `iot2internet` | accept | `connection-state=new protocol=tcp src-address-list=motioneye-v6 dst-port=587` | iot2internet: motioneye SMTP submission (Gmail), added 2026-11-08 |
+| ~~(+)~~ | ~~`iot2internet`~~ | ~~accept~~ | ~~`... src-address-list=motioneye-v6`, 80/443 and 587~~ | ~~iot2internet: motioneye HTTP/HTTPS, SMTP submission~~, both removed 2026-11-19 |
 | 27 | `iot2internet` | drop, logged | *(none, catch-all)* | iot2internet: deny everything else |
 
 
@@ -301,8 +304,7 @@ IPv6 NAT: one rule, `chain=srcnat action=masquerade out-interface=ether1`, comme
 
 IPv6 address lists (EUI-64 addresses in `2a02:1210:7621:9ac0::/58`, recomputed before the
 cutover): `pihole-v6` (Pi-hole on `9ac1`), `ha-v6` and `http-outbound-v6` (HA on `9ac1`),
-`octoprint-v6` (OctoPrint wired and wifi on `9ac2`), `motioneye-v6` (MotionEye on `9ac2`, from
-`E4:5F:01:53:A0:EC`, added 2026-11-08), plus defconf's `bad_ipv6`.
+`octoprint-v6` (OctoPrint wired and wifi on `9ac2`), ~~`motioneye-v6`~~ (MotionEye, removed 2026-11-19), plus defconf's `bad_ipv6`.
 
 Notes:
 - **No router management over IPv6.** SLAAC gives no stable per-host address to scope a `mgmt`

@@ -76,7 +76,7 @@ nwdiag {
       label = "IoT devices";
       color = "#fed7aa";
 
-      motioneye [address = ".20", label = "MotionEye\ngarage camera\nHTTP/HTTPS exception"];
+      cameragarage [address = ".21", label = "camera-garage\nReolink W320\nlocal only"];
       iotawatt  [address = ".50", label = "IotaWatt\nfirmware + NTP\nexception"];
       kidslight [address = ".61", label = "Kids light\nTasmota"];
       fan       [address = ".63", label = "Ceiling fan\nHombli\nDNS dropped by design"];
@@ -244,11 +244,11 @@ nwdiag {
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="62" x="669.0" y="367">Home Assistant</text>
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="80" x="669.0" y="376">user homeassistant</text>
   <path d="M 471 460 L 471 508" fill="none" stroke="rgb(0,0,0)" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="489.0" y="486">.20</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="489.0" y="486">.21</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="396" y="508" />
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="44" x="471.0" y="539">MotionEye</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="61" x="471.5" y="548">garage camera</text>
-  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="99" x="471.5" y="559">HTTP/HTTPS exception</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="62" x="471.0" y="538">camera-garage</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="60" x="471.0" y="547">Reolink W320</text>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="40" x="471.0" y="558">local only</text>
   <path d="M 669 460 L 669 508" fill="none" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="10" font-style="normal" font-weight="normal" text-anchor="middle" textLength="12" x="687.0" y="486">.50</text>
   <rect fill="rgb(255,255,255)" height="72" stroke="rgb(0,0,0)" width="150" x="594" y="508" />

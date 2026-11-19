@@ -81,7 +81,7 @@ RB2011 until 2026-10-20, the RB5009 since); the switches stay pure L2 and simply
 | From \ To | internet | users | services | iot | router mgmt |
 |---|---|---|---|---|---|
 | **users** | allow | — | `mgmt` full; else DNS/HA | `mgmt` full only | `mgmt` list only |
-| **services** | allow | drop + log | — | HA: 6053, 80, 6668, 8765 + 9081 (MotionEye), 22 (`ssh-hosts`) | `mgmt` list only |
+| **services** | allow | drop + log | — | HA: 6053, 80, 6668, 80/443/554/1935/8000/9000 (Reolink `camera-garage`), 22 (`ssh-hosts`) | `mgmt` list only |
 | **iot** | DROP, named exceptions only | drop | Pi-hole 53, HA 1883 | — | NTP 123 to gateway |
 
 The one hole in IoT containment is `iot -> services` on tcp/1883 (the MQTT broker runs on the
@@ -96,9 +96,9 @@ a full Linux host sitting among microcontrollers. Implemented as a named address
 (`octoprint`, renamed from `iot-internet` during the Phase 5 reorg) with a narrow forward-chain
 accept for tcp/443 ahead of the catch-all drop — see [firewall.md](firewall.md) for the live
 rule and address-list membership. `iotawatt` (added 2026-09-11, same shape, firmware updates)
-is the second entry. `motioneye` (added 2026-11-08, TCP 80/443, IPv4 and IPv6) is the third: a
-Raspberry Pi OS host like OctoPrint, for apt and MotionEye updates and S3 uploads, plus SMTP
-(587) to Gmail for email alerts.
+is the second entry. `motioneye` (2026-11-08 to 2026-11-19, TCP 80/443 and 587) was a third,
+removed when MotionEye was retired. Its replacement, the Reolink `camera-garage`, has no
+internet exception: local only, by design.
 
 A domain-level allowlist (TLS SNI matching, `tls-host=` — no proxy, transparent to any
 device) was tried and abandoned the same day: found not to work as intended (a wildcard match
@@ -144,7 +144,7 @@ Host numbers are preserved across the renumber (`.40` stays `.40` on every VLAN)
 
 | Device | Address | Attachment | Status |
 |---|---|---|---|
-| MotionEye (garage camera, Pi Zero 2 W) | `.30.20` | wireless, `LEDCOM-IoT` | added 2026-11-08; HTTP/HTTPS exception and NTP pin verified; HA -> API (8765), stream (9081) and SSH open |
+| camera-garage (Reolink W320) | `.30.21` | wireless, `LEDCOM-IoT` for now; **no signal from the garage**, ethernet run planned | added 2026-11-19, replaces MotionEye (`.30.20`, retired 2026-11-19); local only; HA -> camera (80/443/554/1935/8000/9000) |
 | IotaWatt | `.30.50` | wireless | migrated, verified — back online 2026-09-11 after an extended outage |
 | Kids light (Tasmota) | `.30.61` | wireless | migrated, verified |
 | Hombli ceiling fan | `.30.63` | wireless | migrated, verified |
