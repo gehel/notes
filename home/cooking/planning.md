@@ -91,3 +91,30 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 
 - soir : [curry de paneer maison, épinards et chou-fleur](recipes/curry-paneer-epinards-chou-fleur.md),
   [riz](recipes/riz.md). Le paneer se fait ~1 h 30 avant le repas (ou la veille).
+
+## 2026-11-19 jeu
+
+- soir : reste du [curry de paneer](recipes/curry-paneer-epinards-chou-fleur.md) et du
+  [riz](recipes/riz.md) de mercredi. *(restes)*
+
+## 2026-11-20 ven
+
+- midi : saucisses à rôtir, chou et pommes de terre sautées. Il reste assez de chou pour les
+  légumes d'un repas.
+- soir : saumon poêlé, carottes, [pâtes](recipes/pates.md) pour France et les enfants.
+
+## 2026-11-21 sam
+
+- midi : au marché — rien à cuisiner.
+- soir : [halloumi poêlé](recipes/halloumi-poele.md), le reste de chou du vendredi sauté,
+  [betteraves poêlées](recipes/betteraves-poelees.md), [pâtes](recipes/pates.md) pour France
+  et les enfants. Il reste 250 g de halloumi au frigo : en acheter un bloc de 250 g de
+  plus.
+
+## 2026-11-22 dim
+
+- midi : raviolis du marché à la crème et au parmesan, carottes en crudité.
+- soir : [ailes de poulet à l'Actifry](recipes/ailes-de-poulet-actifry.md),
+  [courge rôtie](recipes/courge-rotie.md) et
+  [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) au four,
+  [pommes de terre rôties](recipes/pommes-de-terre-roties.md) pour France et les enfants.

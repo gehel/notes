@@ -58,3 +58,6 @@
 - Pour un paneer doré, le poêler à sec 2–3 min par face avant de l'ajouter à la sauce.
 
 ## Historique
+
+- 2026-11-18 soir — avec du riz. Le paneer maison (3 l de lait) a fait deux repas
+  complets pour la famille : les restes ont fait le jeudi soir.

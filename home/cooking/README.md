@@ -15,7 +15,7 @@ holds the household constraints every meal plan has to respect, and links everyt
 - **Known tastes:** Augustin doesn't love halloumi, but accepts it pan-fried.
 - **Everything is homemade** — spätzli, etc. Baselines should assume cooking from scratch,
   not bought shortcuts.
-- **Kitchen:** rice cooker, bread machine — homemade bread doesn't tie up the oven.
+- **Kitchen:** rice cooker, bread machine, Actifry — homemade bread doesn't tie up the oven.
 - **Guillaume's diet: no carbs in the evening.** Everyone else does eat carbs. So a
   typical dinner is a shared low-carb main (protein + veg) that everyone eats, plus a carb
   side that only France and the kids eat. Guillaume makes up the missing volume with extra
@@ -107,6 +107,7 @@ constraint yet.
 | [Carottes et chou-fleur rôtis](recipes/carottes-chou-fleur-rotis.md) | Yes | Baseline |
 | [Poulet basquaise](recipes/poulet-basquaise.md) | Yes (without the bread) | Baseline |
 | [Curry de paneer, épinards et chou-fleur](recipes/curry-paneer-epinards-chou-fleur.md) | Yes (without the rice) | Baseline |
+| [Ailes de poulet à l'Actifry](recipes/ailes-de-poulet-actifry.md) | Yes | Baseline |
 
 ## Conventions
 

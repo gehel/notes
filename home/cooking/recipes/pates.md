@@ -24,3 +24,7 @@
 
 - Une portion mise de côté pour plus tard : la mélanger à un peu de sauce ou d'huile, sinon
   elle colle.
+
+## Historique
+
+- 2026-11-20 soir — avec du saumon poêlé et des carottes, pour France et les enfants.
