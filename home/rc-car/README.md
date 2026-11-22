@@ -37,7 +37,12 @@ on the stick mode (**Radio Settings → Stick mode**):
 This radio is in **Mode 2**, which the configuration below assumes. In Mode 1, use `Ele`
 instead of `Thr` as the throttle source.
 
-## Backups
+## Current config and backups
+
+`frsky-taranis-x-lite-pro.otx` is the **current config**: the file Companion edits and saves,
+and the one written to the radio. It was not read back from the radio. Any change made on the
+radio itself (trims, alarms) isn't in it until you read the radio back into Companion and save
+over it.
 
 `backups/` holds `.otx` exports of the radio's models and settings, read with Companion.
 

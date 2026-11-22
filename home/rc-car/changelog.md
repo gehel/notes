@@ -26,3 +26,5 @@
   config.
 - Recorded the SA positions: down (pushed away from you) = safe, up (toward you) = armed.
 - Still to do: back up the final configuration into `backups/`.
+- Committed `frsky-taranis-x-lite-pro.otx` as the current config: the file saved by Companion,
+  not read back from the radio.
