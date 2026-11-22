@@ -40,6 +40,8 @@ document in the area:
 - `home/mealie/` — self-hosted Mealie on Infomaniak managed Kubernetes (Helm values,
   kustomize manifests, setup procedure). No `config-review.md`: open items live in its README.
   The kubeconfig stays in `~/.kube/`, never in the repo.
+- `home/rc-car/` — a home-built RC car and its FrSky X-Lite / OpenTX radio setup. Radio
+  backups (`.otx` from OpenTX Companion) are committed under `backups/`.
 
 `home/cooking/` is a third area, but not infrastructure: family recipes and meal planning. Its
 README holds the household constraints (notably Guillaume's no-carbs-in-the-evening diet) and
