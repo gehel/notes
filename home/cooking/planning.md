@@ -130,7 +130,7 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 ## 2026-11-24 mar
 
 - soir : [filet mignon de porc, carottes et panais rôtis](recipes/filet-mignon-porc-carottes-panais.md)
-  (le filet du congélateur, mis à dégeler le lundi), [spätzli](recipes/spatzli.md) pour les
+  (le filet du congélateur, mis à dégeler le lundi, cuit sous vide), [spätzli](recipes/spatzli.md) pour les
   enfants. Guillaume seul avec les enfants ; France mange au travail.
 
 ## 2026-11-25 mer
@@ -147,5 +147,6 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 ## 2026-11-27 ven
 
 - midi : [polenta](recipes/polenta.md), [ragoût de champignons](recipes/ragout-champignons.md),
-  [courge rôtie](recipes/courge-rotie.md).
+  [courge rôtie](recipes/courge-rotie.md). Vinaigre balsamique blanc à la place du vin
+  blanc dans le ragoût.
 - soir et week-end : France et les enfants en vadrouille — rien à planifier.
