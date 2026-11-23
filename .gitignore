@@ -82,3 +82,7 @@ fabric.properties
 # Skills downloaded by `npx skills add` (see skills-lock.json, which IS
 # committed): re-derivable from the lockfile, so don't track the copies.
 /.claude/skills/
+
+# Python bytecode
+__pycache__/
+*.pyc
