@@ -107,7 +107,8 @@ constraint yet.
 | [Carottes et chou-fleur rôtis](recipes/carottes-chou-fleur-rotis.md) | Yes | Baseline |
 | [Poulet basquaise](recipes/poulet-basquaise.md) | Yes (without the bread) | Baseline |
 | [Curry de paneer, épinards et chou-fleur](recipes/curry-paneer-epinards-chou-fleur.md) | Yes (without the rice) | Baseline |
-| [Ailes de poulet à l'Actifry](recipes/ailes-de-poulet-actifry.md) | Yes | Baseline |
+| [Ailes de poulet à l'Actifry](recipes/ailes-de-poulet-actifry.md) | Yes | Guillaume's ingredients, baseline steps |
+| [Omelettes au micro-ondes](recipes/omelette-micro-ondes.md) | Yes | Baseline |
 
 ## Conventions
 

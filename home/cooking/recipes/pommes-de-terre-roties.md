@@ -32,3 +32,5 @@
 ## Historique
 
 - 2026-11-01 soir — avec le poulet rôti aux légumes. Bien passé.
+- 2026-11-22 soir — avec des ailes de poulet à l'Actifry, pour France et les enfants. Il en
+  est resté pour le lundi soir.

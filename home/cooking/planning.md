@@ -118,3 +118,11 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
   [courge rôtie](recipes/courge-rotie.md) et
   [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) au four,
   [pommes de terre rôties](recipes/pommes-de-terre-roties.md) pour France et les enfants.
+
+## 2026-11-23 lun
+
+- midi : [pâtes](recipes/pates.md) au saumon fumé, carottes en crudité.
+- soir : [omelettes au micro-ondes](recipes/omelette-micro-ondes.md),
+  [betteraves poêlées](recipes/betteraves-poelees.md), tranches de gouda ; le reste des
+  [pommes de terre rôties](recipes/pommes-de-terre-roties.md) de dimanche pour France et les
+  enfants. Léger : Guillaume mange avant le kendo.

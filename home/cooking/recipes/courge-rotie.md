@@ -38,3 +38,5 @@
   Bien passé.
 - 2026-11-05 soir — avec du tofu fumé et des choux de Bruxelles rôtis. Il en est resté, à
   réchauffer le 2026-11-07.
+- 2026-11-22 soir — au four, avec des ailes de poulet à l'Actifry et des choux de Bruxelles
+  rôtis.
