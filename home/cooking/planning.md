@@ -126,3 +126,26 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
   [betteraves poêlées](recipes/betteraves-poelees.md), tranches de gouda ; le reste des
   [pommes de terre rôties](recipes/pommes-de-terre-roties.md) de dimanche pour France et les
   enfants. Léger : Guillaume mange avant le kendo.
+
+## 2026-11-24 mar
+
+- soir : [filet mignon de porc, carottes et panais rôtis](recipes/filet-mignon-porc-carottes-panais.md)
+  (le filet du congélateur, mis à dégeler le lundi), [spätzli](recipes/spatzli.md) pour les
+  enfants. Guillaume seul avec les enfants ; France mange au travail.
+
+## 2026-11-25 mer
+
+- soir : [gratin de chou-fleur et brocoli au gruyère](recipes/gratin-chou-fleur-brocoli.md),
+  [pommes de terre bouillies](recipes/pommes-de-terre-bouillies.md) pour France et les
+  enfants.
+
+## 2026-11-26 jeu
+
+- soir : [cabillaud au four sur lit de poireaux fondus](recipes/cabillaud-poireaux-fondus.md),
+  [riz](recipes/riz.md) pour France et les enfants.
+
+## 2026-11-27 ven
+
+- midi : [polenta](recipes/polenta.md), [ragoût de champignons](recipes/ragout-champignons.md),
+  [courge rôtie](recipes/courge-rotie.md).
+- soir et week-end : France et les enfants en vadrouille — rien à planifier.

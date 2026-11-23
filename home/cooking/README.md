@@ -109,6 +109,9 @@ constraint yet.
 | [Curry de paneer, épinards et chou-fleur](recipes/curry-paneer-epinards-chou-fleur.md) | Yes (without the rice) | Baseline |
 | [Ailes de poulet à l'Actifry](recipes/ailes-de-poulet-actifry.md) | Yes | Guillaume's ingredients, baseline steps |
 | [Omelettes au micro-ondes](recipes/omelette-micro-ondes.md) | Yes | Baseline |
+| [Filet mignon de porc, carottes et panais rôtis](recipes/filet-mignon-porc-carottes-panais.md) | Yes (without the spätzli) | Baseline |
+| [Gratin de chou-fleur et brocoli au gruyère](recipes/gratin-chou-fleur-brocoli.md) | Yes | Baseline |
+| [Cabillaud au four sur lit de poireaux fondus](recipes/cabillaud-poireaux-fondus.md) | Yes | Baseline |
 
 ## Conventions
 
