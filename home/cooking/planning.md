@@ -149,4 +149,19 @@ repas. Le bilan de chaque repas va dans l'`## Historique` de la recette.
 - midi : [polenta](recipes/polenta.md), [ragoût de champignons](recipes/ragout-champignons.md),
   [courge rôtie](recipes/courge-rotie.md). Vinaigre balsamique blanc à la place du vin
   blanc dans le ragoût.
-- soir et week-end : France et les enfants en vadrouille — rien à planifier.
+- soir : France et les enfants partis pour le week-end — Guillaume seul.
+
+## 2026-11-28 sam
+
+- midi : reste de la [polenta](recipes/polenta.md) de vendredi et du
+  [gratin de chou-fleur et brocoli](recipes/gratin-chou-fleur-brocoli.md) de mercredi, steak.
+  *(restes)* Guillaume seul.
+- soir : carottes en crudité et fromage. Guillaume seul.
+
+## 2026-11-29 dim
+
+- midi : un plat tout prêt du magasin. Guillaume seul.
+- soir : [bœuf bourguignon](recipes/boeuf-bourguignon.md),
+  [choux de Bruxelles rôtis](recipes/choux-de-bruxelles-rotis.md) (~700 g, pour toute la
+  famille), [purée de pommes de terre](recipes/puree-pommes-de-terre.md) pour France et les
+  enfants. France et les enfants rentrent pour le repas. Commencer le bourguignon vers 15 h.

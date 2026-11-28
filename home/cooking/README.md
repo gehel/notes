@@ -112,6 +112,8 @@ constraint yet.
 | [Filet mignon de porc, carottes et panais rôtis](recipes/filet-mignon-porc-carottes-panais.md) | Yes (without the spätzli) | Baseline |
 | [Gratin de chou-fleur et brocoli au gruyère](recipes/gratin-chou-fleur-brocoli.md) | Yes | Baseline |
 | [Cabillaud au four sur lit de poireaux fondus](recipes/cabillaud-poireaux-fondus.md) | Yes | Baseline |
+| [Bœuf bourguignon](recipes/boeuf-bourguignon.md) | Yes (without the mash) | Baseline |
+| [Purée de pommes de terre](recipes/puree-pommes-de-terre.md) | No — carb side | Baseline |
 
 ## Conventions
 
